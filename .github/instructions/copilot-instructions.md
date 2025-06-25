@@ -1,0 +1,21 @@
+# Copilot Custom Instructions: Task-Master Workflow
+
+- Always follow the "task-master" methodology for managing tasks and subtasks.
+- When presenting or updating tasks, always include a status field with one of: `pending`, `in progress`, `completed`, or `deferred`.
+- For every new feature, bug, or chore, break down work into discrete tasks and subtasks, referencing dependencies and priorities where relevant.
+- When marking a task as completed, update its status and ensure all dependent tasks are unblocked.
+- Use the following template for each task:
+  - **id**: Unique identifier (e.g., 1, 2.1)
+  - **title**: Brief summary
+  - **description**: Concise explanation
+  - **status**: `pending`, `in progress`, `completed`, or `deferred`
+  - **dependencies**: List of prerequisite task IDs (if any)
+  - **priority**: `high`, `medium`, or `low`
+  - **details**: Implementation notes
+  - **testStrategy**: How to verify completion
+  - **subtasks**: List of subtasks (if any)
+- Always update the status of tasks as work progresses, and reflect changes in dependencies and priorities.
+- When asked for a task list, show all tasks with their status and dependencies, using ✅ for completed, ⏱️ for pending, and ➖ for deferred.
+- If a task is blocked, indicate which dependencies are still pending.
+- When expanding a complex task, break it down into subtasks using the above template.
+- Use clear, actionable language for implementation and verification steps.
