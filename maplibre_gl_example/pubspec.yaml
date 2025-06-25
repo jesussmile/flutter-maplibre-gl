@@ -19,6 +19,7 @@ dependencies:
   location: ^5.0.3
   maplibre_gl: ^0.22.0
   path_provider: ^2.1.5
+  web_socket_channel: ^2.4.0
 
 dev_dependencies:
   flutter_test:
@@ -38,3 +39,4 @@ flutter:
     - assets/pmtiles_style.json
     - assets/sydney0.png
     - assets/sydney1.png
+    - assets/plane2.png
