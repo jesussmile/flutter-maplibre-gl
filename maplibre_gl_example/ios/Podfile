@@ -32,6 +32,10 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  
+  # Add LERC wrapper
+  pod 'LercWrapper', :path => './LercWrapper'
+  
   target 'RunnerTests' do
     inherit! :search_paths
   end

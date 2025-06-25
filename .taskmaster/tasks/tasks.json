@@ -1,474 +1,476 @@
 {
-  "tasks": [
-    {
-      "id": 1,
-      "title": "Setup Native Build Integration",
-      "description": "Set up the existing MapLibre GL example project (/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example) to include the existing LERC native code from the flightcanvas_terrain directory and configure the build process for Android and iOS platforms.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/lerc_integration.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/cmake_configuration.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/platform_specific_implementation.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Use the existing LERC library source code at `/Users/pannam/Desktop/flutter-maplibre-gl/lerc-master` instead of downloading it. Integrate the `flightcanvas_terrain` native code directory into the MapLibre GL example project at `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example`. Configure `CMakeLists.txt` files in the example project directories for both Android (via NDK) and iOS to build the `lerc_wrapper.cpp` and link against the existing LERC library. Ensure the native build process is triggered correctly by the Flutter build. Verify native library outputs (.so for Android, .dylib/.framework for iOS) are generated and placed correctly for FFI linking. Use Flutter's built-in support for native code and CMake. Document all steps taken, challenges encountered, solutions implemented, and lessons learned during the integration process for future reference.",
-      "testStrategy": "Run `flutter build apk` and `flutter build ios` to confirm the native libraries are built successfully without errors. Check the build output directories for the generated native library files.",
-      "priority": "high",
-      "dependencies": [],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Setup Android CMake Integration",
-          "description": "Configure the Android NDK build process with CMake to integrate the LERC library and native code",
-          "details": "Copy necessary LERC and flightcanvas_terrain C++ files to the appropriate location in the Android directory structure of the MapLibre GL example project. Create or modify CMakeLists.txt in the Android project to include the LERC library source files and the wrapper code. Configure include paths, compiler flags, and library linking. Ensure the compiled library is named appropriately for FFI to locate it. Test compilation with `flutter build apk --debug` to verify CMake setup.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 1
-        },
-        {
-          "id": 2,
-          "title": "Setup iOS Build Framework",
-          "description": "Configure the iOS build process to integrate the LERC library and native code",
-          "details": "Copy necessary LERC and flightcanvas_terrain C++ files to the appropriate location in the iOS directory structure of the MapLibre GL example project. Configure the Xcode project (either directly or via podspec) to include the LERC library source files and wrapper code. Set up proper header search paths, compiler flags, and library linking. Ensure the compiled library is named appropriately for FFI to locate it. Test compilation with `flutter build ios --debug --no-codesign` to verify the setup.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 1
-        },
-        {
-          "id": 3,
-          "title": "Adapt LERC Wrapper Code",
-          "description": "Integrate and adapt the existing LERC wrapper code from flightcanvas_terrain",
-          "details": "Review the existing LERC wrapper code in the flightcanvas_terrain directory. Identify the key components needed for decoding LERC data and memory management. Extract and adapt these components for use with MapLibre GL, making any necessary modifications. Ensure the wrapper provides a clean C API that can be called from Dart through FFI. Document any changes made to the original code and the reasons for those changes.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 1
-        },
-        {
-          "id": 4,
-          "title": "Create Integration Documentation",
-          "description": "Document the native code integration and build process",
-          "details": "Create comprehensive documentation about how the LERC library and wrapper code is integrated into the MapLibre GL example project. Include details on the directory structure, file placement, build configuration, and any platform-specific considerations. Document any challenges encountered during integration and how they were resolved. Explain how to maintain or update the native code in the future. Create a developer guide for anyone who needs to work with the native code portion of the project in the future.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 1
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "title": "Generate FFI Bindings and Create Dart Wrapper",
-      "description": "Generate Dart FFI bindings for the C API defined in `lerc_wrapper.h` and create a high-level Dart wrapper class for easier interaction with the native LERC decoder functions within the MapLibre GL example project.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/dart_ffi_bindings.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/dart_ffi_integration.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Work specifically in the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory for all implementation. Use the `ffigen` tool (version ^0.1.0 or later recommended) to generate Dart bindings from `lerc_wrapper.h`. Configure `ffigen.yaml` in the example project to specify the header file, library name, and output file (`lerc_bindings.dart`). Create a Dart class, e.g., `LercDecoder`, that encapsulates the raw FFI calls, handling `Pointer` types and memory management. Implement methods like `decodeLerc` that call the native decoding function and return a structured Dart object or `TypedData` (like `Float32List`) containing the elevation data. Ensure proper error handling for native calls. Document the FFI binding process, any challenges encountered with different platforms, and solutions implemented for future reference.",
-      "testStrategy": "Run `flutter pub run ffigen` to generate bindings. Write a simple Dart test case that loads the native library and calls a basic function (if available in the wrapper) to verify FFI setup and binding correctness.",
-      "priority": "high",
-      "dependencies": [
-        1
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Setup FFI Binding Generation",
-          "description": "Configure and generate FFI bindings for LERC wrapper",
-          "details": "Set up the FFI binding generation configuration for the LERC wrapper C API. Create a `ffigen.yaml` file in the example project with appropriate configuration for generating Dart bindings. Specify the header file path, output file path, and library name in the configuration. Configure include directories to find all necessary header dependencies. Set up name mapping rules if needed to make the generated Dart API more idiomatic. Run the ffigen tool to generate the bindings and verify the output. Fix any issues in the header files or configuration that might prevent successful binding generation. Document the configuration options and any special considerations for the binding generation process.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 2
-        },
-        {
-          "id": 2,
-          "title": "Implement Dart Wrapper Class",
-          "description": "Create Dart wrapper class for native LERC functions",
-          "details": "Design and implement a high-level Dart wrapper class that encapsulates the raw FFI bindings and provides a more idiomatic Dart API for working with LERC data. Create methods with proper Dart types that internally handle the conversion to and from FFI types. Implement proper error handling that translates C error codes and states into appropriate Dart exceptions or error objects. Write thorough documentation for the wrapper class, including usage examples. Create utility methods to simplify common operations with LERC data. Implement platform-specific code where needed to handle differences between iOS and Android. Create unit tests that verify the wrapper works correctly with the native code. Document the wrapper class architecture and its relationship to both the generated bindings and the application logic.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 2
-        },
-        {
-          "id": 3,
-          "title": "Test FFI Integration",
-          "description": "Test FFI integration across platforms",
-          "details": "Create comprehensive tests for the FFI bindings and wrapper class to ensure they work correctly across different platforms. Write unit tests that verify the basic functionality of the FFI bindings. Create integration tests that decode actual LERC data using the native code and verify the results. Test for proper memory management and cleanup to ensure no memory leaks. Test platform-specific aspects of the FFI integration to ensure compatibility on both Android and iOS. Create a test harness that can be run on both platforms to verify consistent behavior. Document testing approaches, test data, and expected results. Create a test coverage report to ensure all critical paths are tested.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 2
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "Implement Decoded Data Structure and Basic Decoding",
-      "description": "Define Dart data structures to hold decoded LERC elevation data and implement the core logic for decoding LERC byte arrays using the Dart FFI wrapper within the MapLibre GL example project.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_lerc_decoding.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/memory_management.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/raw_elevation_data_processing.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Create a Dart class, e.g., `DecodedLercData`, to store the decoded elevation grid (e.g., as a `Float32List` or `Int16List` depending on precision needs, `Float32List` is generally safer for varying elevation ranges) along with metadata like width, height, and georeferencing information (if available from LERC or context). Implement a method in the `LercDecoder` class (or a separate service) that takes LERC compressed bytes (`Uint8List`), passes them to the native decoder via FFI, receives the decoded data pointer, copies it to a Dart `TypedData`, and returns a `DecodedLercData` object. Implement necessary memory cleanup for native allocations using `NativeFinalizer` or explicit `free` calls. Document the data structure design decisions, memory management strategies, and any performance considerations for future reference.",
-      "testStrategy": "Obtain a sample LERC file or byte array. Write a Dart unit test that calls the decoding logic, verifies the output data structure is created, and checks basic properties like width, height, and potentially a few known elevation values if the sample data is controlled. Use `NativeFinalizer` tests to ensure memory is released.",
-      "priority": "high",
-      "dependencies": [
-        2
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Design Elevation Data Structures",
-          "description": "Design and implement data structures for decoded LERC data",
-          "details": "Design and implement data structures in Dart to efficiently store and access decoded LERC elevation data. Create a class (e.g., `DecodedLercData`) to encapsulate the elevation grid data and associated metadata. Define fields for storing elevation values (using appropriate typed data like `Float32List`), dimensions (width, height), georeferencing information (bounds, coordinates), and other relevant metadata. Design the class with proper accessor methods and utility functions for data manipulation. Consider memory efficiency in the design to handle potentially large terrain datasets. Document the data structure design, explaining choices made regarding data types and organization. Include considerations for future expansion, such as supporting additional metadata or formats.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 3
-        },
-        {
-          "id": 2,
-          "title": "Implement LERC Decoding Logic",
-          "description": "Implement the core LERC decoding functionality using FFI",
-          "details": "Implement the core functionality to decode LERC compressed data using the Dart FFI wrapper created in Task 2. Create methods that accept LERC compressed data as input, call the native decoding functions through FFI, and populate the Dart data structures with the decoded elevation values. Handle the conversion between native memory pointers and Dart typed data arrays. Implement proper error handling for potential issues during decoding, such as malformed LERC data or memory allocation failures. Ensure the implementation properly frees native memory to avoid leaks. Create utility methods to extract metadata from LERC headers to determine dimensions, data types, and other important parameters. Document the implementation details, including the memory management approach and any platform-specific considerations.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 3
-        },
-        {
-          "id": 3,
-          "title": "Implement Memory Management",
-          "description": "Implement memory management and resource cleanup",
-          "details": "Design and implement robust memory management for the Dart-native bridge to ensure proper cleanup of resources and prevent memory leaks. Implement finalizers using `NativeFinalizer` to automatically clean up native resources when Dart objects are garbage collected. Create explicit resource management methods (e.g., dispose pattern) for deterministic cleanup when immediate resource release is needed. Implement pooling or caching strategies for frequently used native resources to reduce allocation overhead. Set up memory tracking utilities to monitor native memory usage during development. Create tests specifically for verifying memory management, including scenarios with large terrain datasets and frequent decoding operations. Document the memory management architecture including cleanup patterns, ownership model, and guidelines for developers extending the code.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 3
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "Create MapLibre GL Example Page",
-      "description": "Create a new example page within the existing MapLibre GL example application specifically for demonstrating LERC terrain visualization.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/flutter_map_terrain_layer.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_terrain_display_ui_controls.md`. Note that the documentation was written for flutter_map and will need significant adaptation for MapLibre GL. Add a new file, e.g., `terrain_page.dart`, in the example app's pages directory at `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example/lib/`. This page should contain a `MapWidget` from the `flutter_maplibre_gl` plugin. Set up basic map controls (zoom, pan). This page will serve as the container for integrating the terrain visualization layer and UI controls. Document the integration approach with the existing example app structure, including how the page was added to the navigation system and any modifications needed to the existing codebase.",
-      "testStrategy": "Add a navigation entry to the main example app menu for the new page. Run the example app and navigate to the new page to ensure it loads correctly and displays a basic map.",
-      "priority": "medium",
-      "dependencies": [
-        1
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Create Basic Terrain Example Page",
-          "description": "Create the basic terrain example page with MapLibre integration",
-          "details": "Create a new Dart file `terrain_page.dart` in the MapLibre GL example app's pages directory. Implement a StatefulWidget that contains a MapLibre GL map view configured with appropriate initial location and zoom level suitable for terrain visualization. Set up the basic structure for the page, including appropriate app bar, map container, and placeholder areas for controls that will be added later. Configure the map with suitable base layers or styles that will work well with terrain visualization overlays. Implement basic map navigation controls (zoom, pan) and ensure they work properly. Add this new page to the example app's navigation system (e.g., drawer or tab navigation) to make it accessible from the main example app.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 4
-        },
-        {
-          "id": 2,
-          "title": "Implement Map Camera Integration",
-          "description": "Implement map camera events and controller integration",
-          "details": "Implement integration with MapLibre GL's camera events and controller to enable interaction with the terrain visualization. Set up listeners for map camera move, move end, and zoom events to track the visible map area. Implement a controller for programmatically controlling the map view when needed for terrain-specific operations. Create a mechanism to convert between map camera positions and terrain tile coordinates. Set up the foundation for synchronizing terrain data loading with map viewport changes. Document the map-terrain synchronization approach, including events used and data flow between map events and terrain rendering.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 4
-        },
-        {
-          "id": 3,
-          "title": "Prepare Sample Terrain Data",
-          "description": "Prepare example terrain data assets for the demo",
-          "details": "Select and prepare sample LERC terrain data files for inclusion in the example app. Choose terrain data that showcases interesting elevation features for effective demonstration. Process and possibly resize the LERC files to be suitable for mobile app distribution. Add the terrain data files to the app's assets and update the pubspec.yaml file to include them. Create utility functions to load the terrain data files from assets. Document the sample data, including its geographical coverage, resolution, and any preprocessing applied. Include information about the source of the terrain data and licensing considerations.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 4
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "Implement Basic Terrain Layer Rendering",
-      "description": "Implement a mechanism to render the decoded terrain elevation data on the MapLibre GL map within the existing example app, starting with a simple elevation-based coloring.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/flutter_map_terrain_layer.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/flutter_map_tile_provider.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/altitude_based_terrain_coloring.md`. Note that these documents are for flutter_map and will require significant adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. This is a critical integration point. Since `flutter-maplibre-gl` doesn't have a direct 'custom layer' API like some other map SDKs, the most direct path involves either: 1) Using a `PlatformView` to render the terrain on top, synchronized with the map, or 2) Passing tile data and rendering commands to the native MapLibre GL view via `MethodChannel` to draw within its rendering loop (more complex but better integrated). Given the PRD mentions integrating with the 'rendering pipeline', the MethodChannel approach is preferred. Implement a Dart component that listens to map camera changes, determines visible terrain tiles, requests LERC data for those tiles, decodes it (using Task 3), and sends the decoded data (or a representation) and tile coordinates to the native side via `MethodChannel`. On the native side (Android/iOS), receive this data and implement custom OpenGL/Vulkan rendering logic within the MapLibre GL view's rendering callback (if the native SDK allows hooking into it) or as an overlay. Start with a simple color mapping (e.g., green for low altitude, brown for high). Implement coordinate conversion from map tile coordinates to the decoded LERC data grid indices. Document the integration approach thoroughly, including alternative approaches considered, challenges encountered, and solutions implemented. Create diagrams or flowcharts if needed to explain the architecture for future reference.",
-      "testStrategy": "Load a map view covering an area with known terrain data. Verify that colored terrain appears on the map corresponding to elevation. Pan and zoom to ensure new tiles are loaded and rendered correctly.",
-      "priority": "high",
-      "dependencies": [
-        3,
-        4
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Implement Terrain Tile Management",
-          "description": "Create a Dart component to manage terrain tiles and coordinate with MapLibre camera",
-          "details": "Develop a Dart component that monitors the visible map bounds and camera position from the MapLibre GL map. Implement logic to determine which terrain tiles need to be loaded based on the current view. Create a mechanism to request, load, and manage LERC terrain data for these tiles. Implement a queue system to prioritize loading tiles in the current viewport. Handle zoom level changes and calculate appropriate tile resolution. Document the tile management system architecture.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 5
-        },
-        {
-          "id": 2,
-          "title": "Implement Cross-Platform Communication",
-          "description": "Create the channel for communicating between Dart and native platforms",
-          "details": "Design and implement a MethodChannel-based communication system between the Dart side and native platforms (Android/iOS). Define the message structure for sending decoded elevation data, tile coordinates, and rendering parameters to the native side. Implement serialization/deserialization of the terrain data for efficient transfer across the platform boundary. Create methods to send terrain updates when new tiles are loaded or parameters change. Implement handlers on both the Dart and native sides. Document the communication protocol.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 5
-        },
-        {
-          "id": 3,
-          "title": "Implement Android Terrain Rendering",
-          "description": "Implement Android-side rendering of terrain data in the MapLibre GL view",
-          "details": "On the Android platform, implement native code to receive the decoded terrain data from the Dart side. Research how to hook into the MapLibre GL native rendering pipeline on Android, possibly using custom layers or overlays. Implement OpenGL/Vulkan rendering logic to display the terrain data visually on top of or integrated with the map. Create shaders for basic elevation-based coloring. Handle synchronization between the map view and terrain overlay. Ensure proper memory management for terrain data. Document the Android rendering implementation.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 5
-        },
-        {
-          "id": 4,
-          "title": "Implement iOS Terrain Rendering",
-          "description": "Implement iOS-side rendering of terrain data in the MapLibre GL view",
-          "details": "On the iOS platform, implement native code to receive the decoded terrain data from the Dart side. Research how to hook into the MapLibre GL native rendering pipeline on iOS, possibly using custom layers or overlays. Implement Metal or OpenGL rendering logic to display the terrain data visually on top of or integrated with the map. Create shaders for basic elevation-based coloring. Handle synchronization between the map view and terrain overlay. Ensure proper memory management for terrain data. Document the iOS rendering implementation.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 5
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "title": "Implement Enhanced Visualization Modes",
-      "description": "Implement enhanced terrain visualization modes in the MapLibre GL example, including altitude-based color gradients, reference altitude highlighting, warning levels, and altitude bucketing.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/multiple_terrain_rendering_modes.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/altitude_based_terrain_coloring.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/reference_altitude_and_warning_levels.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/altitude_bucketing.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Extend the rendering logic (either in Dart if rendering to texture, or native shaders if rendering natively) to support different coloring algorithms. Implement a continuous color gradient based on elevation. Add logic to highlight areas above/below a user-defined 'reference altitude' and 'warning levels' using distinct colors or overlays. Implement altitude bucketing by quantizing elevation values into discrete ranges before coloring to create smoother transitions or distinct elevation bands. These modes should be selectable. Document each visualization mode in detail, including the algorithms used, color schemes selected, and how they help users interpret terrain data. Include screenshots or examples showing the different modes and their effects. Document any performance implications of each mode.",
-      "testStrategy": "Add internal flags or parameters to switch between visualization modes. Manually test each mode with sample data to ensure colors and highlighting appear as expected based on elevation values and configured reference/warning levels. Verify bucketing reduces visual noise.",
-      "priority": "medium",
-      "dependencies": [
-        5
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Implement Continuous Gradient Coloring",
-          "description": "Implement a continuous color gradient algorithm for terrain visualization based on elevation values",
-          "details": "Develop a shader/coloring algorithm that maps elevation values to colors using a continuous gradient. Define a suitable color spectrum that visually represents elevation changes effectively (e.g., blue for low elevations through greens, browns, to white for high elevations). Implement the mapping function to convert raw elevation values to RGB/RGBA colors. Integrate this coloring mode with the rendering pipeline on both Android and iOS. Test the gradient visualization with different elevation ranges and ensure smooth transitions between colors. Document the algorithm and color scheme choices.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 6
-        },
-        {
-          "id": 2,
-          "title": "Implement Reference Altitude Highlighting",
-          "description": "Create a visualization mode that highlights areas above or below reference altitude levels",
-          "details": "Implement a reference altitude highlighting feature that allows users to visualize terrain areas above or below specified elevation thresholds. Create shader logic that applies distinct colors or overlays to regions based on their relationship to reference altitude. Implement support for two key thresholds: 1) 'reference altitude' for general comparison and 2) 'warning level' for critical elevation boundaries. Ensure that both the color of the highlighted regions and the reference values can be adjusted dynamically. Test this visualization mode with different reference values and verify that the highlighting accurately reflects the elevation data. Document the implementation approach and user scenarios where this visualization mode is particularly useful.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 6
-        },
-        {
-          "id": 3,
-          "title": "Implement Altitude Bucketing",
-          "description": "Implement altitude bucketing for clearer terrain visualization with discrete elevation bands",
-          "details": "Create a quantization algorithm that groups elevation values into discrete buckets or bands to create a clearer visual representation of elevation changes. Develop a configurable bucketing approach that allows adjusting the number of buckets and their boundaries. Implement coloring logic that assigns distinct colors to each bucket while maintaining visual coherence across the elevation range. Support two bucketing modes: 1) equal-interval bucketing with uniform elevation ranges and 2) custom-interval bucketing for focusing on specific elevation ranges of interest. Test the visualization with different bucket configurations to ensure effective representation of elevation changes. Document the bucketing algorithm, including considerations for selecting appropriate bucket boundaries based on terrain characteristics.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 6
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "title": "Develop Terrain UI Controls",
-      "description": "Develop user interface controls within the MapLibre GL example page for adjusting terrain visualization parameters and switching modes.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_terrain_display_ui_controls.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/enhanced_visualization_ui_controls.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Add Flutter UI widgets (e.g., `Slider` for reference altitude, `DropdownButton` or `Radio` buttons for visualization modes, `Switch` for toggling visibility) to the `terrain_page.dart`. Connect these UI controls to the terrain layer/rendering logic (e.g., via `Provider`, `Bloc`, or `ChangeNotifier`) to dynamically update visualization parameters. Ensure UI updates trigger map redraws where necessary. Document the UI design decisions, state management approach, and how the controls interact with the rendering pipeline. Include screenshots of the UI, explanations of each control's purpose, and any usability considerations that influenced the design. Document any performance optimizations implemented to ensure smooth UI interaction while rendering terrain.",
-      "testStrategy": "Interact with each UI control on the page. Verify that changing sliders, toggles, or dropdowns correctly updates the terrain visualization on the map in real-time. Ensure toggling visibility hides/shows the terrain layer.",
-      "priority": "medium",
-      "dependencies": [
-        6
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Design Core UI Layout and Controls",
-          "description": "Design and implement core UI layout and controls",
-          "details": "Design and implement the core UI layout for terrain visualization controls, focusing on usability and clarity. Create a visually appealing control panel that can be collapsed/expanded to maximize map visibility. Implement core controls including visualization mode selector (dropdown or segmented control), visibility toggle, and opacity/transparency slider. Design the UI to work well on different device sizes and orientations. Use Flutter's Material or Cupertino design elements for a native look and feel. Ensure controls have sufficient touch targets for mobile use. Document UI design decisions including layout considerations and control selection rationale.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 7
-        },
-        {
-          "id": 2,
-          "title": "Implement Mode-Specific Controls",
-          "description": "Implement visualization mode-specific controls",
-          "details": "Design and implement specialized UI controls specific to each visualization mode implemented in Task 6. For continuous gradient visualization, add controls to adjust min/max elevation values and customize color stops. For reference altitude visualization, add sliders to adjust reference and warning levels, and color pickers for highlight colors. For altitude bucketing, add controls to adjust the number of buckets or custom bucket boundaries. For hillshade visualization, add controls for adjusting intensity and blending with other visualizations. Create a dynamic UI that shows only relevant controls for the currently selected visualization mode. Ensure all controls provide immediate visual feedback when adjusted. Document each specialized control's purpose, interaction model, and integration with the rendering system.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 7
-        },
-        {
-          "id": 3,
-          "title": "Implement State Management Architecture",
-          "description": "Implement state management for UI controls and visualization settings",
-          "details": "Design and implement a robust state management solution for the terrain visualization controls and settings. Select an appropriate state management approach (e.g., Provider, Bloc, Redux, or Riverpod) based on the complexity of the terrain visualization settings. Create models for all visualization settings (mode, reference altitude, etc.) with proper typing and validation. Implement state persistence to preserve user settings between app sessions. Create a reactive architecture that efficiently updates only the necessary components when settings change. Implement proper error handling for invalid state transitions or settings. Document the chosen state management approach, including architecture diagrams showing data flow between UI controls, state management, and rendering components.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 7
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "title": "Implement Caching and Performance Optimizations",
-      "description": "Implement efficient caching for decoded terrain data tiles and performance optimizations like throttling map updates in the MapLibre GL example.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/lerc_data_caching.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/performance_optimization_techniques.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/throttling_and_debouncing.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Create a cache mechanism (e.g., an LRU cache using `LinkedHashMap`) to store `DecodedLercData` objects keyed by tile coordinates. When a tile is needed, check the cache first before decoding. Implement a cache eviction policy to manage memory usage. For performance, throttle the frequency of terrain updates triggered by rapid map movements (pan/zoom) using techniques like `Timer.periodic` or debouncing/throttling utilities from packages like `collection` or `flutter_hooks`. Optimize memory usage during decoding and data transfer. Document the caching strategy in detail, including cache size considerations, eviction policies, and memory usage analysis. Create performance benchmarks comparing the application with and without optimizations. Document any platform-specific performance issues encountered (iOS vs Android) and how they were addressed. Include memory usage patterns and recommendations for future optimization.",
-      "testStrategy": "Pan and zoom the map rapidly over an area with terrain. Monitor performance (FPS) and memory usage using profiling tools (Flutter DevTools). Verify that caching reduces decoding time for revisited areas. Ensure throttling prevents excessive updates during gestures.",
-      "priority": "high",
-      "dependencies": [
-        5
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Implement Terrain Data Caching",
-          "description": "Design and implement an efficient caching system for terrain data",
-          "details": "Design and implement a tile caching mechanism using an LRU (Least Recently Used) cache based on LinkedHashMap or a similar structure. Create a caching strategy that stores DecodedLercData objects keyed by tile coordinates to avoid redundant decoding of previously loaded tiles. Implement a cache size limit based on estimated memory usage of terrain data to prevent excessive memory consumption. Create a cache eviction policy that removes least recently accessed tiles when the cache reaches capacity. Add options for clearing the cache manually and automatically when changing visualization modes that might require reprocessing the data. Implement metrics for cache hit rate and memory usage to measure effectiveness. Document the caching architecture, explaining policy decisions and memory management considerations.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 8
-        },
-        {
-          "id": 2,
-          "title": "Implement Map Interaction Throttling",
-          "description": "Implement throttling and debouncing for map interactions to improve performance",
-          "details": "Implement throttling and debouncing mechanisms for map events (pan, zoom) to reduce the frequency of terrain updates during rapid user interactions. Use the Timer class or packages like flutter_hooks or rxdart to implement debouncing logic that delays terrain updates until map movement settles. Implement a throttling mechanism that limits terrain updates to a reasonable frequency (e.g., max 2-3 updates per second) during continuous interactions. Add logic to prioritize rendering quality once user interaction stops by triggering a final high-quality render pass. Create a system that adjusts the resolution or detail level of terrain based on the interaction state (e.g., lower resolution during active panning, higher resolution when stationary). Test different throttling intervals to find the optimal balance between responsiveness and performance. Document the throttling and debouncing implementation with diagrams showing the event timeline and render behavior.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 8
-        },
-        {
-          "id": 3,
-          "title": "Optimize Memory Usage",
-          "description": "Optimize memory usage during terrain data processing and rendering",
-          "details": "Analyze and optimize memory usage throughout the terrain data processing pipeline to minimize the application's memory footprint. Implement efficient serialization/deserialization of terrain data when transferring between Dart and native code to reduce copying and unnecessary allocations. Optimize the storage format of decoded terrain data to balance memory usage with performance (e.g., using Int16List instead of Float32List where appropriate precision allows). Implement memory limits and monitoring to prevent out-of-memory conditions on devices with limited resources. Create a memory profile visualization tool for debugging terrain data memory usage patterns. Investigate and implement techniques to share memory between overlapping tiles where possible. Test memory optimization techniques on both low-end and high-end devices to ensure a good balance. Document memory optimization strategies, including before/after comparisons showing improvement metrics.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 8
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "title": "Implement Hillshading Visualization",
-      "description": "Add support for hillshade visualization using pre-processed LERC files in the MapLibre GL example rather than using MapLibre's built-in hillshade.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/hillshading_support.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/multiple_terrain_rendering_modes.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL, and discusses both real-time and pre-processed hillshade approaches. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. As specified in the PRD, implement support for hillshade visualization using pre-processed LERC2 files that are already converted to look like hillshade, rather than using MapLibre's built-in hillshade layer. Create the necessary loading and rendering mechanisms for these specialized LERC2 files. Integrate this hillshade data into the rendering pipeline. This might involve generating a separate hillshade texture/layer or combining the hillshade data with the existing terrain visualization. Document the hillshade implementation approach, including how the pre-processed LERC2 files are structured and how they differ from standard elevation data. Include information about where to obtain or how to generate these specialized hillshade LERC2 files. Document any rendering considerations specific to hillshade data.",
-      "testStrategy": "Add hillshading as a selectable visualization mode (requires Task 7). Switch to hillshade mode and verify that terrain features (hills, valleys) are rendered with appropriate shading. Compare against known hillshade examples if possible.",
-      "priority": "medium",
-      "dependencies": [
-        5
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Implement Hillshade Data Management",
-          "description": "Implement hillshade data loading and decoding from specialized LERC2 files",
-          "details": "Create a system to load and decode pre-processed hillshade LERC2 files that contain hillshade data rather than raw elevation data. Adapt the existing LERC decoder to handle the specialized format of hillshade LERC files if they differ from standard elevation LERC files. Implement a data structure to hold the decoded hillshade data. Integrate hillshade loading into the tile management system (from Task 5). Create a mechanism to determine which hillshade tiles need to be loaded based on current view. Implement efficient error handling for missing or corrupted hillshade data. Document the hillshade data format and how it differs from standard elevation LERC data. Include information on how these specialized hillshade LERC files are generated.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 9
-        },
-        {
-          "id": 2,
-          "title": "Implement Hillshade Rendering",
-          "description": "Implement hillshade rendering in the terrain visualization pipeline",
-          "details": "Integrate hillshade rendering into the terrain visualization pipeline, allowing it to be used as a standalone visualization mode or combined with other visualization modes. Create shader code to render the hillshade data with appropriate contrast and lighting effects. Implement blending modes to combine hillshade with other terrain visualizations, such as gradient coloring. Add options to control hillshade intensity, contrast, and other visual parameters. Implement UI controls for adjusting hillshade visualization (part of Task 7). Test the hillshade rendering with different terrain types to ensure effective visualization across varied landscapes. Document the rendering approach, including the math behind hillshade rendering and implementation details for both platforms.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 9
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "title": "Implement Altitude Readout at Position",
-      "description": "Implement functionality in the MapLibre GL example to display the elevation at the map's current center position or a user-tapped location.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/raw_elevation_data_processing.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_terrain_display_ui_controls.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Listen to map camera position changes or tap gestures using the `MapWidget` controller. Convert the map's geographical coordinate (latitude, longitude) to the corresponding tile coordinate and then to the index within the decoded elevation data grid for that tile. Sample the elevation value from the `DecodedLercData` (Task 3). Implement interpolation if the exact coordinate doesn't fall directly on a grid point. Display the sampled altitude in a UI element on the page (requires Task 7 for UI integration). Document the coordinate conversion process in detail, including the mathematical formulas used for translating between geographical coordinates and tile coordinates. Explain the interpolation algorithm used and its accuracy considerations. Document any edge cases handled (e.g., areas without elevation data, boundaries between tiles) and how they were addressed.",
-      "testStrategy": "Pan the map or tap on different locations with known elevation values. Verify that the displayed altitude readout is accurate and updates correctly as the map position changes or on tap. Test interpolation by tapping between grid points.",
-      "priority": "medium",
-      "dependencies": [
-        3,
-        4,
-        5
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Implement Coordinate Conversion System",
-          "description": "Implement coordinate conversion between geographical and tile coordinates",
-          "details": "Develop algorithms to convert between geographical coordinates (latitude/longitude) and tile grid coordinates in the LERC data. Implement functions to convert from map coordinates to the specific LERC tile that contains elevation data for that point. Create mathematics utilities for determining the exact position within the LERC grid based on geographical coordinates, accounting for the resolution of the terrain data. Handle edge cases where coordinates fall on tile boundaries or outside available terrain data coverage. Research and implement efficient mathematical approaches for these conversions to minimize computational overhead. Document the conversion algorithms with mathematical formulas, diagrams explaining the coordinate systems, and example calculations.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 10
-        },
-        {
-          "id": 2,
-          "title": "Implement Elevation Sampling and Interpolation",
-          "description": "Implement elevation sampling and interpolation from LERC data",
-          "details": "Implement algorithms to sample elevation values from the decoded LERC data for specific geographical coordinates. Create an accurate bilinear or bicubic interpolation system to determine elevation values between grid points, providing smoother and more accurate elevation readings. Handle edge cases where the requested coordinate falls near or outside the boundaries of available terrain data. Implement a mechanism to handle positions that span multiple terrain tiles, potentially requiring data from adjacent tiles. Create a system to deal with different resolution terrain data at different zoom levels. Test the interpolation accuracy against known elevation values. Document the sampling and interpolation algorithms, including mathematical formulas, accuracy analysis, and comparison between different interpolation methods tested.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 10
-        },
-        {
-          "id": 3,
-          "title": "Design Elevation Readout UI",
-          "description": "Create the user interface for displaying elevation readouts",
-          "details": "Design and implement UI components to display elevation values to users in a clear and meaningful way. Create a readout panel or overlay that shows the elevation at the current map center or tapped location. Implement customizable units (meters, feet) for elevation display with proper conversion. Add formatting options to control precision and display style of elevation values. Design visual indicators that can show relative elevation changes (e.g., increased/decreased since last position). Create an animated transition when elevation values change to improve readability during navigation. Ensure the UI is accessible and meets contrast requirements. Test the elevation display with various elevation values, including negative (below sea level) values. Document the UI design decisions, including accessibility considerations and format customization options.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 10
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "title": "Cross-Platform Testing and Finalization",
-      "description": "Perform comprehensive testing of the LERC terrain visualization on different devices and platforms (Android, iOS) and finalize performance optimizations and documentation for the MapLibre GL example.",
-      "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/platform_specific_implementation.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/performance_optimization_techniques.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory for all testing and finalization. Test all implemented features (visualization modes, UI controls, caching, hillshading, altitude readout) on a range of target devices, including mid-range devices as specified in success metrics. Identify and fix performance bottlenecks using profiling tools. Ensure memory usage is within acceptable limits. Create comprehensive documentation covering setup, usage, and implementation details of the LERC terrain example. Compile all task-specific documentation into a unified reference document for future developers working with this code. Create a detailed troubleshooting guide addressing common issues that may be encountered. Document platform-specific differences and considerations. Include references to the original documentation in `/Users/pannam/Desktop/flutter-maplibre-gl/documentation` for additional details. Create a final report summarizing what worked well, what was challenging, and recommendations for future improvements.",
-      "testStrategy": "Execute test plans on multiple Android and iOS devices. Verify functionality, performance, and stability across platforms. Review and complete project documentation.",
-      "priority": "high",
-      "dependencies": [
-        6,
-        7,
-        8,
-        9,
-        10
-      ],
-      "status": "pending",
-      "subtasks": [
-        {
-          "id": 1,
-          "title": "Android Platform Testing",
-          "description": "Test all features on Android devices of varying capabilities",
-          "details": "Conduct comprehensive testing of all terrain visualization features on a range of Android devices with different hardware capabilities, from low-end to high-end. Test on devices with different screen sizes, resolutions, and aspect ratios to ensure UI elements scale appropriately. Verify performance on devices with limited memory and processor capabilities to ensure the application remains responsive. Test terrain visualization with different Android versions to identify any compatibility issues. Create specific test cases for terrain data loading, rendering, UI controls, and memory management. Document Android-specific issues encountered and their resolutions. Create performance benchmarks for Android devices showing FPS, memory usage, and load times across device tiers.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 11
-        },
-        {
-          "id": 2,
-          "title": "iOS Platform Testing",
-          "description": "Test all features on iOS devices of varying capabilities",
-          "details": "Conduct comprehensive testing of all terrain visualization features on a range of iOS devices with different hardware capabilities, from older models to newer ones. Test on various iPhone sizes and iPad models to ensure UI elements scale appropriately across the iOS device family. Verify performance on devices with limited capabilities to ensure the application remains responsive. Test terrain visualization with different iOS versions to identify any compatibility issues. Create specific test cases for terrain data loading, rendering, UI controls, and memory management on iOS. Pay particular attention to Metal integration for hillshading and advanced visualization. Document iOS-specific issues encountered and their resolutions. Create performance benchmarks for iOS devices showing FPS, memory usage, and load times across device tiers.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 11
-        },
-        {
-          "id": 3,
-          "title": "Create Final Documentation",
-          "description": "Create comprehensive documentation and final project report",
-          "details": "Consolidate all documentation created throughout the project into a comprehensive reference guide for future developers. Create a detailed user manual for the LERC terrain visualization features. Document the overall architecture with diagrams showing the relationships between components. Create detailed API documentation for all public classes and methods. Create troubleshooting guides for common issues. Document performance considerations and optimization recommendations. Create a final project report summarizing the implementation approach, challenges faced, solutions developed, and recommendations for future enhancements. Include visual examples of each visualization mode. Document findings from cross-platform testing, including platform-specific considerations and workarounds implemented. Create a quick-start guide for new developers working on the project.",
-          "status": "pending",
-          "dependencies": [],
-          "parentTaskId": 11
-        }
-      ]
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Native Build Integration",
+        "description": "Set up the existing MapLibre GL example project (/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example) to include the existing LERC native code from the flightcanvas_terrain directory and configure the build process for Android and iOS platforms.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/lerc_integration.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/cmake_configuration.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/platform_specific_implementation.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Use the existing LERC library source code at `/Users/pannam/Desktop/flutter-maplibre-gl/lerc-master` instead of downloading it. Integrate the `flightcanvas_terrain` native code directory into the MapLibre GL example project at `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example`. Configure `CMakeLists.txt` files in the example project directories for both Android (via NDK) and iOS to build the `lerc_wrapper.cpp` and link against the existing LERC library. Ensure the native build process is triggered correctly by the Flutter build. Verify native library outputs (.so for Android, .dylib/.framework for iOS) are generated and placed correctly for FFI linking. Use Flutter's built-in support for native code and CMake. Document all steps taken, challenges encountered, solutions implemented, and lessons learned during the integration process for future reference.",
+        "testStrategy": "Run `flutter build apk` and `flutter build ios` to confirm the native libraries are built successfully without errors. Check the build output directories for the generated native library files.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Setup Android CMake Integration",
+            "description": "Configure the Android NDK build process with CMake to integrate the LERC library and native code",
+            "details": "Copy necessary LERC and flightcanvas_terrain C++ files to the appropriate location in the Android directory structure of the MapLibre GL example project. Create or modify CMakeLists.txt in the Android project to include the LERC library source files and the wrapper code. Configure include paths, compiler flags, and library linking. Ensure the compiled library is named appropriately for FFI to locate it. Test compilation with `flutter build apk --debug` to verify CMake setup.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 2,
+            "title": "Setup iOS Build Framework",
+            "description": "Configure the iOS build process to integrate the LERC library and native code",
+            "details": "Copy necessary LERC and flightcanvas_terrain C++ files to the appropriate location in the iOS directory structure of the MapLibre GL example project. Configure the Xcode project (either directly or via podspec) to include the LERC library source files and wrapper code. Set up proper header search paths, compiler flags, and library linking. Ensure the compiled library is named appropriately for FFI to locate it. Test compilation with `flutter build ios --debug --no-codesign` to verify the setup.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 3,
+            "title": "Adapt LERC Wrapper Code",
+            "description": "Integrate and adapt the existing LERC wrapper code from flightcanvas_terrain",
+            "details": "Review the existing LERC wrapper code in the flightcanvas_terrain directory. Identify the key components needed for decoding LERC data and memory management. Extract and adapt these components for use with MapLibre GL, making any necessary modifications. Ensure the wrapper provides a clean C API that can be called from Dart through FFI. Document any changes made to the original code and the reasons for those changes.",
+            "status": "in-progress",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 4,
+            "title": "Create Integration Documentation",
+            "description": "Document the native code integration and build process",
+            "details": "Create comprehensive documentation about how the LERC library and wrapper code is integrated into the MapLibre GL example project. Include details on the directory structure, file placement, build configuration, and any platform-specific considerations. Document any challenges encountered during integration and how they were resolved. Explain how to maintain or update the native code in the future. Create a developer guide for anyone who needs to work with the native code portion of the project in the future.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Generate FFI Bindings and Create Dart Wrapper",
+        "description": "Generate Dart FFI bindings for the C API defined in `lerc_wrapper.h` and create a high-level Dart wrapper class for easier interaction with the native LERC decoder functions within the MapLibre GL example project.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/dart_ffi_bindings.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/dart_ffi_integration.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Work specifically in the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory for all implementation. Use the `ffigen` tool (version ^0.1.0 or later recommended) to generate Dart bindings from `lerc_wrapper.h`. Configure `ffigen.yaml` in the example project to specify the header file, library name, and output file (`lerc_bindings.dart`). Create a Dart class, e.g., `LercDecoder`, that encapsulates the raw FFI calls, handling `Pointer` types and memory management. Implement methods like `decodeLerc` that call the native decoding function and return a structured Dart object or `TypedData` (like `Float32List`) containing the elevation data. Ensure proper error handling for native calls. Document the FFI binding process, any challenges encountered with different platforms, and solutions implemented for future reference.",
+        "testStrategy": "Run `flutter pub run ffigen` to generate bindings. Write a simple Dart test case that loads the native library and calls a basic function (if available in the wrapper) to verify FFI setup and binding correctness.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Setup FFI Binding Generation",
+            "description": "Configure and generate FFI bindings for LERC wrapper",
+            "details": "Set up the FFI binding generation configuration for the LERC wrapper C API. Create a `ffigen.yaml` file in the example project with appropriate configuration for generating Dart bindings. Specify the header file path, output file path, and library name in the configuration. Configure include directories to find all necessary header dependencies. Set up name mapping rules if needed to make the generated Dart API more idiomatic. Run the ffigen tool to generate the bindings and verify the output. Fix any issues in the header files or configuration that might prevent successful binding generation. Document the configuration options and any special considerations for the binding generation process.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 2
+          },
+          {
+            "id": 2,
+            "title": "Implement Dart Wrapper Class",
+            "description": "Create Dart wrapper class for native LERC functions",
+            "details": "Design and implement a high-level Dart wrapper class that encapsulates the raw FFI bindings and provides a more idiomatic Dart API for working with LERC data. Create methods with proper Dart types that internally handle the conversion to and from FFI types. Implement proper error handling that translates C error codes and states into appropriate Dart exceptions or error objects. Write thorough documentation for the wrapper class, including usage examples. Create utility methods to simplify common operations with LERC data. Implement platform-specific code where needed to handle differences between iOS and Android. Create unit tests that verify the wrapper works correctly with the native code. Document the wrapper class architecture and its relationship to both the generated bindings and the application logic.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 2
+          },
+          {
+            "id": 3,
+            "title": "Test FFI Integration",
+            "description": "Test FFI integration across platforms",
+            "details": "Create comprehensive tests for the FFI bindings and wrapper class to ensure they work correctly across different platforms. Write unit tests that verify the basic functionality of the FFI bindings. Create integration tests that decode actual LERC data using the native code and verify the results. Test for proper memory management and cleanup to ensure no memory leaks. Test platform-specific aspects of the FFI integration to ensure compatibility on both Android and iOS. Create a test harness that can be run on both platforms to verify consistent behavior. Document testing approaches, test data, and expected results. Create a test coverage report to ensure all critical paths are tested.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 2
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Implement Decoded Data Structure and Basic Decoding",
+        "description": "Define Dart data structures to hold decoded LERC elevation data and implement the core logic for decoding LERC byte arrays using the Dart FFI wrapper within the MapLibre GL example project.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_lerc_decoding.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/memory_management.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/raw_elevation_data_processing.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Create a Dart class, e.g., `DecodedLercData`, to store the decoded elevation grid (e.g., as a `Float32List` or `Int16List` depending on precision needs, `Float32List` is generally safer for varying elevation ranges) along with metadata like width, height, and georeferencing information (if available from LERC or context). Implement a method in the `LercDecoder` class (or a separate service) that takes LERC compressed bytes (`Uint8List`), passes them to the native decoder via FFI, receives the decoded data pointer, copies it to a Dart `TypedData`, and returns a `DecodedLercData` object. Implement necessary memory cleanup for native allocations using `NativeFinalizer` or explicit `free` calls. Document the data structure design decisions, memory management strategies, and any performance considerations for future reference.",
+        "testStrategy": "Obtain a sample LERC file or byte array. Write a Dart unit test that calls the decoding logic, verifies the output data structure is created, and checks basic properties like width, height, and potentially a few known elevation values if the sample data is controlled. Use `NativeFinalizer` tests to ensure memory is released.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Elevation Data Structures",
+            "description": "Design and implement data structures for decoded LERC data",
+            "details": "Design and implement data structures in Dart to efficiently store and access decoded LERC elevation data. Create a class (e.g., `DecodedLercData`) to encapsulate the elevation grid data and associated metadata. Define fields for storing elevation values (using appropriate typed data like `Float32List`), dimensions (width, height), georeferencing information (bounds, coordinates), and other relevant metadata. Design the class with proper accessor methods and utility functions for data manipulation. Consider memory efficiency in the design to handle potentially large terrain datasets. Document the data structure design, explaining choices made regarding data types and organization. Include considerations for future expansion, such as supporting additional metadata or formats.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 3
+          },
+          {
+            "id": 2,
+            "title": "Implement LERC Decoding Logic",
+            "description": "Implement the core LERC decoding functionality using FFI",
+            "details": "Implement the core functionality to decode LERC compressed data using the Dart FFI wrapper created in Task 2. Create methods that accept LERC compressed data as input, call the native decoding functions through FFI, and populate the Dart data structures with the decoded elevation values. Handle the conversion between native memory pointers and Dart typed data arrays. Implement proper error handling for potential issues during decoding, such as malformed LERC data or memory allocation failures. Ensure the implementation properly frees native memory to avoid leaks. Create utility methods to extract metadata from LERC headers to determine dimensions, data types, and other important parameters. Document the implementation details, including the memory management approach and any platform-specific considerations.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 3
+          },
+          {
+            "id": 3,
+            "title": "Implement Memory Management",
+            "description": "Implement memory management and resource cleanup",
+            "details": "Design and implement robust memory management for the Dart-native bridge to ensure proper cleanup of resources and prevent memory leaks. Implement finalizers using `NativeFinalizer` to automatically clean up native resources when Dart objects are garbage collected. Create explicit resource management methods (e.g., dispose pattern) for deterministic cleanup when immediate resource release is needed. Implement pooling or caching strategies for frequently used native resources to reduce allocation overhead. Set up memory tracking utilities to monitor native memory usage during development. Create tests specifically for verifying memory management, including scenarios with large terrain datasets and frequent decoding operations. Document the memory management architecture including cleanup patterns, ownership model, and guidelines for developers extending the code.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 3
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Create MapLibre GL Example Page",
+        "description": "Create a new example page within the existing MapLibre GL example application specifically for demonstrating LERC terrain visualization.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/flutter_map_terrain_layer.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_terrain_display_ui_controls.md`. Note that the documentation was written for flutter_map and will need significant adaptation for MapLibre GL. Add a new file, e.g., `terrain_page.dart`, in the example app's pages directory at `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example/lib/`. This page should contain a `MapWidget` from the `flutter_maplibre_gl` plugin. Set up basic map controls (zoom, pan). This page will serve as the container for integrating the terrain visualization layer and UI controls. Document the integration approach with the existing example app structure, including how the page was added to the navigation system and any modifications needed to the existing codebase.",
+        "testStrategy": "Add a navigation entry to the main example app menu for the new page. Run the example app and navigate to the new page to ensure it loads correctly and displays a basic map.",
+        "priority": "medium",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Basic Terrain Example Page",
+            "description": "Create the basic terrain example page with MapLibre integration",
+            "details": "Create a new Dart file `terrain_page.dart` in the MapLibre GL example app's pages directory. Implement a StatefulWidget that contains a MapLibre GL map view configured with appropriate initial location and zoom level suitable for terrain visualization. Set up the basic structure for the page, including appropriate app bar, map container, and placeholder areas for controls that will be added later. Configure the map with suitable base layers or styles that will work well with terrain visualization overlays. Implement basic map navigation controls (zoom, pan) and ensure they work properly. Add this new page to the example app's navigation system (e.g., drawer or tab navigation) to make it accessible from the main example app.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 4
+          },
+          {
+            "id": 2,
+            "title": "Implement Map Camera Integration",
+            "description": "Implement map camera events and controller integration",
+            "details": "Implement integration with MapLibre GL's camera events and controller to enable interaction with the terrain visualization. Set up listeners for map camera move, move end, and zoom events to track the visible map area. Implement a controller for programmatically controlling the map view when needed for terrain-specific operations. Create a mechanism to convert between map camera positions and terrain tile coordinates. Set up the foundation for synchronizing terrain data loading with map viewport changes. Document the map-terrain synchronization approach, including events used and data flow between map events and terrain rendering.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 4
+          },
+          {
+            "id": 3,
+            "title": "Prepare Sample Terrain Data",
+            "description": "Prepare example terrain data assets for the demo",
+            "details": "Select and prepare sample LERC terrain data files for inclusion in the example app. Choose terrain data that showcases interesting elevation features for effective demonstration. Process and possibly resize the LERC files to be suitable for mobile app distribution. Add the terrain data files to the app's assets and update the pubspec.yaml file to include them. Create utility functions to load the terrain data files from assets. Document the sample data, including its geographical coverage, resolution, and any preprocessing applied. Include information about the source of the terrain data and licensing considerations.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 4
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Implement Basic Terrain Layer Rendering",
+        "description": "Implement a mechanism to render the decoded terrain elevation data on the MapLibre GL map within the existing example app, starting with a simple elevation-based coloring.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/flutter_map_terrain_layer.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/flutter_map_tile_provider.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/altitude_based_terrain_coloring.md`. Note that these documents are for flutter_map and will require significant adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. This is a critical integration point. Since `flutter-maplibre-gl` doesn't have a direct 'custom layer' API like some other map SDKs, the most direct path involves either: 1) Using a `PlatformView` to render the terrain on top, synchronized with the map, or 2) Passing tile data and rendering commands to the native MapLibre GL view via `MethodChannel` to draw within its rendering loop (more complex but better integrated). Given the PRD mentions integrating with the 'rendering pipeline', the MethodChannel approach is preferred. Implement a Dart component that listens to map camera changes, determines visible terrain tiles, requests LERC data for those tiles, decodes it (using Task 3), and sends the decoded data (or a representation) and tile coordinates to the native side via `MethodChannel`. On the native side (Android/iOS), receive this data and implement custom OpenGL/Vulkan rendering logic within the MapLibre GL view's rendering callback (if the native SDK allows hooking into it) or as an overlay. Start with a simple color mapping (e.g., green for low altitude, brown for high). Implement coordinate conversion from map tile coordinates to the decoded LERC data grid indices. Document the integration approach thoroughly, including alternative approaches considered, challenges encountered, and solutions implemented. Create diagrams or flowcharts if needed to explain the architecture for future reference.",
+        "testStrategy": "Load a map view covering an area with known terrain data. Verify that colored terrain appears on the map corresponding to elevation. Pan and zoom to ensure new tiles are loaded and rendered correctly.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Terrain Tile Management",
+            "description": "Create a Dart component to manage terrain tiles and coordinate with MapLibre camera",
+            "details": "Develop a Dart component that monitors the visible map bounds and camera position from the MapLibre GL map. Implement logic to determine which terrain tiles need to be loaded based on the current view. Create a mechanism to request, load, and manage LERC terrain data for these tiles. Implement a queue system to prioritize loading tiles in the current viewport. Handle zoom level changes and calculate appropriate tile resolution. Document the tile management system architecture.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 5
+          },
+          {
+            "id": 2,
+            "title": "Implement Cross-Platform Communication",
+            "description": "Create the channel for communicating between Dart and native platforms",
+            "details": "Design and implement a MethodChannel-based communication system between the Dart side and native platforms (Android/iOS). Define the message structure for sending decoded elevation data, tile coordinates, and rendering parameters to the native side. Implement serialization/deserialization of the terrain data for efficient transfer across the platform boundary. Create methods to send terrain updates when new tiles are loaded or parameters change. Implement handlers on both the Dart and native sides. Document the communication protocol.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 5
+          },
+          {
+            "id": 3,
+            "title": "Implement Android Terrain Rendering",
+            "description": "Implement Android-side rendering of terrain data in the MapLibre GL view",
+            "details": "On the Android platform, implement native code to receive the decoded terrain data from the Dart side. Research how to hook into the MapLibre GL native rendering pipeline on Android, possibly using custom layers or overlays. Implement OpenGL/Vulkan rendering logic to display the terrain data visually on top of or integrated with the map. Create shaders for basic elevation-based coloring. Handle synchronization between the map view and terrain overlay. Ensure proper memory management for terrain data. Document the Android rendering implementation.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 5
+          },
+          {
+            "id": 4,
+            "title": "Implement iOS Terrain Rendering",
+            "description": "Implement iOS-side rendering of terrain data in the MapLibre GL view",
+            "details": "On the iOS platform, implement native code to receive the decoded terrain data from the Dart side. Research how to hook into the MapLibre GL native rendering pipeline on iOS, possibly using custom layers or overlays. Implement Metal or OpenGL rendering logic to display the terrain data visually on top of or integrated with the map. Create shaders for basic elevation-based coloring. Handle synchronization between the map view and terrain overlay. Ensure proper memory management for terrain data. Document the iOS rendering implementation.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 5
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Implement Enhanced Visualization Modes",
+        "description": "Implement enhanced terrain visualization modes in the MapLibre GL example, including altitude-based color gradients, reference altitude highlighting, warning levels, and altitude bucketing.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/multiple_terrain_rendering_modes.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/altitude_based_terrain_coloring.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/reference_altitude_and_warning_levels.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/altitude_bucketing.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Extend the rendering logic (either in Dart if rendering to texture, or native shaders if rendering natively) to support different coloring algorithms. Implement a continuous color gradient based on elevation. Add logic to highlight areas above/below a user-defined 'reference altitude' and 'warning levels' using distinct colors or overlays. Implement altitude bucketing by quantizing elevation values into discrete ranges before coloring to create smoother transitions or distinct elevation bands. These modes should be selectable. Document each visualization mode in detail, including the algorithms used, color schemes selected, and how they help users interpret terrain data. Include screenshots or examples showing the different modes and their effects. Document any performance implications of each mode.",
+        "testStrategy": "Add internal flags or parameters to switch between visualization modes. Manually test each mode with sample data to ensure colors and highlighting appear as expected based on elevation values and configured reference/warning levels. Verify bucketing reduces visual noise.",
+        "priority": "medium",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Continuous Gradient Coloring",
+            "description": "Implement a continuous color gradient algorithm for terrain visualization based on elevation values",
+            "details": "Develop a shader/coloring algorithm that maps elevation values to colors using a continuous gradient. Define a suitable color spectrum that visually represents elevation changes effectively (e.g., blue for low elevations through greens, browns, to white for high elevations). Implement the mapping function to convert raw elevation values to RGB/RGBA colors. Integrate this coloring mode with the rendering pipeline on both Android and iOS. Test the gradient visualization with different elevation ranges and ensure smooth transitions between colors. Document the algorithm and color scheme choices.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 6
+          },
+          {
+            "id": 2,
+            "title": "Implement Reference Altitude Highlighting",
+            "description": "Create a visualization mode that highlights areas above or below reference altitude levels",
+            "details": "Implement a reference altitude highlighting feature that allows users to visualize terrain areas above or below specified elevation thresholds. Create shader logic that applies distinct colors or overlays to regions based on their relationship to reference altitude. Implement support for two key thresholds: 1) 'reference altitude' for general comparison and 2) 'warning level' for critical elevation boundaries. Ensure that both the color of the highlighted regions and the reference values can be adjusted dynamically. Test this visualization mode with different reference values and verify that the highlighting accurately reflects the elevation data. Document the implementation approach and user scenarios where this visualization mode is particularly useful.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 6
+          },
+          {
+            "id": 3,
+            "title": "Implement Altitude Bucketing",
+            "description": "Implement altitude bucketing for clearer terrain visualization with discrete elevation bands",
+            "details": "Create a quantization algorithm that groups elevation values into discrete buckets or bands to create a clearer visual representation of elevation changes. Develop a configurable bucketing approach that allows adjusting the number of buckets and their boundaries. Implement coloring logic that assigns distinct colors to each bucket while maintaining visual coherence across the elevation range. Support two bucketing modes: 1) equal-interval bucketing with uniform elevation ranges and 2) custom-interval bucketing for focusing on specific elevation ranges of interest. Test the visualization with different bucket configurations to ensure effective representation of elevation changes. Document the bucketing algorithm, including considerations for selecting appropriate bucket boundaries based on terrain characteristics.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 6
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Develop Terrain UI Controls",
+        "description": "Develop user interface controls within the MapLibre GL example page for adjusting terrain visualization parameters and switching modes.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_terrain_display_ui_controls.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/enhanced_visualization_ui_controls.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Add Flutter UI widgets (e.g., `Slider` for reference altitude, `DropdownButton` or `Radio` buttons for visualization modes, `Switch` for toggling visibility) to the `terrain_page.dart`. Connect these UI controls to the terrain layer/rendering logic (e.g., via `Provider`, `Bloc`, or `ChangeNotifier`) to dynamically update visualization parameters. Ensure UI updates trigger map redraws where necessary. Document the UI design decisions, state management approach, and how the controls interact with the rendering pipeline. Include screenshots of the UI, explanations of each control's purpose, and any usability considerations that influenced the design. Document any performance optimizations implemented to ensure smooth UI interaction while rendering terrain.",
+        "testStrategy": "Interact with each UI control on the page. Verify that changing sliders, toggles, or dropdowns correctly updates the terrain visualization on the map in real-time. Ensure toggling visibility hides/shows the terrain layer.",
+        "priority": "medium",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Core UI Layout and Controls",
+            "description": "Design and implement core UI layout and controls",
+            "details": "Design and implement the core UI layout for terrain visualization controls, focusing on usability and clarity. Create a visually appealing control panel that can be collapsed/expanded to maximize map visibility. Implement core controls including visualization mode selector (dropdown or segmented control), visibility toggle, and opacity/transparency slider. Design the UI to work well on different device sizes and orientations. Use Flutter's Material or Cupertino design elements for a native look and feel. Ensure controls have sufficient touch targets for mobile use. Document UI design decisions including layout considerations and control selection rationale.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 7
+          },
+          {
+            "id": 2,
+            "title": "Implement Mode-Specific Controls",
+            "description": "Implement visualization mode-specific controls",
+            "details": "Design and implement specialized UI controls specific to each visualization mode implemented in Task 6. For continuous gradient visualization, add controls to adjust min/max elevation values and customize color stops. For reference altitude visualization, add sliders to adjust reference and warning levels, and color pickers for highlight colors. For altitude bucketing, add controls to adjust the number of buckets or custom bucket boundaries. For hillshade visualization, add controls for adjusting intensity and blending with other visualizations. Create a dynamic UI that shows only relevant controls for the currently selected visualization mode. Ensure all controls provide immediate visual feedback when adjusted. Document each specialized control's purpose, interaction model, and integration with the rendering system.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 7
+          },
+          {
+            "id": 3,
+            "title": "Implement State Management Architecture",
+            "description": "Implement state management for UI controls and visualization settings",
+            "details": "Design and implement a robust state management solution for the terrain visualization controls and settings. Select an appropriate state management approach (e.g., Provider, Bloc, Redux, or Riverpod) based on the complexity of the terrain visualization settings. Create models for all visualization settings (mode, reference altitude, etc.) with proper typing and validation. Implement state persistence to preserve user settings between app sessions. Create a reactive architecture that efficiently updates only the necessary components when settings change. Implement proper error handling for invalid state transitions or settings. Document the chosen state management approach, including architecture diagrams showing data flow between UI controls, state management, and rendering components.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 7
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Implement Caching and Performance Optimizations",
+        "description": "Implement efficient caching for decoded terrain data tiles and performance optimizations like throttling map updates in the MapLibre GL example.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/lerc_data_caching.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/performance_optimization_techniques.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/throttling_and_debouncing.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Create a cache mechanism (e.g., an LRU cache using `LinkedHashMap`) to store `DecodedLercData` objects keyed by tile coordinates. When a tile is needed, check the cache first before decoding. Implement a cache eviction policy to manage memory usage. For performance, throttle the frequency of terrain updates triggered by rapid map movements (pan/zoom) using techniques like `Timer.periodic` or debouncing/throttling utilities from packages like `collection` or `flutter_hooks`. Optimize memory usage during decoding and data transfer. Document the caching strategy in detail, including cache size considerations, eviction policies, and memory usage analysis. Create performance benchmarks comparing the application with and without optimizations. Document any platform-specific performance issues encountered (iOS vs Android) and how they were addressed. Include memory usage patterns and recommendations for future optimization.",
+        "testStrategy": "Pan and zoom the map rapidly over an area with terrain. Monitor performance (FPS) and memory usage using profiling tools (Flutter DevTools). Verify that caching reduces decoding time for revisited areas. Ensure throttling prevents excessive updates during gestures.",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Terrain Data Caching",
+            "description": "Design and implement an efficient caching system for terrain data",
+            "details": "Design and implement a tile caching mechanism using an LRU (Least Recently Used) cache based on LinkedHashMap or a similar structure. Create a caching strategy that stores DecodedLercData objects keyed by tile coordinates to avoid redundant decoding of previously loaded tiles. Implement a cache size limit based on estimated memory usage of terrain data to prevent excessive memory consumption. Create a cache eviction policy that removes least recently accessed tiles when the cache reaches capacity. Add options for clearing the cache manually and automatically when changing visualization modes that might require reprocessing the data. Implement metrics for cache hit rate and memory usage to measure effectiveness. Document the caching architecture, explaining policy decisions and memory management considerations.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 8
+          },
+          {
+            "id": 2,
+            "title": "Implement Map Interaction Throttling",
+            "description": "Implement throttling and debouncing for map interactions to improve performance",
+            "details": "Implement throttling and debouncing mechanisms for map events (pan, zoom) to reduce the frequency of terrain updates during rapid user interactions. Use the Timer class or packages like flutter_hooks or rxdart to implement debouncing logic that delays terrain updates until map movement settles. Implement a throttling mechanism that limits terrain updates to a reasonable frequency (e.g., max 2-3 updates per second) during continuous interactions. Add logic to prioritize rendering quality once user interaction stops by triggering a final high-quality render pass. Create a system that adjusts the resolution or detail level of terrain based on the interaction state (e.g., lower resolution during active panning, higher resolution when stationary). Test different throttling intervals to find the optimal balance between responsiveness and performance. Document the throttling and debouncing implementation with diagrams showing the event timeline and render behavior.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 8
+          },
+          {
+            "id": 3,
+            "title": "Optimize Memory Usage",
+            "description": "Optimize memory usage during terrain data processing and rendering",
+            "details": "Analyze and optimize memory usage throughout the terrain data processing pipeline to minimize the application's memory footprint. Implement efficient serialization/deserialization of terrain data when transferring between Dart and native code to reduce copying and unnecessary allocations. Optimize the storage format of decoded terrain data to balance memory usage with performance (e.g., using Int16List instead of Float32List where appropriate precision allows). Implement memory limits and monitoring to prevent out-of-memory conditions on devices with limited resources. Create a memory profile visualization tool for debugging terrain data memory usage patterns. Investigate and implement techniques to share memory between overlapping tiles where possible. Test memory optimization techniques on both low-end and high-end devices to ensure a good balance. Document memory optimization strategies, including before/after comparisons showing improvement metrics.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 8
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Implement Hillshading Visualization",
+        "description": "Add support for hillshade visualization using pre-processed LERC files in the MapLibre GL example rather than using MapLibre's built-in hillshade.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/hillshading_support.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/multiple_terrain_rendering_modes.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL, and discusses both real-time and pre-processed hillshade approaches. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. As specified in the PRD, implement support for hillshade visualization using pre-processed LERC2 files that are already converted to look like hillshade, rather than using MapLibre's built-in hillshade layer. Create the necessary loading and rendering mechanisms for these specialized LERC2 files. Integrate this hillshade data into the rendering pipeline. This might involve generating a separate hillshade texture/layer or combining the hillshade data with the existing terrain visualization. Document the hillshade implementation approach, including how the pre-processed LERC2 files are structured and how they differ from standard elevation data. Include information about where to obtain or how to generate these specialized hillshade LERC2 files. Document any rendering considerations specific to hillshade data.",
+        "testStrategy": "Add hillshading as a selectable visualization mode (requires Task 7). Switch to hillshade mode and verify that terrain features (hills, valleys) are rendered with appropriate shading. Compare against known hillshade examples if possible.",
+        "priority": "medium",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Hillshade Data Management",
+            "description": "Implement hillshade data loading and decoding from specialized LERC2 files",
+            "details": "Create a system to load and decode pre-processed hillshade LERC2 files that contain hillshade data rather than raw elevation data. Adapt the existing LERC decoder to handle the specialized format of hillshade LERC files if they differ from standard elevation LERC files. Implement a data structure to hold the decoded hillshade data. Integrate hillshade loading into the tile management system (from Task 5). Create a mechanism to determine which hillshade tiles need to be loaded based on current view. Implement efficient error handling for missing or corrupted hillshade data. Document the hillshade data format and how it differs from standard elevation LERC data. Include information on how these specialized hillshade LERC files are generated.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 9
+          },
+          {
+            "id": 2,
+            "title": "Implement Hillshade Rendering",
+            "description": "Implement hillshade rendering in the terrain visualization pipeline",
+            "details": "Integrate hillshade rendering into the terrain visualization pipeline, allowing it to be used as a standalone visualization mode or combined with other visualization modes. Create shader code to render the hillshade data with appropriate contrast and lighting effects. Implement blending modes to combine hillshade with other terrain visualizations, such as gradient coloring. Add options to control hillshade intensity, contrast, and other visual parameters. Implement UI controls for adjusting hillshade visualization (part of Task 7). Test the hillshade rendering with different terrain types to ensure effective visualization across varied landscapes. Document the rendering approach, including the math behind hillshade rendering and implementation details for both platforms.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 9
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Implement Altitude Readout at Position",
+        "description": "Implement functionality in the MapLibre GL example to display the elevation at the map's current center position or a user-tapped location.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/raw_elevation_data_processing.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_terrain_display_ui_controls.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Listen to map camera position changes or tap gestures using the `MapWidget` controller. Convert the map's geographical coordinate (latitude, longitude) to the corresponding tile coordinate and then to the index within the decoded elevation data grid for that tile. Sample the elevation value from the `DecodedLercData` (Task 3). Implement interpolation if the exact coordinate doesn't fall directly on a grid point. Display the sampled altitude in a UI element on the page (requires Task 7 for UI integration). Document the coordinate conversion process in detail, including the mathematical formulas used for translating between geographical coordinates and tile coordinates. Explain the interpolation algorithm used and its accuracy considerations. Document any edge cases handled (e.g., areas without elevation data, boundaries between tiles) and how they were addressed.",
+        "testStrategy": "Pan the map or tap on different locations with known elevation values. Verify that the displayed altitude readout is accurate and updates correctly as the map position changes or on tap. Test interpolation by tapping between grid points.",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          4,
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Coordinate Conversion System",
+            "description": "Implement coordinate conversion between geographical and tile coordinates",
+            "details": "Develop algorithms to convert between geographical coordinates (latitude/longitude) and tile grid coordinates in the LERC data. Implement functions to convert from map coordinates to the specific LERC tile that contains elevation data for that point. Create mathematics utilities for determining the exact position within the LERC grid based on geographical coordinates, accounting for the resolution of the terrain data. Handle edge cases where coordinates fall on tile boundaries or outside available terrain data coverage. Research and implement efficient mathematical approaches for these conversions to minimize computational overhead. Document the conversion algorithms with mathematical formulas, diagrams explaining the coordinate systems, and example calculations.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 10
+          },
+          {
+            "id": 2,
+            "title": "Implement Elevation Sampling and Interpolation",
+            "description": "Implement elevation sampling and interpolation from LERC data",
+            "details": "Implement algorithms to sample elevation values from the decoded LERC data for specific geographical coordinates. Create an accurate bilinear or bicubic interpolation system to determine elevation values between grid points, providing smoother and more accurate elevation readings. Handle edge cases where the requested coordinate falls near or outside the boundaries of available terrain data. Implement a mechanism to handle positions that span multiple terrain tiles, potentially requiring data from adjacent tiles. Create a system to deal with different resolution terrain data at different zoom levels. Test the interpolation accuracy against known elevation values. Document the sampling and interpolation algorithms, including mathematical formulas, accuracy analysis, and comparison between different interpolation methods tested.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 10
+          },
+          {
+            "id": 3,
+            "title": "Design Elevation Readout UI",
+            "description": "Create the user interface for displaying elevation readouts",
+            "details": "Design and implement UI components to display elevation values to users in a clear and meaningful way. Create a readout panel or overlay that shows the elevation at the current map center or tapped location. Implement customizable units (meters, feet) for elevation display with proper conversion. Add formatting options to control precision and display style of elevation values. Design visual indicators that can show relative elevation changes (e.g., increased/decreased since last position). Create an animated transition when elevation values change to improve readability during navigation. Ensure the UI is accessible and meets contrast requirements. Test the elevation display with various elevation values, including negative (below sea level) values. Document the UI design decisions, including accessibility considerations and format customization options.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 10
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Cross-Platform Testing and Finalization",
+        "description": "Perform comprehensive testing of the LERC terrain visualization on different devices and platforms (Android, iOS) and finalize performance optimizations and documentation for the MapLibre GL example.",
+        "details": "Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/platform_specific_implementation.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/performance_optimization_techniques.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory for all testing and finalization. Test all implemented features (visualization modes, UI controls, caching, hillshading, altitude readout) on a range of target devices, including mid-range devices as specified in success metrics. Identify and fix performance bottlenecks using profiling tools. Ensure memory usage is within acceptable limits. Create comprehensive documentation covering setup, usage, and implementation details of the LERC terrain example. Compile all task-specific documentation into a unified reference document for future developers working with this code. Create a detailed troubleshooting guide addressing common issues that may be encountered. Document platform-specific differences and considerations. Include references to the original documentation in `/Users/pannam/Desktop/flutter-maplibre-gl/documentation` for additional details. Create a final report summarizing what worked well, what was challenging, and recommendations for future improvements.",
+        "testStrategy": "Execute test plans on multiple Android and iOS devices. Verify functionality, performance, and stability across platforms. Review and complete project documentation.",
+        "priority": "high",
+        "dependencies": [
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Android Platform Testing",
+            "description": "Test all features on Android devices of varying capabilities",
+            "details": "Conduct comprehensive testing of all terrain visualization features on a range of Android devices with different hardware capabilities, from low-end to high-end. Test on devices with different screen sizes, resolutions, and aspect ratios to ensure UI elements scale appropriately. Verify performance on devices with limited memory and processor capabilities to ensure the application remains responsive. Test terrain visualization with different Android versions to identify any compatibility issues. Create specific test cases for terrain data loading, rendering, UI controls, and memory management. Document Android-specific issues encountered and their resolutions. Create performance benchmarks for Android devices showing FPS, memory usage, and load times across device tiers.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 11
+          },
+          {
+            "id": 2,
+            "title": "iOS Platform Testing",
+            "description": "Test all features on iOS devices of varying capabilities",
+            "details": "Conduct comprehensive testing of all terrain visualization features on a range of iOS devices with different hardware capabilities, from older models to newer ones. Test on various iPhone sizes and iPad models to ensure UI elements scale appropriately across the iOS device family. Verify performance on devices with limited capabilities to ensure the application remains responsive. Test terrain visualization with different iOS versions to identify any compatibility issues. Create specific test cases for terrain data loading, rendering, UI controls, and memory management on iOS. Pay particular attention to Metal integration for hillshading and advanced visualization. Document iOS-specific issues encountered and their resolutions. Create performance benchmarks for iOS devices showing FPS, memory usage, and load times across device tiers.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 11
+          },
+          {
+            "id": 3,
+            "title": "Create Final Documentation",
+            "description": "Create comprehensive documentation and final project report",
+            "details": "Consolidate all documentation created throughout the project into a comprehensive reference guide for future developers. Create a detailed user manual for the LERC terrain visualization features. Document the overall architecture with diagrams showing the relationships between components. Create detailed API documentation for all public classes and methods. Create troubleshooting guides for common issues. Document performance considerations and optimization recommendations. Create a final project report summarizing the implementation approach, challenges faced, solutions developed, and recommendations for future enhancements. Include visual examples of each visualization mode. Document findings from cross-platform testing, including platform-specific considerations and workarounds implemented. Create a quick-start guide for new developers working on the project.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 11
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2025-06-25T01:05:53.970Z",
+      "updated": "2025-06-25T02:53:24.949Z",
+      "description": "Tasks for master context"
     }
-  ],
-  "metadata": {
-    "created": "2025-06-25T01:05:53.970Z",
-    "updated": "2025-06-25T01:05:53.970Z",
-    "description": "Tasks for master context"
   }
 }
