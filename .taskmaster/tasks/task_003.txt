@@ -9,3 +9,23 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Obtain a sample LERC file or byte array. Write a Dart unit test that calls the decoding logic, verifies the output data structure is created, and checks basic properties like width, height, and potentially a few known elevation values if the sample data is controlled. Use `NativeFinalizer` tests to ensure memory is released.
+
+# Subtasks:
+## 1. Design Elevation Data Structures [pending]
+### Dependencies: None
+### Description: Design and implement data structures for decoded LERC data
+### Details:
+Design and implement data structures in Dart to efficiently store and access decoded LERC elevation data. Create a class (e.g., `DecodedLercData`) to encapsulate the elevation grid data and associated metadata. Define fields for storing elevation values (using appropriate typed data like `Float32List`), dimensions (width, height), georeferencing information (bounds, coordinates), and other relevant metadata. Design the class with proper accessor methods and utility functions for data manipulation. Consider memory efficiency in the design to handle potentially large terrain datasets. Document the data structure design, explaining choices made regarding data types and organization. Include considerations for future expansion, such as supporting additional metadata or formats.
+
+## 2. Implement LERC Decoding Logic [pending]
+### Dependencies: None
+### Description: Implement the core LERC decoding functionality using FFI
+### Details:
+Implement the core functionality to decode LERC compressed data using the Dart FFI wrapper created in Task 2. Create methods that accept LERC compressed data as input, call the native decoding functions through FFI, and populate the Dart data structures with the decoded elevation values. Handle the conversion between native memory pointers and Dart typed data arrays. Implement proper error handling for potential issues during decoding, such as malformed LERC data or memory allocation failures. Ensure the implementation properly frees native memory to avoid leaks. Create utility methods to extract metadata from LERC headers to determine dimensions, data types, and other important parameters. Document the implementation details, including the memory management approach and any platform-specific considerations.
+
+## 3. Implement Memory Management [pending]
+### Dependencies: None
+### Description: Implement memory management and resource cleanup
+### Details:
+Design and implement robust memory management for the Dart-native bridge to ensure proper cleanup of resources and prevent memory leaks. Implement finalizers using `NativeFinalizer` to automatically clean up native resources when Dart objects are garbage collected. Create explicit resource management methods (e.g., dispose pattern) for deterministic cleanup when immediate resource release is needed. Implement pooling or caching strategies for frequently used native resources to reduce allocation overhead. Set up memory tracking utilities to monitor native memory usage during development. Create tests specifically for verifying memory management, including scenarios with large terrain datasets and frequent decoding operations. Document the memory management architecture including cleanup patterns, ownership model, and guidelines for developers extending the code.
+

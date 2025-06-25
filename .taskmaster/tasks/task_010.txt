@@ -9,3 +9,23 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Pan the map or tap on different locations with known elevation values. Verify that the displayed altitude readout is accurate and updates correctly as the map position changes or on tap. Test interpolation by tapping between grid points.
+
+# Subtasks:
+## 1. Implement Coordinate Conversion System [pending]
+### Dependencies: None
+### Description: Implement coordinate conversion between geographical and tile coordinates
+### Details:
+Develop algorithms to convert between geographical coordinates (latitude/longitude) and tile grid coordinates in the LERC data. Implement functions to convert from map coordinates to the specific LERC tile that contains elevation data for that point. Create mathematics utilities for determining the exact position within the LERC grid based on geographical coordinates, accounting for the resolution of the terrain data. Handle edge cases where coordinates fall on tile boundaries or outside available terrain data coverage. Research and implement efficient mathematical approaches for these conversions to minimize computational overhead. Document the conversion algorithms with mathematical formulas, diagrams explaining the coordinate systems, and example calculations.
+
+## 2. Implement Elevation Sampling and Interpolation [pending]
+### Dependencies: None
+### Description: Implement elevation sampling and interpolation from LERC data
+### Details:
+Implement algorithms to sample elevation values from the decoded LERC data for specific geographical coordinates. Create an accurate bilinear or bicubic interpolation system to determine elevation values between grid points, providing smoother and more accurate elevation readings. Handle edge cases where the requested coordinate falls near or outside the boundaries of available terrain data. Implement a mechanism to handle positions that span multiple terrain tiles, potentially requiring data from adjacent tiles. Create a system to deal with different resolution terrain data at different zoom levels. Test the interpolation accuracy against known elevation values. Document the sampling and interpolation algorithms, including mathematical formulas, accuracy analysis, and comparison between different interpolation methods tested.
+
+## 3. Design Elevation Readout UI [pending]
+### Dependencies: None
+### Description: Create the user interface for displaying elevation readouts
+### Details:
+Design and implement UI components to display elevation values to users in a clear and meaningful way. Create a readout panel or overlay that shows the elevation at the current map center or tapped location. Implement customizable units (meters, feet) for elevation display with proper conversion. Add formatting options to control precision and display style of elevation values. Design visual indicators that can show relative elevation changes (e.g., increased/decreased since last position). Create an animated transition when elevation values change to improve readability during navigation. Ensure the UI is accessible and meets contrast requirements. Test the elevation display with various elevation values, including negative (below sea level) values. Document the UI design decisions, including accessibility considerations and format customization options.
+

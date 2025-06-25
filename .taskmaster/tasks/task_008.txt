@@ -9,3 +9,23 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Pan and zoom the map rapidly over an area with terrain. Monitor performance (FPS) and memory usage using profiling tools (Flutter DevTools). Verify that caching reduces decoding time for revisited areas. Ensure throttling prevents excessive updates during gestures.
+
+# Subtasks:
+## 1. Implement Terrain Data Caching [pending]
+### Dependencies: None
+### Description: Design and implement an efficient caching system for terrain data
+### Details:
+Design and implement a tile caching mechanism using an LRU (Least Recently Used) cache based on LinkedHashMap or a similar structure. Create a caching strategy that stores DecodedLercData objects keyed by tile coordinates to avoid redundant decoding of previously loaded tiles. Implement a cache size limit based on estimated memory usage of terrain data to prevent excessive memory consumption. Create a cache eviction policy that removes least recently accessed tiles when the cache reaches capacity. Add options for clearing the cache manually and automatically when changing visualization modes that might require reprocessing the data. Implement metrics for cache hit rate and memory usage to measure effectiveness. Document the caching architecture, explaining policy decisions and memory management considerations.
+
+## 2. Implement Map Interaction Throttling [pending]
+### Dependencies: None
+### Description: Implement throttling and debouncing for map interactions to improve performance
+### Details:
+Implement throttling and debouncing mechanisms for map events (pan, zoom) to reduce the frequency of terrain updates during rapid user interactions. Use the Timer class or packages like flutter_hooks or rxdart to implement debouncing logic that delays terrain updates until map movement settles. Implement a throttling mechanism that limits terrain updates to a reasonable frequency (e.g., max 2-3 updates per second) during continuous interactions. Add logic to prioritize rendering quality once user interaction stops by triggering a final high-quality render pass. Create a system that adjusts the resolution or detail level of terrain based on the interaction state (e.g., lower resolution during active panning, higher resolution when stationary). Test different throttling intervals to find the optimal balance between responsiveness and performance. Document the throttling and debouncing implementation with diagrams showing the event timeline and render behavior.
+
+## 3. Optimize Memory Usage [pending]
+### Dependencies: None
+### Description: Optimize memory usage during terrain data processing and rendering
+### Details:
+Analyze and optimize memory usage throughout the terrain data processing pipeline to minimize the application's memory footprint. Implement efficient serialization/deserialization of terrain data when transferring between Dart and native code to reduce copying and unnecessary allocations. Optimize the storage format of decoded terrain data to balance memory usage with performance (e.g., using Int16List instead of Float32List where appropriate precision allows). Implement memory limits and monitoring to prevent out-of-memory conditions on devices with limited resources. Create a memory profile visualization tool for debugging terrain data memory usage patterns. Investigate and implement techniques to share memory between overlapping tiles where possible. Test memory optimization techniques on both low-end and high-end devices to ensure a good balance. Document memory optimization strategies, including before/after comparisons showing improvement metrics.
+

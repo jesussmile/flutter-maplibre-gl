@@ -9,3 +9,23 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Run `flutter pub run ffigen` to generate bindings. Write a simple Dart test case that loads the native library and calls a basic function (if available in the wrapper) to verify FFI setup and binding correctness.
+
+# Subtasks:
+## 1. Setup FFI Binding Generation [pending]
+### Dependencies: None
+### Description: Configure and generate FFI bindings for LERC wrapper
+### Details:
+Set up the FFI binding generation configuration for the LERC wrapper C API. Create a `ffigen.yaml` file in the example project with appropriate configuration for generating Dart bindings. Specify the header file path, output file path, and library name in the configuration. Configure include directories to find all necessary header dependencies. Set up name mapping rules if needed to make the generated Dart API more idiomatic. Run the ffigen tool to generate the bindings and verify the output. Fix any issues in the header files or configuration that might prevent successful binding generation. Document the configuration options and any special considerations for the binding generation process.
+
+## 2. Implement Dart Wrapper Class [pending]
+### Dependencies: None
+### Description: Create Dart wrapper class for native LERC functions
+### Details:
+Design and implement a high-level Dart wrapper class that encapsulates the raw FFI bindings and provides a more idiomatic Dart API for working with LERC data. Create methods with proper Dart types that internally handle the conversion to and from FFI types. Implement proper error handling that translates C error codes and states into appropriate Dart exceptions or error objects. Write thorough documentation for the wrapper class, including usage examples. Create utility methods to simplify common operations with LERC data. Implement platform-specific code where needed to handle differences between iOS and Android. Create unit tests that verify the wrapper works correctly with the native code. Document the wrapper class architecture and its relationship to both the generated bindings and the application logic.
+
+## 3. Test FFI Integration [pending]
+### Dependencies: None
+### Description: Test FFI integration across platforms
+### Details:
+Create comprehensive tests for the FFI bindings and wrapper class to ensure they work correctly across different platforms. Write unit tests that verify the basic functionality of the FFI bindings. Create integration tests that decode actual LERC data using the native code and verify the results. Test for proper memory management and cleanup to ensure no memory leaks. Test platform-specific aspects of the FFI integration to ensure compatibility on both Android and iOS. Create a test harness that can be run on both platforms to verify consistent behavior. Document testing approaches, test data, and expected results. Create a test coverage report to ensure all critical paths are tested.
+

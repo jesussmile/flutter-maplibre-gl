@@ -9,3 +9,29 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Run `flutter build apk` and `flutter build ios` to confirm the native libraries are built successfully without errors. Check the build output directories for the generated native library files.
+
+# Subtasks:
+## 1. Setup Android CMake Integration [pending]
+### Dependencies: None
+### Description: Configure the Android NDK build process with CMake to integrate the LERC library and native code
+### Details:
+Copy necessary LERC and flightcanvas_terrain C++ files to the appropriate location in the Android directory structure of the MapLibre GL example project. Create or modify CMakeLists.txt in the Android project to include the LERC library source files and the wrapper code. Configure include paths, compiler flags, and library linking. Ensure the compiled library is named appropriately for FFI to locate it. Test compilation with `flutter build apk --debug` to verify CMake setup.
+
+## 2. Setup iOS Build Framework [pending]
+### Dependencies: None
+### Description: Configure the iOS build process to integrate the LERC library and native code
+### Details:
+Copy necessary LERC and flightcanvas_terrain C++ files to the appropriate location in the iOS directory structure of the MapLibre GL example project. Configure the Xcode project (either directly or via podspec) to include the LERC library source files and wrapper code. Set up proper header search paths, compiler flags, and library linking. Ensure the compiled library is named appropriately for FFI to locate it. Test compilation with `flutter build ios --debug --no-codesign` to verify the setup.
+
+## 3. Adapt LERC Wrapper Code [in-progress]
+### Dependencies: None
+### Description: Integrate and adapt the existing LERC wrapper code from flightcanvas_terrain
+### Details:
+Review the existing LERC wrapper code in the flightcanvas_terrain directory. Identify the key components needed for decoding LERC data and memory management. Extract and adapt these components for use with MapLibre GL, making any necessary modifications. Ensure the wrapper provides a clean C API that can be called from Dart through FFI. Document any changes made to the original code and the reasons for those changes.
+
+## 4. Create Integration Documentation [pending]
+### Dependencies: None
+### Description: Document the native code integration and build process
+### Details:
+Create comprehensive documentation about how the LERC library and wrapper code is integrated into the MapLibre GL example project. Include details on the directory structure, file placement, build configuration, and any platform-specific considerations. Document any challenges encountered during integration and how they were resolved. Explain how to maintain or update the native code in the future. Create a developer guide for anyone who needs to work with the native code portion of the project in the future.
+

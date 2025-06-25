@@ -9,3 +9,23 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Add internal flags or parameters to switch between visualization modes. Manually test each mode with sample data to ensure colors and highlighting appear as expected based on elevation values and configured reference/warning levels. Verify bucketing reduces visual noise.
+
+# Subtasks:
+## 1. Implement Continuous Gradient Coloring [pending]
+### Dependencies: None
+### Description: Implement a continuous color gradient algorithm for terrain visualization based on elevation values
+### Details:
+Develop a shader/coloring algorithm that maps elevation values to colors using a continuous gradient. Define a suitable color spectrum that visually represents elevation changes effectively (e.g., blue for low elevations through greens, browns, to white for high elevations). Implement the mapping function to convert raw elevation values to RGB/RGBA colors. Integrate this coloring mode with the rendering pipeline on both Android and iOS. Test the gradient visualization with different elevation ranges and ensure smooth transitions between colors. Document the algorithm and color scheme choices.
+
+## 2. Implement Reference Altitude Highlighting [pending]
+### Dependencies: None
+### Description: Create a visualization mode that highlights areas above or below reference altitude levels
+### Details:
+Implement a reference altitude highlighting feature that allows users to visualize terrain areas above or below specified elevation thresholds. Create shader logic that applies distinct colors or overlays to regions based on their relationship to reference altitude. Implement support for two key thresholds: 1) 'reference altitude' for general comparison and 2) 'warning level' for critical elevation boundaries. Ensure that both the color of the highlighted regions and the reference values can be adjusted dynamically. Test this visualization mode with different reference values and verify that the highlighting accurately reflects the elevation data. Document the implementation approach and user scenarios where this visualization mode is particularly useful.
+
+## 3. Implement Altitude Bucketing [pending]
+### Dependencies: None
+### Description: Implement altitude bucketing for clearer terrain visualization with discrete elevation bands
+### Details:
+Create a quantization algorithm that groups elevation values into discrete buckets or bands to create a clearer visual representation of elevation changes. Develop a configurable bucketing approach that allows adjusting the number of buckets and their boundaries. Implement coloring logic that assigns distinct colors to each bucket while maintaining visual coherence across the elevation range. Support two bucketing modes: 1) equal-interval bucketing with uniform elevation ranges and 2) custom-interval bucketing for focusing on specific elevation ranges of interest. Test the visualization with different bucket configurations to ensure effective representation of elevation changes. Document the bucketing algorithm, including considerations for selecting appropriate bucket boundaries based on terrain characteristics.
+

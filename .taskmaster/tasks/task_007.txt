@@ -9,3 +9,23 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Interact with each UI control on the page. Verify that changing sliders, toggles, or dropdowns correctly updates the terrain visualization on the map in real-time. Ensure toggling visibility hides/shows the terrain layer.
+
+# Subtasks:
+## 1. Design Core UI Layout and Controls [pending]
+### Dependencies: None
+### Description: Design and implement core UI layout and controls
+### Details:
+Design and implement the core UI layout for terrain visualization controls, focusing on usability and clarity. Create a visually appealing control panel that can be collapsed/expanded to maximize map visibility. Implement core controls including visualization mode selector (dropdown or segmented control), visibility toggle, and opacity/transparency slider. Design the UI to work well on different device sizes and orientations. Use Flutter's Material or Cupertino design elements for a native look and feel. Ensure controls have sufficient touch targets for mobile use. Document UI design decisions including layout considerations and control selection rationale.
+
+## 2. Implement Mode-Specific Controls [pending]
+### Dependencies: None
+### Description: Implement visualization mode-specific controls
+### Details:
+Design and implement specialized UI controls specific to each visualization mode implemented in Task 6. For continuous gradient visualization, add controls to adjust min/max elevation values and customize color stops. For reference altitude visualization, add sliders to adjust reference and warning levels, and color pickers for highlight colors. For altitude bucketing, add controls to adjust the number of buckets or custom bucket boundaries. For hillshade visualization, add controls for adjusting intensity and blending with other visualizations. Create a dynamic UI that shows only relevant controls for the currently selected visualization mode. Ensure all controls provide immediate visual feedback when adjusted. Document each specialized control's purpose, interaction model, and integration with the rendering system.
+
+## 3. Implement State Management Architecture [pending]
+### Dependencies: None
+### Description: Implement state management for UI controls and visualization settings
+### Details:
+Design and implement a robust state management solution for the terrain visualization controls and settings. Select an appropriate state management approach (e.g., Provider, Bloc, Redux, or Riverpod) based on the complexity of the terrain visualization settings. Create models for all visualization settings (mode, reference altitude, etc.) with proper typing and validation. Implement state persistence to preserve user settings between app sessions. Create a reactive architecture that efficiently updates only the necessary components when settings change. Implement proper error handling for invalid state transitions or settings. Document the chosen state management approach, including architecture diagrams showing data flow between UI controls, state management, and rendering components.
+

@@ -9,3 +9,23 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Add a navigation entry to the main example app menu for the new page. Run the example app and navigate to the new page to ensure it loads correctly and displays a basic map.
+
+# Subtasks:
+## 1. Create Basic Terrain Example Page [pending]
+### Dependencies: None
+### Description: Create the basic terrain example page with MapLibre integration
+### Details:
+Create a new Dart file `terrain_page.dart` in the MapLibre GL example app's pages directory. Implement a StatefulWidget that contains a MapLibre GL map view configured with appropriate initial location and zoom level suitable for terrain visualization. Set up the basic structure for the page, including appropriate app bar, map container, and placeholder areas for controls that will be added later. Configure the map with suitable base layers or styles that will work well with terrain visualization overlays. Implement basic map navigation controls (zoom, pan) and ensure they work properly. Add this new page to the example app's navigation system (e.g., drawer or tab navigation) to make it accessible from the main example app.
+
+## 2. Implement Map Camera Integration [pending]
+### Dependencies: None
+### Description: Implement map camera events and controller integration
+### Details:
+Implement integration with MapLibre GL's camera events and controller to enable interaction with the terrain visualization. Set up listeners for map camera move, move end, and zoom events to track the visible map area. Implement a controller for programmatically controlling the map view when needed for terrain-specific operations. Create a mechanism to convert between map camera positions and terrain tile coordinates. Set up the foundation for synchronizing terrain data loading with map viewport changes. Document the map-terrain synchronization approach, including events used and data flow between map events and terrain rendering.
+
+## 3. Prepare Sample Terrain Data [pending]
+### Dependencies: None
+### Description: Prepare example terrain data assets for the demo
+### Details:
+Select and prepare sample LERC terrain data files for inclusion in the example app. Choose terrain data that showcases interesting elevation features for effective demonstration. Process and possibly resize the LERC files to be suitable for mobile app distribution. Add the terrain data files to the app's assets and update the pubspec.yaml file to include them. Create utility functions to load the terrain data files from assets. Document the sample data, including its geographical coverage, resolution, and any preprocessing applied. Include information about the source of the terrain data and licensing considerations.
+

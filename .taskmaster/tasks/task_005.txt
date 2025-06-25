@@ -9,3 +9,29 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Load a map view covering an area with known terrain data. Verify that colored terrain appears on the map corresponding to elevation. Pan and zoom to ensure new tiles are loaded and rendered correctly.
+
+# Subtasks:
+## 1. Implement Terrain Tile Management [pending]
+### Dependencies: None
+### Description: Create a Dart component to manage terrain tiles and coordinate with MapLibre camera
+### Details:
+Develop a Dart component that monitors the visible map bounds and camera position from the MapLibre GL map. Implement logic to determine which terrain tiles need to be loaded based on the current view. Create a mechanism to request, load, and manage LERC terrain data for these tiles. Implement a queue system to prioritize loading tiles in the current viewport. Handle zoom level changes and calculate appropriate tile resolution. Document the tile management system architecture.
+
+## 2. Implement Cross-Platform Communication [pending]
+### Dependencies: None
+### Description: Create the channel for communicating between Dart and native platforms
+### Details:
+Design and implement a MethodChannel-based communication system between the Dart side and native platforms (Android/iOS). Define the message structure for sending decoded elevation data, tile coordinates, and rendering parameters to the native side. Implement serialization/deserialization of the terrain data for efficient transfer across the platform boundary. Create methods to send terrain updates when new tiles are loaded or parameters change. Implement handlers on both the Dart and native sides. Document the communication protocol.
+
+## 3. Implement Android Terrain Rendering [pending]
+### Dependencies: None
+### Description: Implement Android-side rendering of terrain data in the MapLibre GL view
+### Details:
+On the Android platform, implement native code to receive the decoded terrain data from the Dart side. Research how to hook into the MapLibre GL native rendering pipeline on Android, possibly using custom layers or overlays. Implement OpenGL/Vulkan rendering logic to display the terrain data visually on top of or integrated with the map. Create shaders for basic elevation-based coloring. Handle synchronization between the map view and terrain overlay. Ensure proper memory management for terrain data. Document the Android rendering implementation.
+
+## 4. Implement iOS Terrain Rendering [pending]
+### Dependencies: None
+### Description: Implement iOS-side rendering of terrain data in the MapLibre GL view
+### Details:
+On the iOS platform, implement native code to receive the decoded terrain data from the Dart side. Research how to hook into the MapLibre GL native rendering pipeline on iOS, possibly using custom layers or overlays. Implement Metal or OpenGL rendering logic to display the terrain data visually on top of or integrated with the map. Create shaders for basic elevation-based coloring. Handle synchronization between the map view and terrain overlay. Ensure proper memory management for terrain data. Document the iOS rendering implementation.
+

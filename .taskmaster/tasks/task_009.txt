@@ -9,3 +9,17 @@ Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutte
 
 # Test Strategy:
 Add hillshading as a selectable visualization mode (requires Task 7). Switch to hillshade mode and verify that terrain features (hills, valleys) are rendered with appropriate shading. Compare against known hillshade examples if possible.
+
+# Subtasks:
+## 1. Implement Hillshade Data Management [pending]
+### Dependencies: None
+### Description: Implement hillshade data loading and decoding from specialized LERC2 files
+### Details:
+Create a system to load and decode pre-processed hillshade LERC2 files that contain hillshade data rather than raw elevation data. Adapt the existing LERC decoder to handle the specialized format of hillshade LERC files if they differ from standard elevation LERC files. Implement a data structure to hold the decoded hillshade data. Integrate hillshade loading into the tile management system (from Task 5). Create a mechanism to determine which hillshade tiles need to be loaded based on current view. Implement efficient error handling for missing or corrupted hillshade data. Document the hillshade data format and how it differs from standard elevation LERC data. Include information on how these specialized hillshade LERC files are generated.
+
+## 2. Implement Hillshade Rendering [pending]
+### Dependencies: None
+### Description: Implement hillshade rendering in the terrain visualization pipeline
+### Details:
+Integrate hillshade rendering into the terrain visualization pipeline, allowing it to be used as a standalone visualization mode or combined with other visualization modes. Create shader code to render the hillshade data with appropriate contrast and lighting effects. Implement blending modes to combine hillshade with other terrain visualizations, such as gradient coloring. Add options to control hillshade intensity, contrast, and other visual parameters. Implement UI controls for adjusting hillshade visualization (part of Task 7). Test the hillshade rendering with different terrain types to ensure effective visualization across varied landscapes. Document the rendering approach, including the math behind hillshade rendering and implementation details for both platforms.
+
