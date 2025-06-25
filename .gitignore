@@ -79,6 +79,10 @@ node_modules/
 *.sw?
 # OS specific
 
+# Large directories to exclude from git
+/flightcanvas_terrain/
+/lerc-master/ 
+
 # Task files
 # tasks.json
 # tasks/ 
