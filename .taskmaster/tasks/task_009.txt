@@ -1,0 +1,11 @@
+# Task ID: 9
+# Title: Implement Hillshading Visualization
+# Status: pending
+# Dependencies: 5
+# Priority: medium
+# Description: Add support for hillshade visualization using pre-processed LERC files in the MapLibre GL example rather than using MapLibre's built-in hillshade.
+# Details:
+Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/hillshading_support.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/multiple_terrain_rendering_modes.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL, and discusses both real-time and pre-processed hillshade approaches. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. As specified in the PRD, implement support for hillshade visualization using pre-processed LERC2 files that are already converted to look like hillshade, rather than using MapLibre's built-in hillshade layer. Create the necessary loading and rendering mechanisms for these specialized LERC2 files. Integrate this hillshade data into the rendering pipeline. This might involve generating a separate hillshade texture/layer or combining the hillshade data with the existing terrain visualization. Document the hillshade implementation approach, including how the pre-processed LERC2 files are structured and how they differ from standard elevation data. Include information about where to obtain or how to generate these specialized hillshade LERC2 files. Document any rendering considerations specific to hillshade data.
+
+# Test Strategy:
+Add hillshading as a selectable visualization mode (requires Task 7). Switch to hillshade mode and verify that terrain features (hills, valleys) are rendered with appropriate shading. Compare against known hillshade examples if possible.

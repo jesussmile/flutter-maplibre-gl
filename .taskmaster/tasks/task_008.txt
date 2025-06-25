@@ -1,0 +1,11 @@
+# Task ID: 8
+# Title: Implement Caching and Performance Optimizations
+# Status: pending
+# Dependencies: 5
+# Priority: high
+# Description: Implement efficient caching for decoded terrain data tiles and performance optimizations like throttling map updates in the MapLibre GL example.
+# Details:
+Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/lerc_data_caching.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/performance_optimization_techniques.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/throttling_and_debouncing.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Create a cache mechanism (e.g., an LRU cache using `LinkedHashMap`) to store `DecodedLercData` objects keyed by tile coordinates. When a tile is needed, check the cache first before decoding. Implement a cache eviction policy to manage memory usage. For performance, throttle the frequency of terrain updates triggered by rapid map movements (pan/zoom) using techniques like `Timer.periodic` or debouncing/throttling utilities from packages like `collection` or `flutter_hooks`. Optimize memory usage during decoding and data transfer. Document the caching strategy in detail, including cache size considerations, eviction policies, and memory usage analysis. Create performance benchmarks comparing the application with and without optimizations. Document any platform-specific performance issues encountered (iOS vs Android) and how they were addressed. Include memory usage patterns and recommendations for future optimization.
+
+# Test Strategy:
+Pan and zoom the map rapidly over an area with terrain. Monitor performance (FPS) and memory usage using profiling tools (Flutter DevTools). Verify that caching reduces decoding time for revisited areas. Ensure throttling prevents excessive updates during gestures.

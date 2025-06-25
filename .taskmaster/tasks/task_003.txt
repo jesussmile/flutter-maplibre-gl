@@ -1,0 +1,11 @@
+# Task ID: 3
+# Title: Implement Decoded Data Structure and Basic Decoding
+# Status: pending
+# Dependencies: 2
+# Priority: high
+# Description: Define Dart data structures to hold decoded LERC elevation data and implement the core logic for decoding LERC byte arrays using the Dart FFI wrapper within the MapLibre GL example project.
+# Details:
+Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_lerc_decoding.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/memory_management.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/raw_elevation_data_processing.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Create a Dart class, e.g., `DecodedLercData`, to store the decoded elevation grid (e.g., as a `Float32List` or `Int16List` depending on precision needs, `Float32List` is generally safer for varying elevation ranges) along with metadata like width, height, and georeferencing information (if available from LERC or context). Implement a method in the `LercDecoder` class (or a separate service) that takes LERC compressed bytes (`Uint8List`), passes them to the native decoder via FFI, receives the decoded data pointer, copies it to a Dart `TypedData`, and returns a `DecodedLercData` object. Implement necessary memory cleanup for native allocations using `NativeFinalizer` or explicit `free` calls. Document the data structure design decisions, memory management strategies, and any performance considerations for future reference.
+
+# Test Strategy:
+Obtain a sample LERC file or byte array. Write a Dart unit test that calls the decoding logic, verifies the output data structure is created, and checks basic properties like width, height, and potentially a few known elevation values if the sample data is controlled. Use `NativeFinalizer` tests to ensure memory is released.

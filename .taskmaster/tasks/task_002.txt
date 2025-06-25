@@ -1,0 +1,11 @@
+# Task ID: 2
+# Title: Generate FFI Bindings and Create Dart Wrapper
+# Status: pending
+# Dependencies: 1
+# Priority: high
+# Description: Generate Dart FFI bindings for the C API defined in `lerc_wrapper.h` and create a high-level Dart wrapper class for easier interaction with the native LERC decoder functions within the MapLibre GL example project.
+# Details:
+Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/dart_ffi_bindings.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/dart_ffi_integration.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Work specifically in the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory for all implementation. Use the `ffigen` tool (version ^0.1.0 or later recommended) to generate Dart bindings from `lerc_wrapper.h`. Configure `ffigen.yaml` in the example project to specify the header file, library name, and output file (`lerc_bindings.dart`). Create a Dart class, e.g., `LercDecoder`, that encapsulates the raw FFI calls, handling `Pointer` types and memory management. Implement methods like `decodeLerc` that call the native decoding function and return a structured Dart object or `TypedData` (like `Float32List`) containing the elevation data. Ensure proper error handling for native calls. Document the FFI binding process, any challenges encountered with different platforms, and solutions implemented for future reference.
+
+# Test Strategy:
+Run `flutter pub run ffigen` to generate bindings. Write a simple Dart test case that loads the native library and calls a basic function (if available in the wrapper) to verify FFI setup and binding correctness.

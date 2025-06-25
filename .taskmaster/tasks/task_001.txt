@@ -1,0 +1,11 @@
+# Task ID: 1
+# Title: Setup Native Build Integration
+# Status: pending
+# Dependencies: None
+# Priority: high
+# Description: Set up the existing MapLibre GL example project (/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example) to include the existing LERC native code from the flightcanvas_terrain directory and configure the build process for Android and iOS platforms.
+# Details:
+Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/lerc_integration.md`, `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/cmake_configuration.md`, and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/platform_specific_implementation.md`. Note that the documentation was written for flutter_map and may need adaptation for MapLibre GL. Use the existing LERC library source code at `/Users/pannam/Desktop/flutter-maplibre-gl/lerc-master` instead of downloading it. Integrate the `flightcanvas_terrain` native code directory into the MapLibre GL example project at `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example`. Configure `CMakeLists.txt` files in the example project directories for both Android (via NDK) and iOS to build the `lerc_wrapper.cpp` and link against the existing LERC library. Ensure the native build process is triggered correctly by the Flutter build. Verify native library outputs (.so for Android, .dylib/.framework for iOS) are generated and placed correctly for FFI linking. Use Flutter's built-in support for native code and CMake. Document all steps taken, challenges encountered, solutions implemented, and lessons learned during the integration process for future reference.
+
+# Test Strategy:
+Run `flutter build apk` and `flutter build ios` to confirm the native libraries are built successfully without errors. Check the build output directories for the generated native library files.

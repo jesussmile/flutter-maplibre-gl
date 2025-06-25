@@ -1,0 +1,11 @@
+# Task ID: 4
+# Title: Create MapLibre GL Example Page
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Create a new example page within the existing MapLibre GL example application specifically for demonstrating LERC terrain visualization.
+# Details:
+Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/flutter_map_terrain_layer.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_terrain_display_ui_controls.md`. Note that the documentation was written for flutter_map and will need significant adaptation for MapLibre GL. Add a new file, e.g., `terrain_page.dart`, in the example app's pages directory at `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example/lib/`. This page should contain a `MapWidget` from the `flutter_maplibre_gl` plugin. Set up basic map controls (zoom, pan). This page will serve as the container for integrating the terrain visualization layer and UI controls. Document the integration approach with the existing example app structure, including how the page was added to the navigation system and any modifications needed to the existing codebase.
+
+# Test Strategy:
+Add a navigation entry to the main example app menu for the new page. Run the example app and navigate to the new page to ensure it loads correctly and displays a basic map.

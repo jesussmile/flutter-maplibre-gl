@@ -1,0 +1,11 @@
+# Task ID: 10
+# Title: Implement Altitude Readout at Position
+# Status: pending
+# Dependencies: 3, 4, 5
+# Priority: medium
+# Description: Implement functionality in the MapLibre GL example to display the elevation at the map's current center position or a user-tapped location.
+# Details:
+Refer to the following documentation for guidance: `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/raw_elevation_data_processing.md` and `/Users/pannam/Desktop/flutter-maplibre-gl/documentation/basic_terrain_display_ui_controls.md`. Note that the documentation was written for flutter_map and will need adaptation for MapLibre GL. Work exclusively within the `/Users/pannam/Desktop/flutter-maplibre-gl/maplibre_gl_example` directory. Listen to map camera position changes or tap gestures using the `MapWidget` controller. Convert the map's geographical coordinate (latitude, longitude) to the corresponding tile coordinate and then to the index within the decoded elevation data grid for that tile. Sample the elevation value from the `DecodedLercData` (Task 3). Implement interpolation if the exact coordinate doesn't fall directly on a grid point. Display the sampled altitude in a UI element on the page (requires Task 7 for UI integration). Document the coordinate conversion process in detail, including the mathematical formulas used for translating between geographical coordinates and tile coordinates. Explain the interpolation algorithm used and its accuracy considerations. Document any edge cases handled (e.g., areas without elevation data, boundaries between tiles) and how they were addressed.
+
+# Test Strategy:
+Pan the map or tap on different locations with known elevation values. Verify that the displayed altitude readout is accurate and updates correctly as the map position changes or on tap. Test interpolation by tapping between grid points.
