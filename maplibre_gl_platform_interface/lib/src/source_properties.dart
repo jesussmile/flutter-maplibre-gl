@@ -695,3 +695,93 @@ class ImageSourceProperties implements SourceProperties {
     );
   }
 }
+
+/// Properties for LERC tile sources.
+///
+/// This source type allows rendering elevation data directly from LERC format
+/// with custom colorization and on-demand tile generation.
+class LercTileSourceProperties implements SourceProperties {
+  /// URL template for LERC tiles. Should contain {z}/{x}/{y} placeholders.
+  final String urlTemplate;
+
+  /// An array containing the longitude and latitude of the southwest and
+  /// northeast corners of the source's bounding box in the following order:
+  /// `[sw.lng, sw.lat, ne.lng, ne.lat]`. When this property is included in
+  /// a source, no tiles outside of the given bounds are requested by
+  /// MapLibre.
+  final List<double>? bounds;
+
+  /// Minimum zoom level for which tiles are available.
+  final double? minzoom;
+
+  /// Maximum zoom level for which tiles are available.
+  final double? maxzoom;
+
+  /// The minimum visual size to display tiles for this layer.
+  final double? tileSize;
+
+  /// Influences the y direction of the tile coordinates.
+  final String? scheme;
+
+  /// Contains an attribution to be displayed when the map is shown to a
+  /// user.
+  final String? attribution;
+
+  /// Minimum elevation value for color mapping
+  final double? minElevation;
+
+  /// Maximum elevation value for color mapping
+  final double? maxElevation;
+
+  /// Color stops for elevation visualization
+  /// Each stop is a [elevation, color] pair
+  final List<List<dynamic>>? colorStops;
+
+  /// Hillshade parameters
+  final double? hillshadeExaggeration;
+  final double? hillshadeAzimuth;
+  final double? hillshadeAngle;
+
+  const LercTileSourceProperties({
+    required this.urlTemplate,
+    this.bounds = const [-180, -85.051129, 180, 85.051129],
+    this.minzoom = 0,
+    this.maxzoom = 22,
+    this.tileSize = 512,
+    this.scheme = "xyz",
+    this.attribution,
+    this.minElevation,
+    this.maxElevation,
+    this.colorStops,
+    this.hillshadeExaggeration,
+    this.hillshadeAzimuth,
+    this.hillshadeAngle,
+  });
+
+  @override
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{};
+
+    void addIfPresent(String fieldName, dynamic value) {
+      if (value != null) {
+        json[fieldName] = value;
+      }
+    }
+
+    json["type"] = "lerc";
+    json['urlTemplate'] = urlTemplate;
+    addIfPresent('bounds', bounds);
+    addIfPresent('minzoom', minzoom);
+    addIfPresent('maxzoom', maxzoom);
+    addIfPresent('tileSize', tileSize);
+    addIfPresent('scheme', scheme);
+    addIfPresent('attribution', attribution);
+    addIfPresent('minElevation', minElevation);
+    addIfPresent('maxElevation', maxElevation);
+    addIfPresent('colorStops', colorStops);
+    addIfPresent('hillshadeExaggeration', hillshadeExaggeration);
+    addIfPresent('hillshadeAzimuth', hillshadeAzimuth);
+    addIfPresent('hillshadeAngle', hillshadeAngle);
+    return json;
+  }
+}

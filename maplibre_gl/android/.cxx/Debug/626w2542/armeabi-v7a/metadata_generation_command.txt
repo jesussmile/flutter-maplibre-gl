@@ -1,0 +1,20 @@
+                        -H/Users/pannam/Desktop/flight_canvas/flutter-maplibre-gl/maplibre_gl/android/src/main/cpp
+-DCMAKE_SYSTEM_NAME=Android
+-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+-DCMAKE_SYSTEM_VERSION=21
+-DANDROID_PLATFORM=android-21
+-DANDROID_ABI=armeabi-v7a
+-DCMAKE_ANDROID_ARCH_ABI=armeabi-v7a
+-DANDROID_NDK=/Users/pannam/Library/Android/sdk/ndk/28.1.13356709
+-DCMAKE_ANDROID_NDK=/Users/pannam/Library/Android/sdk/ndk/28.1.13356709
+-DCMAKE_TOOLCHAIN_FILE=/Users/pannam/Library/Android/sdk/ndk/28.1.13356709/build/cmake/android.toolchain.cmake
+-DCMAKE_MAKE_PROGRAM=/Users/pannam/Library/Android/sdk/cmake/3.22.1/bin/ninja
+-DCMAKE_CXX_FLAGS=-std=c++14
+-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=/Users/pannam/Desktop/flight_canvas/build/maplibre_gl/intermediates/cxx/Debug/626w2542/obj/armeabi-v7a
+-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=/Users/pannam/Desktop/flight_canvas/build/maplibre_gl/intermediates/cxx/Debug/626w2542/obj/armeabi-v7a
+-DCMAKE_BUILD_TYPE=Debug
+-B/Users/pannam/Desktop/flight_canvas/flutter-maplibre-gl/maplibre_gl/android/.cxx/Debug/626w2542/armeabi-v7a
+-GNinja
+-DANDROID_STL=c++_shared
+                        Build command args: []
+                        Version: 2

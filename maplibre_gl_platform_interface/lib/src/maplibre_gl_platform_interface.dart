@@ -202,6 +202,17 @@ abstract class MapLibrePlatform {
 
   Future<void> setLayerVisibility(String layerId, bool visible);
 
+  // Native Image Overlay Controls
+  Future<void> addImageOverlayControls(
+      String overlayId, List<List<double>> coordinates, bool editMode);
+  Future<void> updateImageOverlayControls(
+      String overlayId, List<List<double>> coordinates, bool editMode);
+  Future<void> removeImageOverlayControls(String overlayId);
+  Future<void> handleImageOverlayGesture(String overlayId, String gestureType,
+      double screenX, double screenY, double deltaX, double deltaY);
+  Future<void> setImageOverlayControlsSensitivity(
+      String overlayId, double sensitivity);
+
   @mustCallSuper
   void dispose() {
     // clear all callbacks to avoid cyclic refs

@@ -1411,6 +1411,43 @@ class MapLibreMapController extends ChangeNotifier {
         .toList();
   }
 
+  // ================================
+  // Native Image Overlay Controls
+  // ================================
+
+  /// Add native UI controls for image overlay editing
+  Future<void> addImageOverlayControls(
+      String overlayId, List<List<double>> coordinates, bool editMode) async {
+    return _maplibrePlatform.addImageOverlayControls(
+        overlayId, coordinates, editMode);
+  }
+
+  /// Update native image overlay controls
+  Future<void> updateImageOverlayControls(
+      String overlayId, List<List<double>> coordinates, bool editMode) async {
+    return _maplibrePlatform.updateImageOverlayControls(
+        overlayId, coordinates, editMode);
+  }
+
+  /// Remove native image overlay controls
+  Future<void> removeImageOverlayControls(String overlayId) async {
+    return _maplibrePlatform.removeImageOverlayControls(overlayId);
+  }
+
+  /// Handle gesture events for image overlay controls
+  Future<void> handleImageOverlayGesture(String overlayId, String gestureType,
+      double screenX, double screenY, double deltaX, double deltaY) async {
+    return _maplibrePlatform.handleImageOverlayGesture(
+        overlayId, gestureType, screenX, screenY, deltaX, deltaY);
+  }
+
+  /// Set movement sensitivity for image overlay controls
+  Future<void> setImageOverlayControlsSensitivity(
+      String overlayId, double sensitivity) async {
+    return _maplibrePlatform.setImageOverlayControlsSensitivity(
+        overlayId, sensitivity);
+  }
+
   @override
   void dispose() {
     super.dispose();

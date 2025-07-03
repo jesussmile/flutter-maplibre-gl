@@ -38,6 +38,10 @@ public class MapLibreMapsPlugin implements FlutterPlugin, ActivityAware {
         new MethodChannel(binding.getBinaryMessenger(), "plugins.flutter.io/maplibre_gl");
     methodChannel.setMethodCallHandler(new GlobalMethodHandler(binding));
 
+    // Register the LERC decoder plugin
+    LercDecoderPlugin lercDecoderPlugin = new LercDecoderPlugin();
+    lercDecoderPlugin.onAttachedToEngine(binding);
+
     binding
         .getPlatformViewRegistry()
         .registerViewFactory(

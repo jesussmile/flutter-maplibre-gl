@@ -831,4 +831,57 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       return Future.error(e);
     }
   }
+
+  // Native Image Overlay Controls Implementation
+  @override
+  Future<void> addImageOverlayControls(
+      String overlayId, List<List<double>> coordinates, bool editMode) async {
+    await _channel.invokeMethod('imageOverlay#addControls', <String, dynamic>{
+      'overlayId': overlayId,
+      'coordinates': coordinates,
+      'editMode': editMode,
+    });
+  }
+
+  @override
+  Future<void> updateImageOverlayControls(
+      String overlayId, List<List<double>> coordinates, bool editMode) async {
+    await _channel
+        .invokeMethod('imageOverlay#updateControls', <String, dynamic>{
+      'overlayId': overlayId,
+      'coordinates': coordinates,
+      'editMode': editMode,
+    });
+  }
+
+  @override
+  Future<void> removeImageOverlayControls(String overlayId) async {
+    await _channel
+        .invokeMethod('imageOverlay#removeControls', <String, dynamic>{
+      'overlayId': overlayId,
+    });
+  }
+
+  @override
+  Future<void> handleImageOverlayGesture(String overlayId, String gestureType,
+      double screenX, double screenY, double deltaX, double deltaY) async {
+    await _channel.invokeMethod('imageOverlay#handleGesture', <String, dynamic>{
+      'overlayId': overlayId,
+      'gestureType': gestureType,
+      'screenX': screenX,
+      'screenY': screenY,
+      'deltaX': deltaX,
+      'deltaY': deltaY,
+    });
+  }
+
+  @override
+  Future<void> setImageOverlayControlsSensitivity(
+      String overlayId, double sensitivity) async {
+    await _channel
+        .invokeMethod('imageOverlay#setSensitivity', <String, dynamic>{
+      'overlayId': overlayId,
+      'sensitivity': sensitivity,
+    });
+  }
 }

@@ -1,0 +1,7 @@
+/Users/pannam/Desktop/flight_canvas/lerc-master/build-android/x86_64/CMakeFiles/Lerc.dir
+/Users/pannam/Desktop/flight_canvas/lerc-master/build-android/x86_64/CMakeFiles/edit_cache.dir
+/Users/pannam/Desktop/flight_canvas/lerc-master/build-android/x86_64/CMakeFiles/rebuild_cache.dir
+/Users/pannam/Desktop/flight_canvas/lerc-master/build-android/x86_64/CMakeFiles/list_install_components.dir
+/Users/pannam/Desktop/flight_canvas/lerc-master/build-android/x86_64/CMakeFiles/install.dir
+/Users/pannam/Desktop/flight_canvas/lerc-master/build-android/x86_64/CMakeFiles/install/local.dir
+/Users/pannam/Desktop/flight_canvas/lerc-master/build-android/x86_64/CMakeFiles/install/strip.dir

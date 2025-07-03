@@ -146,6 +146,7 @@ final class MapLibreMapController
 
   private Set<String> interactiveFeatureLayerIds;
   private Map<String, FeatureCollection> addedFeaturesByLayer;
+  private Map<String, ImageOverlayControlsView> imageOverlayControls;
 
   private LatLngBounds bounds = null;
   Style.OnStyleLoaded onStyleLoadedCallback =
@@ -190,6 +191,7 @@ final class MapLibreMapController
     this.mapView = new MapView(context, options);
     this.interactiveFeatureLayerIds = new HashSet<>();
     this.addedFeaturesByLayer = new HashMap<String, FeatureCollection>();
+    this.imageOverlayControls = new HashMap<>();
     this.density = context.getResources().getDisplayMetrics().density;
     this.lifecycleProvider = lifecycleProvider;
     if (dragEnabled) {
@@ -659,23 +661,29 @@ final class MapLibreMapController
   }
 
   private Pair<Feature, String> firstFeatureOnLayers(RectF in) {
-    if (style != null) {
       final List<Layer> layers = style.getLayers();
-      final List<String> layersInOrder = new ArrayList<String>();
+    Collections.reverse(layers);
       for (Layer layer : layers) {
-        String id = layer.getId();
-        if (interactiveFeatureLayerIds.contains(id)) layersInOrder.add(id);
-      }
-      Collections.reverse(layersInOrder);
-
-      for (String id : layersInOrder) {
-        List<Feature> features = mapLibreMap.queryRenderedFeatures(in, id);
+      if (layer instanceof SymbolLayer) {
+        final List<Feature> features =
+            mapLibreMap.queryRenderedFeatures(in, layer.getId());
         if (!features.isEmpty()) {
-          return new Pair<Feature, String>(features.get(0), id);
+          String layerId = interactiveFeatureLayerIds.contains(layer.getId()) ? layer.getId() : null;
+          return new Pair<>(features.get(0), layerId);
         }
       }
     }
     return null;
+  }
+
+  private void generateLercTile(String sourceId, int x, int y, int z, byte[] lercData, 
+                               Map<String, Object> renderOptions, MethodChannel.Result result) {
+    // This method will be called from Flutter to generate a tile from LERC data
+    // For now, we'll return an error indicating that LERC decoding should be done on the Flutter side
+    // and the result should be passed as a raster tile image
+    result.error("LERC_NOT_SUPPORTED", 
+        "LERC decoding should be done on Flutter side. Use raster source with pre-rendered tiles.", 
+        null);
   }
 
   @Override
@@ -1620,6 +1628,59 @@ final class MapLibreMapController
         result.success(reply);
         break;
       }
+      case "lerc#generateTile":
+        {
+          final String sourceId = call.argument("sourceId");
+          final int x = call.argument("x");
+          final int y = call.argument("y");
+          final int z = call.argument("z");
+          final byte[] lercData = call.argument("lercData");
+          final Map<String, Object> renderOptions = call.argument("renderOptions");
+          
+          // Generate tile from LERC data
+          generateLercTile(sourceId, x, y, z, lercData, renderOptions, result);
+        break;
+      }
+      case "imageOverlay#addControls":
+        {
+          final String overlayId = call.argument("overlayId");
+          final List<LatLng> coordinates = Convert.toLatLngList(call.argument("coordinates"), true);
+          final boolean editMode = call.argument("editMode");
+          addImageOverlayControls(overlayId, coordinates, editMode, result);
+          break;
+        }
+      case "imageOverlay#updateControls":
+        {
+          final String overlayId = call.argument("overlayId");
+          final List<LatLng> coordinates = Convert.toLatLngList(call.argument("coordinates"), true);
+          final boolean editMode = call.argument("editMode");
+          updateImageOverlayControls(overlayId, coordinates, editMode, result);
+          break;
+        }
+      case "imageOverlay#removeControls":
+        {
+          final String overlayId = call.argument("overlayId");
+          removeImageOverlayControls(overlayId, result);
+          break;
+        }
+      case "imageOverlay#handleGesture":
+        {
+          final String overlayId = call.argument("overlayId");
+          final String gestureType = call.argument("gestureType");
+          final double screenX = call.argument("screenX");
+          final double screenY = call.argument("screenY");
+          final double deltaX = call.argument("deltaX");
+          final double deltaY = call.argument("deltaY");
+          handleImageOverlayGesture(overlayId, gestureType, screenX, screenY, deltaX, deltaY, result);
+          break;
+        }
+      case "imageOverlay#setSensitivity":
+        {
+          final String overlayId = call.argument("overlayId");
+          final double sensitivity = call.argument("sensitivity");
+          setImageOverlayControlsSensitivity(overlayId, sensitivity, result);
+          break;
+        }
       default:
         result.notImplemented();
     }
@@ -2276,6 +2337,107 @@ final class MapLibreMapController
     @Override
     public void onMoveEnd(MoveGestureDetector detector, float velocityX, float velocityY) {
       MapLibreMapController.this.onMoveEnd(detector);
+    }
+  }
+
+  // ================================
+  // Image Overlay Controls Methods
+  // ================================
+  
+  private void addImageOverlayControls(String overlayId, List<LatLng> coordinates, boolean editMode, MethodChannel.Result result) {
+    try {
+      // Remove existing controls if any
+      removeImageOverlayControls(overlayId, null);
+      
+      if (editMode && coordinates != null && coordinates.size() == 4) {
+        ImageOverlayControlsView controlsView = new ImageOverlayControlsView(
+          context, 
+          mapLibreMap, 
+          coordinates, 
+          density,
+          overlayId,
+          methodChannel
+        );
+        
+        // Add to map view container
+        mapViewContainer.addView(controlsView);
+        imageOverlayControls.put(overlayId, controlsView);
+        
+        result.success(null);
+      } else {
+        result.success(null); // No controls needed when not in edit mode
+      }
+    } catch (Exception e) {
+      result.error("ADD_CONTROLS_ERROR", "Failed to add image overlay controls: " + e.getMessage(), null);
+    }
+  }
+  
+  private void updateImageOverlayControls(String overlayId, List<LatLng> coordinates, boolean editMode, MethodChannel.Result result) {
+    try {
+      ImageOverlayControlsView controlsView = imageOverlayControls.get(overlayId);
+      
+      if (editMode && coordinates != null && coordinates.size() == 4) {
+        if (controlsView != null) {
+          // Update existing controls
+          controlsView.updateCoordinates(coordinates);
+          result.success(null);
+        } else {
+          // Create new controls
+          addImageOverlayControls(overlayId, coordinates, editMode, result);
+        }
+      } else {
+        // Remove controls when not in edit mode
+        removeImageOverlayControls(overlayId, result);
+      }
+    } catch (Exception e) {
+      result.error("UPDATE_CONTROLS_ERROR", "Failed to update image overlay controls: " + e.getMessage(), null);
+    }
+  }
+  
+  private void removeImageOverlayControls(String overlayId, MethodChannel.Result result) {
+    try {
+      ImageOverlayControlsView controlsView = imageOverlayControls.get(overlayId);
+      if (controlsView != null) {
+        mapViewContainer.removeView(controlsView);
+        imageOverlayControls.remove(overlayId);
+      }
+      
+      if (result != null) {
+        result.success(null);
+      }
+    } catch (Exception e) {
+      if (result != null) {
+        result.error("REMOVE_CONTROLS_ERROR", "Failed to remove image overlay controls: " + e.getMessage(), null);
+      }
+    }
+  }
+  
+  private void handleImageOverlayGesture(String overlayId, String gestureType, double screenX, double screenY, double deltaX, double deltaY, MethodChannel.Result result) {
+    try {
+      ImageOverlayControlsView controlsView = imageOverlayControls.get(overlayId);
+      if (controlsView != null) {
+        controlsView.handleGesture(gestureType, (float)screenX, (float)screenY, (float)deltaX, (float)deltaY);
+        result.success(null);
+      } else {
+        result.error("CONTROLS_NOT_FOUND", "Image overlay controls not found for overlayId: " + overlayId, null);
+      }
+    } catch (Exception e) {
+      result.error("GESTURE_HANDLING_ERROR", "Failed to handle gesture: " + e.getMessage(), null);
+    }
+  }
+  
+  private void setImageOverlayControlsSensitivity(String overlayId, double sensitivity, MethodChannel.Result result) {
+    try {
+      ImageOverlayControlsView controlsView = imageOverlayControls.get(overlayId);
+      if (controlsView != null) {
+        controlsView.setSensitivity(sensitivity);
+        result.success(null);
+        Log.d(TAG, "Updated sensitivity for overlay " + overlayId + " to " + sensitivity);
+      } else {
+        result.error("CONTROLS_NOT_FOUND", "Image overlay controls not found for overlayId: " + overlayId, null);
+      }
+    } catch (Exception e) {
+      result.error("SENSITIVITY_ERROR", "Failed to set sensitivity: " + e.getMessage(), null);
     }
   }
 }
