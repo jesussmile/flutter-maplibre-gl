@@ -9,9 +9,6 @@ public class MapLibreMapsPlugin: NSObject, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
         let instance = MapLibreMapFactory(withRegistrar: registrar)
         registrar.register(instance, withId: "plugins.flutter.io/maplibre_gl")
-        
-        // Register the LERC decoder plugin
-        LercDecoderPlugin.register(with: registrar)
 
         let channel = FlutterMethodChannel(
             name: "plugins.flutter.io/maplibre_gl",
