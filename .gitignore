@@ -48,6 +48,17 @@ android/app/debug
 android/app/profile
 android/app/release
 
+# Build artifacts and CMake files
+**/.cxx/
+**/CMakeFiles/
+**/*.bin
+**/*.so
+**/*.dylib
+**/*.a
+**/*.lib
+**/.gradle/
+**/gradle-wrapper.properties
+
 # Misc
 GeneratedPluginRegistrant.swift
 
