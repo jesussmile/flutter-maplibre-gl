@@ -44,7 +44,8 @@ abstract class MapLibrePlatform {
 
   final onUserLocationUpdatedPlatform = ArgumentCallbacks<UserLocation>();
 
-  final onTwoFingerHoldGesturePlatform = ArgumentCallbacks<Map<String, dynamic>>();
+  final onTwoFingerHoldGesturePlatform =
+      ArgumentCallbacks<Map<String, dynamic>>();
 
   // Native measurement callbacks
   final onNativeMeasurementStart = ArgumentCallbacks<Map<String, dynamic>>();

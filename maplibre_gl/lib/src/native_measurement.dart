@@ -37,22 +37,24 @@ class NativeMeasurementData {
 }
 
 /// Callbacks for native measurement events
-typedef OnNativeMeasurementStartCallback = void Function(NativeMeasurementData data);
-typedef OnNativeMeasurementUpdateCallback = void Function(NativeMeasurementData data);
-typedef OnNativeMeasurementEndCallback = void Function(NativeMeasurementData data);
+typedef OnNativeMeasurementStartCallback = void Function(
+    NativeMeasurementData data);
+typedef OnNativeMeasurementUpdateCallback = void Function(
+    NativeMeasurementData data);
+typedef OnNativeMeasurementEndCallback = void Function(
+    NativeMeasurementData data);
 
 /// Extensions to MapLibreMapController for native measurement
 extension NativeMeasurement on MapLibreMapController {
-  
   /// Enable or disable native two-finger measurement detection
   Future<void> enableNativeMeasurement(bool enabled) async {
     return _maplibrePlatform.enableNativeMeasurement(enabled);
   }
-  
+
   /// Set measurement callbacks for native events
   void setNativeMeasurementCallbacks({
     OnNativeMeasurementStartCallback? onStart,
-    OnNativeMeasurementUpdateCallback? onUpdate, 
+    OnNativeMeasurementUpdateCallback? onUpdate,
     OnNativeMeasurementEndCallback? onEnd,
   }) {
     if (onStart != null) {
@@ -71,7 +73,7 @@ extension NativeMeasurement on MapLibreMapController {
       });
     }
   }
-  
+
   /// Set measurement line style for native rendering
   Future<void> setNativeMeasurementStyle({
     String lineColor = "#FF6B35", // Orange color
@@ -88,7 +90,7 @@ extension NativeMeasurement on MapLibreMapController {
       endpointRadius: endpointRadius,
     );
   }
-  
+
   /// Clear any active native measurements
   Future<void> clearNativeMeasurement() async {
     return _maplibrePlatform.clearNativeMeasurement();
