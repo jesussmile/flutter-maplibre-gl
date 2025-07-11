@@ -49,6 +49,7 @@ class MapLibreMap extends StatefulWidget {
     this.onCameraTrackingChanged,
     this.onCameraIdle,
     this.onMapIdle,
+    this.onTwoFingerHoldGesture,
     this.annotationOrder = const [
       AnnotationType.line,
       AnnotationType.symbol,
@@ -247,6 +248,9 @@ class MapLibreMap extends StatefulWidget {
   /// * All fade/transition animations have completed
   final OnMapIdleCallback? onMapIdle;
 
+  /// Called when a two-finger hold gesture is detected on the map
+  final OnTwoFingerHoldGestureCallback? onTwoFingerHoldGesture;
+
   /// Set `MapLibreMap.useHybridComposition` to `false` in order use Virtual-Display
   /// (better for Android 9 and below but may result in errors on Android 12)
   /// or leave it `true` (default) to use Hybrid composition (Slower on Android 9 and below).
@@ -337,6 +341,7 @@ class _MapLibreMapState extends State<MapLibreMap> {
       onCameraTrackingChanged: widget.onCameraTrackingChanged,
       onCameraIdle: widget.onCameraIdle,
       onMapIdle: widget.onMapIdle,
+      onTwoFingerHoldGesture: widget.onTwoFingerHoldGesture,
       annotationOrder: widget.annotationOrder,
       annotationConsumeTapEvents: widget.annotationConsumeTapEvents,
     );

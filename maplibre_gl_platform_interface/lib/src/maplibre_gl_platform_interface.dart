@@ -44,6 +44,8 @@ abstract class MapLibrePlatform {
 
   final onUserLocationUpdatedPlatform = ArgumentCallbacks<UserLocation>();
 
+  final onTwoFingerHoldGesturePlatform = ArgumentCallbacks<Map<String, dynamic>>();
+
   Future<void> initPlatform(int id);
   Widget buildView(
       Map<String, dynamic> creationParams,
@@ -213,6 +215,8 @@ abstract class MapLibrePlatform {
   Future<void> setImageOverlayControlsSensitivity(
       String overlayId, double sensitivity);
 
+  Future<void> enableTwoFingerHoldGestureDetection(bool enabled);
+
   @mustCallSuper
   void dispose() {
     // clear all callbacks to avoid cyclic refs
@@ -230,5 +234,6 @@ abstract class MapLibrePlatform {
     onCameraTrackingDismissedPlatform.clear();
     onMapIdlePlatform.clear();
     onUserLocationUpdatedPlatform.clear();
+    onTwoFingerHoldGesturePlatform.clear();
   }
 }

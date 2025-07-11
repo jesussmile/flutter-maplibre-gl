@@ -25,6 +25,8 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
 
     private var interactiveFeatureLayerIds = Set<String>()
     private var addedShapesByLayer = [String: MLNShape]()
+    private var twoFingerHoldGestureEnabled = false
+    private var twoFingerHoldGestureRecognizer: UILongPressGestureRecognizer?
 
     func view() -> UIView {
         return mapView
@@ -970,6 +972,13 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             var reply = [String: NSObject]()
             reply["filter"] = currentLayerFilter as NSObject
             result(reply)
+            
+        case "map#enableTwoFingerHoldGesture":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            if let enabled = arguments["enabled"] as? Bool {
+                enableTwoFingerHoldGestureDetection(enabled: enabled)
+            }
+            result(nil)
 
         default:
             result(FlutterMethodNotImplemented)
@@ -1034,6 +1043,48 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             }
         }
         return (nil, nil)
+    }
+
+    private func enableTwoFingerHoldGestureDetection(enabled: Bool) {
+        twoFingerHoldGestureEnabled = enabled
+        
+        if enabled {
+            if twoFingerHoldGestureRecognizer == nil {
+                twoFingerHoldGestureRecognizer = UILongPressGestureRecognizer(
+                    target: self,
+                    action: #selector(handleTwoFingerHoldGesture(sender:))
+                )
+                twoFingerHoldGestureRecognizer?.numberOfTouchesRequired = 2
+                twoFingerHoldGestureRecognizer?.minimumPressDuration = 0.5
+                twoFingerHoldGestureRecognizer?.delegate = self
+                mapView.addGestureRecognizer(twoFingerHoldGestureRecognizer!)
+            }
+        } else {
+            if let recognizer = twoFingerHoldGestureRecognizer {
+                mapView.removeGestureRecognizer(recognizer)
+                twoFingerHoldGestureRecognizer = nil
+            }
+        }
+    }
+    
+    /*
+     *  UILongPressGestureRecognizer for two-finger hold
+     *  On two-finger hold invoke the map#onTwoFingerHoldGesture callback.
+     */
+    @IBAction func handleTwoFingerHoldGesture(sender: UILongPressGestureRecognizer) {
+        if sender.state == .began {
+            let point = sender.location(in: mapView)
+            let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
+            let duration = Int64(sender.minimumPressDuration * 1000) // Convert to milliseconds
+            
+            channel?.invokeMethod("map#onTwoFingerHoldGesture", arguments: [
+                "x": point.x,
+                "y": point.y,
+                "lng": coordinate.longitude,
+                "lat": coordinate.latitude,
+                "duration": duration,
+            ])
+        }
     }
 
     /*

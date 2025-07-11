@@ -32,6 +32,9 @@ typedef OnCameraIdleCallback = void Function();
 
 typedef OnMapIdleCallback = void Function();
 
+typedef OnTwoFingerHoldGestureCallback = void Function(
+    Point<double> point, LatLng coordinates, int duration);
+
 @Deprecated('MaplibreMapController was renamed to MapLibreMapController.')
 typedef MaplibreMapController = MapLibreMapController;
 
@@ -87,6 +90,7 @@ class MapLibreMapController extends ChangeNotifier {
     this.onMapIdle,
     this.onUserLocationUpdated,
     this.onCameraIdle,
+    this.onTwoFingerHoldGesture,
   }) : _maplibrePlatform = maplibrePlatform {
     _cameraPosition = initialCameraPosition;
 
@@ -176,6 +180,10 @@ class MapLibreMapController extends ChangeNotifier {
     _maplibrePlatform.onUserLocationUpdatedPlatform.add((location) {
       onUserLocationUpdated?.call(location);
     });
+
+    _maplibrePlatform.onTwoFingerHoldGesturePlatform.add((dict) {
+      onTwoFingerHoldGesture?.call(dict['point'], dict['latLng'], dict['duration']);
+    });
   }
 
   FillManager? fillManager;
@@ -195,6 +203,8 @@ class MapLibreMapController extends ChangeNotifier {
   final OnCameraIdleCallback? onCameraIdle;
 
   final OnMapIdleCallback? onMapIdle;
+
+  final OnTwoFingerHoldGestureCallback? onTwoFingerHoldGesture;
 
   /// Callbacks to receive tap events for symbols placed on this map.
   final ArgumentCallbacks<Symbol> onSymbolTapped = ArgumentCallbacks<Symbol>();
@@ -258,6 +268,42 @@ class MapLibreMapController extends ChangeNotifier {
   Future<void> _updateMapOptions(Map<String, dynamic> optionsUpdate) async {
     _cameraPosition = await _maplibrePlatform.updateMapOptions(optionsUpdate);
     notifyListeners();
+  }
+
+  /// Updates map gesture settings dynamically.
+  ///
+  /// This method allows you to enable or disable various map gestures
+  /// such as scroll, zoom, tilt, and rotate gestures at runtime.
+  ///
+  /// The returned [Future] completes after the changes have been applied.
+  Future<void> updateGestureSettings({
+    bool? scrollGesturesEnabled,
+    bool? zoomGesturesEnabled,
+    bool? tiltGesturesEnabled,
+    bool? rotateGesturesEnabled,
+    bool? doubleClickZoomEnabled,
+  }) async {
+    final Map<String, dynamic> updates = {};
+    
+    if (scrollGesturesEnabled != null) {
+      updates['scrollGesturesEnabled'] = scrollGesturesEnabled;
+    }
+    if (zoomGesturesEnabled != null) {
+      updates['zoomGesturesEnabled'] = zoomGesturesEnabled;
+    }
+    if (tiltGesturesEnabled != null) {
+      updates['tiltGesturesEnabled'] = tiltGesturesEnabled;
+    }
+    if (rotateGesturesEnabled != null) {
+      updates['rotateGesturesEnabled'] = rotateGesturesEnabled;
+    }
+    if (doubleClickZoomEnabled != null) {
+      updates['doubleClickZoomEnabled'] = doubleClickZoomEnabled;
+    }
+    
+    if (updates.isNotEmpty) {
+      await _updateMapOptions(updates);
+    }
   }
 
   /// Triggers a resize event for the map on web (ignored on Android or iOS).
@@ -1446,6 +1492,11 @@ class MapLibreMapController extends ChangeNotifier {
       String overlayId, double sensitivity) async {
     return _maplibrePlatform.setImageOverlayControlsSensitivity(
         overlayId, sensitivity);
+  }
+
+  /// Enable or disable two-finger hold gesture detection
+  Future<void> enableTwoFingerHoldGestureDetection(bool enabled) async {
+    return _maplibrePlatform.enableTwoFingerHoldGestureDetection(enabled);
   }
 
   @override

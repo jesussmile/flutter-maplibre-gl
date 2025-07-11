@@ -149,6 +149,8 @@ final class MapLibreMapController
   private Map<String, ImageOverlayControlsView> imageOverlayControls;
 
   private LatLngBounds bounds = null;
+  private boolean twoFingerHoldGestureEnabled = false;
+  private TwoFingerHoldGestureDetector twoFingerHoldGestureDetector;
   Style.OnStyleLoaded onStyleLoadedCallback =
       new Style.OnStyleLoaded() {
         @Override
@@ -243,6 +245,11 @@ final class MapLibreMapController
             @Override
             public boolean onTouch(View v, MotionEvent event) {
               androidGesturesManager.onTouchEvent(event);
+              
+              // Handle two-finger hold gesture detection
+              if (twoFingerHoldGestureDetector != null) {
+                twoFingerHoldGestureDetector.onTouchEvent(event);
+              }
 
               return draggedFeature != null;
             }
@@ -1681,6 +1688,13 @@ final class MapLibreMapController
           setImageOverlayControlsSensitivity(overlayId, sensitivity, result);
           break;
         }
+      case "map#enableTwoFingerHoldGesture":
+        {
+          final boolean enabled = call.argument("enabled");
+          enableTwoFingerHoldGestureDetection(enabled);
+          result.success(null);
+          break;
+        }
       default:
         result.notImplemented();
     }
@@ -1780,12 +1794,48 @@ final class MapLibreMapController
     return true;
   }
 
+  private void enableTwoFingerHoldGestureDetection(boolean enabled) {
+    this.twoFingerHoldGestureEnabled = enabled;
+    
+    if (enabled) {
+      if (twoFingerHoldGestureDetector == null && mapLibreMap != null) {
+        twoFingerHoldGestureDetector = new TwoFingerHoldGestureDetector(
+          mapLibreMap,
+          new TwoFingerHoldGestureDetector.OnTwoFingerHoldGestureListener() {
+            @Override
+            public void onTwoFingerHoldGesture(PointF point, LatLng latLng, long duration) {
+              final Map<String, Object> arguments = new HashMap<>();
+              arguments.put("x", point.x);
+              arguments.put("y", point.y);
+              arguments.put("lng", latLng.getLongitude());
+              arguments.put("lat", latLng.getLatitude());
+              arguments.put("duration", duration);
+              methodChannel.invokeMethod("map#onTwoFingerHoldGesture", arguments);
+            }
+          }
+        );
+      }
+    } else {
+      if (twoFingerHoldGestureDetector != null) {
+        twoFingerHoldGestureDetector.cleanup();
+        twoFingerHoldGestureDetector = null;
+      }
+    }
+  }
+
   @Override
   public void dispose() {
     if (disposed) {
       return;
     }
     disposed = true;
+    
+    // Clean up two-finger hold gesture detector
+    if (twoFingerHoldGestureDetector != null) {
+      twoFingerHoldGestureDetector.cleanup();
+      twoFingerHoldGestureDetector = null;
+    }
+    
     methodChannel.setMethodCallHandler(null);
     destroyMapViewIfNecessary();
     Lifecycle lifecycle = lifecycleProvider.getLifecycle();

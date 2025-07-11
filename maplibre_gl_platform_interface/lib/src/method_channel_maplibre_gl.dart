@@ -107,6 +107,17 @@ class MapLibreMethodChannel extends MapLibrePlatform {
                   ),
             timestamp: DateTime.fromMillisecondsSinceEpoch(
                 userLocation['timestamp'])));
+      case 'map#onTwoFingerHoldGesture':
+        final double x = call.arguments['x'];
+        final double y = call.arguments['y'];
+        final double lng = call.arguments['lng'];
+        final double lat = call.arguments['lat'];
+        final int duration = call.arguments['duration'];
+        onTwoFingerHoldGesturePlatform({
+          'point': Point<double>(x, y),
+          'latLng': LatLng(lat, lng),
+          'duration': duration
+        });
       default:
         throw MissingPluginException();
     }
@@ -882,6 +893,13 @@ class MapLibreMethodChannel extends MapLibrePlatform {
         .invokeMethod('imageOverlay#setSensitivity', <String, dynamic>{
       'overlayId': overlayId,
       'sensitivity': sensitivity,
+    });
+  }
+
+  @override
+  Future<void> enableTwoFingerHoldGestureDetection(bool enabled) async {
+    await _channel.invokeMethod('map#enableTwoFingerHoldGesture', <String, dynamic>{
+      'enabled': enabled,
     });
   }
 }
