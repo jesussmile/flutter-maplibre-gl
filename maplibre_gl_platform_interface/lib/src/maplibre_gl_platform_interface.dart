@@ -46,6 +46,11 @@ abstract class MapLibrePlatform {
 
   final onTwoFingerHoldGesturePlatform = ArgumentCallbacks<Map<String, dynamic>>();
 
+  // Native measurement callbacks
+  final onNativeMeasurementStart = ArgumentCallbacks<Map<String, dynamic>>();
+  final onNativeMeasurementUpdate = ArgumentCallbacks<Map<String, dynamic>>();
+  final onNativeMeasurementEnd = ArgumentCallbacks<Map<String, dynamic>>();
+
   Future<void> initPlatform(int id);
   Widget buildView(
       Map<String, dynamic> creationParams,
@@ -217,6 +222,17 @@ abstract class MapLibrePlatform {
 
   Future<void> enableTwoFingerHoldGestureDetection(bool enabled);
 
+  // Native measurement methods
+  Future<void> enableNativeMeasurement(bool enabled);
+  Future<void> setNativeMeasurementStyle({
+    required String lineColor,
+    required double lineWidth,
+    required double lineOpacity,
+    required String endpointColor,
+    required double endpointRadius,
+  });
+  Future<void> clearNativeMeasurement();
+
   @mustCallSuper
   void dispose() {
     // clear all callbacks to avoid cyclic refs
@@ -235,5 +251,8 @@ abstract class MapLibrePlatform {
     onMapIdlePlatform.clear();
     onUserLocationUpdatedPlatform.clear();
     onTwoFingerHoldGesturePlatform.clear();
+    onNativeMeasurementStart.clear();
+    onNativeMeasurementUpdate.clear();
+    onNativeMeasurementEnd.clear();
   }
 }

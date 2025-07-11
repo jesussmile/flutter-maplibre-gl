@@ -113,3 +113,5 @@ part 'src/maplibre_styles.dart';
 part 'src/lerc_decoder.dart';
 
 part 'src/terrain_layer.dart';
+
+part 'src/native_measurement.dart';

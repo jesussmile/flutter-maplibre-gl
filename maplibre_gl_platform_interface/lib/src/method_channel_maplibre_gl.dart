@@ -118,6 +118,57 @@ class MapLibreMethodChannel extends MapLibrePlatform {
           'latLng': LatLng(lat, lng),
           'duration': duration
         });
+      case 'measurement#onStart':
+        final double x1 = call.arguments['x1'];
+        final double y1 = call.arguments['y1'];
+        final double x2 = call.arguments['x2'];
+        final double y2 = call.arguments['y2'];
+        final double lat1 = call.arguments['lat1'];
+        final double lng1 = call.arguments['lng1'];
+        final double lat2 = call.arguments['lat2'];
+        final double lng2 = call.arguments['lng2'];
+        final double distance = call.arguments['distance'];
+        final double bearing = call.arguments['bearing'];
+        final int duration = call.arguments['duration'];
+        onNativeMeasurementStart({
+          'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
+          'lat1': lat1, 'lng1': lng1, 'lat2': lat2, 'lng2': lng2,
+          'distance': distance, 'bearing': bearing, 'duration': duration
+        });
+      case 'measurement#onUpdate':
+        final double x1 = call.arguments['x1'];
+        final double y1 = call.arguments['y1'];
+        final double x2 = call.arguments['x2'];
+        final double y2 = call.arguments['y2'];
+        final double lat1 = call.arguments['lat1'];
+        final double lng1 = call.arguments['lng1'];
+        final double lat2 = call.arguments['lat2'];
+        final double lng2 = call.arguments['lng2'];
+        final double distance = call.arguments['distance'];
+        final double bearing = call.arguments['bearing'];
+        final int duration = call.arguments['duration'];
+        onNativeMeasurementUpdate({
+          'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
+          'lat1': lat1, 'lng1': lng1, 'lat2': lat2, 'lng2': lng2,
+          'distance': distance, 'bearing': bearing, 'duration': duration
+        });
+      case 'measurement#onEnd':
+        final double x1 = call.arguments['x1'];
+        final double y1 = call.arguments['y1'];
+        final double x2 = call.arguments['x2'];
+        final double y2 = call.arguments['y2'];
+        final double lat1 = call.arguments['lat1'];
+        final double lng1 = call.arguments['lng1'];
+        final double lat2 = call.arguments['lat2'];
+        final double lng2 = call.arguments['lng2'];
+        final double distance = call.arguments['distance'];
+        final double bearing = call.arguments['bearing'];
+        final int duration = call.arguments['duration'];
+        onNativeMeasurementEnd({
+          'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
+          'lat1': lat1, 'lng1': lng1, 'lat2': lat2, 'lng2': lng2,
+          'distance': distance, 'bearing': bearing, 'duration': duration
+        });
       default:
         throw MissingPluginException();
     }
@@ -901,5 +952,34 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     await _channel.invokeMethod('map#enableTwoFingerHoldGesture', <String, dynamic>{
       'enabled': enabled,
     });
+  }
+
+  @override
+  Future<void> enableNativeMeasurement(bool enabled) async {
+    await _channel.invokeMethod('map#enableNativeMeasurement', <String, dynamic>{
+      'enabled': enabled,
+    });
+  }
+
+  @override
+  Future<void> setNativeMeasurementStyle({
+    required String lineColor,
+    required double lineWidth,
+    required double lineOpacity,
+    required String endpointColor,
+    required double endpointRadius,
+  }) async {
+    await _channel.invokeMethod('map#setNativeMeasurementStyle', <String, dynamic>{
+      'lineColor': lineColor,
+      'lineWidth': lineWidth,
+      'lineOpacity': lineOpacity,
+      'endpointColor': endpointColor,
+      'endpointRadius': endpointRadius,
+    });
+  }
+
+  @override
+  Future<void> clearNativeMeasurement() async {
+    await _channel.invokeMethod('map#clearNativeMeasurement');
   }
 }

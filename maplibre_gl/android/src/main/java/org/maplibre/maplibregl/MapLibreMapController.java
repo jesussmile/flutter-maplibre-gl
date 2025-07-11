@@ -151,6 +151,7 @@ final class MapLibreMapController
   private LatLngBounds bounds = null;
   private boolean twoFingerHoldGestureEnabled = false;
   private TwoFingerHoldGestureDetector twoFingerHoldGestureDetector;
+  private NativeMeasurementDetector nativeMeasurementDetector;
   Style.OnStyleLoaded onStyleLoadedCallback =
       new Style.OnStyleLoaded() {
         @Override
@@ -244,6 +245,14 @@ final class MapLibreMapController
           new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+              // Handle native measurement detection first - if it consumes the event, don't process other gestures
+              if (nativeMeasurementDetector != null) {
+                boolean measurementHandled = nativeMeasurementDetector.onTouchEvent(event);
+                if (measurementHandled) {
+                  return true; // Measurement detector consumed the event - prevent map interaction
+                }
+              }
+              
               androidGesturesManager.onTouchEvent(event);
               
               // Handle two-finger hold gesture detection
@@ -1695,6 +1704,27 @@ final class MapLibreMapController
           result.success(null);
           break;
         }
+      case "map#enableNativeMeasurement":
+        {
+          Boolean enabled = call.argument("enabled");
+          if (enabled != null) {
+            enableNativeMeasurement(enabled);
+          }
+          result.success(null);
+          break;
+        }
+      case "map#setNativeMeasurementStyle":
+        {
+          setNativeMeasurementStyle(call.arguments());
+          result.success(null);
+          break;
+        }
+      case "map#clearNativeMeasurement":
+        {
+          clearNativeMeasurement();
+          result.success(null);
+          break;
+        }
       default:
         result.notImplemented();
     }
@@ -1834,6 +1864,12 @@ final class MapLibreMapController
     if (twoFingerHoldGestureDetector != null) {
       twoFingerHoldGestureDetector.cleanup();
       twoFingerHoldGestureDetector = null;
+    }
+    
+    // Clean up native measurement detector
+    if (nativeMeasurementDetector != null) {
+      nativeMeasurementDetector.cleanup();
+      nativeMeasurementDetector = null;
     }
     
     methodChannel.setMethodCallHandler(null);
@@ -2489,5 +2525,90 @@ final class MapLibreMapController
     } catch (Exception e) {
       result.error("SENSITIVITY_ERROR", "Failed to set sensitivity: " + e.getMessage(), null);
     }
+  }
+
+  // Native Measurement Methods
+
+  private void enableNativeMeasurement(boolean enabled) {
+    if (enabled) {
+      if (nativeMeasurementDetector == null && mapLibreMap != null) {
+        nativeMeasurementDetector = new NativeMeasurementDetector(mapLibreMap, new NativeMeasurementDetector.OnNativeMeasurementListener() {
+          @Override
+          public void onMeasurementStart(PointF point1, PointF point2, LatLng latLng1, LatLng latLng2, 
+                                        double distance, double bearing, long duration) {
+            sendNativeMeasurementEvent("measurement#onStart", point1, point2, latLng1, latLng2, distance, bearing, duration);
+          }
+
+          @Override
+          public void onMeasurementUpdate(PointF point1, PointF point2, LatLng latLng1, LatLng latLng2, 
+                                         double distance, double bearing, long duration) {
+            sendNativeMeasurementEvent("measurement#onUpdate", point1, point2, latLng1, latLng2, distance, bearing, duration);
+          }
+
+          @Override
+          public void onMeasurementEnd(PointF point1, PointF point2, LatLng latLng1, LatLng latLng2,
+                                      double distance, double bearing, long duration) {
+            sendNativeMeasurementEvent("measurement#onEnd", point1, point2, latLng1, latLng2, distance, bearing, duration);
+          }
+        });
+      }
+    } else {
+      if (nativeMeasurementDetector != null) {
+        nativeMeasurementDetector.disable();
+        nativeMeasurementDetector = null;
+      }
+    }
+  }
+
+  private void setNativeMeasurementStyle(Object arguments) {
+    if (nativeMeasurementDetector != null && arguments instanceof Map) {
+      Map<String, Object> styleArgs = (Map<String, Object>) arguments;
+      
+      String lineColor = (String) styleArgs.get("lineColor");
+      Double lineWidth = (Double) styleArgs.get("lineWidth");
+      Double lineOpacity = (Double) styleArgs.get("lineOpacity");
+      String endpointColor = (String) styleArgs.get("endpointColor");
+      Double endpointRadius = (Double) styleArgs.get("endpointRadius");
+      
+      // Set defaults if null
+      if (lineColor == null) lineColor = "#FF0000";
+      if (lineWidth == null) lineWidth = 3.0;
+      if (lineOpacity == null) lineOpacity = 0.8;
+      if (endpointColor == null) endpointColor = "#FF0000";
+      if (endpointRadius == null) endpointRadius = 8.0;
+      
+      nativeMeasurementDetector.setMeasurementStyle(lineColor, lineWidth, lineOpacity, endpointColor, endpointRadius);
+    }
+  }
+
+  private void clearNativeMeasurement() {
+    if (nativeMeasurementDetector != null) {
+      nativeMeasurementDetector.clearMeasurement();
+    }
+  }
+
+  private void sendNativeMeasurementEvent(String eventName, PointF point1, PointF point2, 
+                                         LatLng latLng1, LatLng latLng2, double distance, 
+                                         double bearing, long duration) {
+    Map<String, Object> arguments = new HashMap<>();
+    
+    // Screen coordinates
+    arguments.put("screenPoint1X", (double) point1.x);
+    arguments.put("screenPoint1Y", (double) point1.y);
+    arguments.put("screenPoint2X", (double) point2.x);
+    arguments.put("screenPoint2Y", (double) point2.y);
+    
+    // Geographic coordinates
+    arguments.put("latLng1Latitude", latLng1.getLatitude());
+    arguments.put("latLng1Longitude", latLng1.getLongitude());
+    arguments.put("latLng2Latitude", latLng2.getLatitude());
+    arguments.put("latLng2Longitude", latLng2.getLongitude());
+    
+    // Measurement data
+    arguments.put("distanceNauticalMiles", distance);
+    arguments.put("bearingDegrees", bearing);
+    arguments.put("durationMs", (double) duration);
+    
+    methodChannel.invokeMethod(eventName, arguments);
   }
 }
