@@ -65,6 +65,11 @@ public class NativeMeasurementDetector {
     private long measurementEndTime = 0;
     private static final long CLEANUP_GRACE_PERIOD_MS = 500; // 500ms grace period
     
+    // Track when user is performing a tap-to-clear gesture
+    private boolean pendingClearGesture = false;
+    private PointF initialTouchPoint;
+    private static final float TAP_MOVEMENT_THRESHOLD = 20f; // pixels - max movement for tap vs pan
+    
     // Measurement style configuration
     private String lineColor = "#FF0000";
     private double lineWidth = 3.0;
@@ -370,6 +375,10 @@ public class NativeMeasurementDetector {
         
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                // Reset pending clear gesture flag and store initial touch point
+                pendingClearGesture = false;
+                initialTouchPoint = new PointF(touchPoint.x, touchPoint.y);
+                
                 // Reset grace period flag only on a clear new gesture (single finger down)
                 // Don't reset during multi-finger scenarios
                 if (event.getPointerCount() == 1 && !inGracePeriod) {
@@ -388,13 +397,15 @@ public class NativeMeasurementDetector {
                     Log.d(TAG, "Started dragging end marker - disabling map interaction");
                     return true; // Consume event to prevent map interaction
                 } else if (inGracePeriod) {
-                    // We're in grace period - don't clear measurement yet
-                    Log.d(TAG, "Touch during grace period - ignoring for cleanup");
-                    return true; // Consume event to prevent map interaction
+                    // We're in grace period - don't clear measurement yet, but allow map interaction
+                    Log.d(TAG, "Touch during grace period - allowing map interaction");
+                    return false; // Don't consume - allow map interaction
                 } else {
-                    // Touch is not on any marker and not in grace period - prepare for potential clear on ACTION_UP
-                    Log.d(TAG, "Touch detected outside markers - will clear measurement on release");
-                    return true; // Consume event to prevent map interaction
+                    // Touch is not on any marker and not in grace period - this could be a tap or pan
+                    // Set flag to track potential tap-to-clear, but don't consume yet
+                    pendingClearGesture = true;
+                    Log.d(TAG, "Touch detected outside markers - monitoring for tap vs pan");
+                    return false; // Don't consume initially - allow map interaction to start
                 }
                 
             case MotionEvent.ACTION_MOVE:
@@ -418,7 +429,21 @@ public class NativeMeasurementDetector {
                                                    distance, bearing, 0);
                     }
                     return true; // Consume event to prevent map interaction
+                } else if (pendingClearGesture && initialTouchPoint != null && !inGracePeriod) {
+                    // Check if user has moved beyond tap threshold - if so, it's a pan gesture
+                    float moveDistance = calculateDistance(touchPoint.x, touchPoint.y, initialTouchPoint.x, initialTouchPoint.y);
+                    if (moveDistance > TAP_MOVEMENT_THRESHOLD) {
+                        // User is panning - cancel the potential clear gesture and allow map interaction
+                        Log.d(TAG, "Movement detected beyond tap threshold - canceling clear gesture");
+                        pendingClearGesture = false;
+                        initialTouchPoint = null; 
+                        return false; // Don't consume - allow map interaction
+                    }
+                    // Still within tap threshold, keep tracking but don't consume yet
+                    return false; // Don't consume - allow map interaction to continue
                 }
+                // Not dragging and no pending clear gesture - allow normal map interaction
+                return false;
                 
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
@@ -437,19 +462,39 @@ public class NativeMeasurementDetector {
                     isDraggingStart = false;
                     isDraggingEnd = false;
                     return true; // Consume event to prevent map interaction
+                } else if (pendingClearGesture && initialTouchPoint != null && !inGracePeriod) {
+                    // Check if this was a tap (minimal movement) vs a pan (lots of movement)
+                    float moveDistance = calculateDistance(touchPoint.x, touchPoint.y, initialTouchPoint.x, initialTouchPoint.y);
+                    if (moveDistance <= TAP_MOVEMENT_THRESHOLD) {
+                        // This was a tap - clear the measurement
+                        Log.d(TAG, "Tap detected - clearing measurement");
+                        clearMeasurement();
+                        pendingClearGesture = false;
+                        initialTouchPoint = null;
+                        return true; // Consume event to prevent map interaction
+                    } else {
+                        // This was a pan - don't clear measurement, allow map interaction
+                        Log.d(TAG, "Pan detected - not clearing measurement, allowing map interaction");
+                        pendingClearGesture = false;
+                        initialTouchPoint = null;
+                        return false; // Don't consume - allow map interaction
+                    }
                 } else if (inGracePeriod) {
-                    // In grace period - just consume the event without clearing
-                    Log.d(TAG, "ACTION_UP during grace period - not clearing measurement");
-                    return true; // Consume event to prevent map interaction (don't reset flag yet)
+                    // In grace period - don't clear measurement, allow map interaction
+                    Log.d(TAG, "ACTION_UP during grace period - allowing map interaction");
+                    return false; // Don't consume - allow map interaction
                 } else {
-                    // Only clear if we're not in grace period and this is a deliberate tap
-                    Log.d(TAG, "Clearing measurement due to tap outside markers");
-                    clearMeasurement();
-                    return true; // Consume event to prevent map interaction
+                    // No pending clear gesture and not dragging - allow normal map interaction
+                    Log.d(TAG, "ACTION_UP with no measurement interaction - allowing map interaction");
+                    pendingClearGesture = false;
+                    initialTouchPoint = null;
+                    return false; // Don't consume - allow map interaction
                 }
         }
         
-        return true; // Always consume events when there's a persistent measurement
+        // Only consume events if we're actively handling measurement interactions
+        // Allow map interactions for touches that don't involve measurement markers
+        return false; // Don't consume - allow map interaction for other touches
     }
     
     /**
@@ -738,6 +783,9 @@ public class NativeMeasurementDetector {
         // Reset grace period flags
         justFinishedMeasurement = false;
         measurementEndTime = 0;
+        
+        // Reset pending clear gesture flag
+        pendingClearGesture = false;
         
         // Clear rendering
         clearMeasurementRendering();
