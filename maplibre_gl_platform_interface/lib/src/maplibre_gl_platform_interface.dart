@@ -233,6 +233,7 @@ abstract class MapLibrePlatform {
     required double endpointRadius,
   });
   Future<void> clearNativeMeasurement();
+  Future<void> ensureMeasurementLayersOnTop();
 
   @mustCallSuper
   void dispose() {

@@ -1009,4 +1009,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   Future<void> clearNativeMeasurement() async {
     await _channel.invokeMethod('map#clearNativeMeasurement');
   }
+
+  @override
+  Future<void> ensureMeasurementLayersOnTop() async {
+    await _channel.invokeMethod('map#ensureMeasurementLayersOnTop');
+  }
 }

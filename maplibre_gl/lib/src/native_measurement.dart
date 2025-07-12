@@ -95,4 +95,9 @@ extension NativeMeasurement on MapLibreMapController {
   Future<void> clearNativeMeasurement() async {
     return _maplibrePlatform.clearNativeMeasurement();
   }
+
+  /// Ensure measurement layers are positioned above user marker layers
+  Future<void> ensureMeasurementLayersOnTop() async {
+    return _maplibrePlatform.ensureMeasurementLayersOnTop();
+  }
 }

@@ -536,8 +536,15 @@ public class NativeMeasurementDetector {
                     lineWidth((float) lineWidth),
                     lineOpacity((float) lineOpacity)
                 );
-                mapLibreMap.getStyle().addLayer(lineLayer);
-                Log.d(TAG, "Added measurement line layer");
+                // Add above user marker layers to ensure measurement appears on top
+                try {
+                    mapLibreMap.getStyle().addLayerAbove(lineLayer, "user-marker-layer");
+                    Log.d(TAG, "Added measurement line layer above user marker");
+                } catch (Exception e) {
+                    // Fallback: add normally if user marker layer doesn't exist yet
+                    mapLibreMap.getStyle().addLayer(lineLayer);
+                    Log.d(TAG, "Added measurement line layer (user marker not found, will be repositioned later)");
+                }
             }
             
             // Add measurement points layer if it doesn't exist
@@ -548,8 +555,15 @@ public class NativeMeasurementDetector {
                     circleRadius((float) endpointRadius),
                     circleOpacity((float) lineOpacity)
                 );
-                mapLibreMap.getStyle().addLayer(circleLayer);
-                Log.d(TAG, "Added measurement points layer");
+                // Add above user marker layers to ensure measurement appears on top
+                try {
+                    mapLibreMap.getStyle().addLayerAbove(circleLayer, "user-marker-layer");
+                    Log.d(TAG, "Added measurement points layer above user marker");
+                } catch (Exception e) {
+                    // Fallback: add normally if user marker layer doesn't exist yet
+                    mapLibreMap.getStyle().addLayer(circleLayer);
+                    Log.d(TAG, "Added measurement points layer (user marker not found, will be repositioned later)");
+                }
             }
             
             // Add distance label layer if it doesn't exist
@@ -565,8 +579,15 @@ public class NativeMeasurementDetector {
                     textOffset(new Float[]{0f, -1f})
                 );
                 distanceLayer.setFilter(eq(get("type"), literal("distance")));
-                mapLibreMap.getStyle().addLayer(distanceLayer);
-                Log.d(TAG, "Added measurement distance layer");
+                // Add above user marker layers to ensure measurement appears on top
+                try {
+                    mapLibreMap.getStyle().addLayerAbove(distanceLayer, "user-marker-layer");
+                    Log.d(TAG, "Added measurement distance layer above user marker");
+                } catch (Exception e) {
+                    // Fallback: add normally if user marker layer doesn't exist yet
+                    mapLibreMap.getStyle().addLayer(distanceLayer);
+                    Log.d(TAG, "Added measurement distance layer (user marker not found, will be repositioned later)");
+                }
             }
             
             // Add bearing label layer if it doesn't exist
@@ -582,8 +603,15 @@ public class NativeMeasurementDetector {
                     textOffset(new Float[]{0f, 1f})
                 );
                 bearingLayer.setFilter(eq(get("type"), literal("bearing")));
-                mapLibreMap.getStyle().addLayer(bearingLayer);
-                Log.d(TAG, "Added measurement bearing layer");
+                // Add above user marker layers to ensure measurement appears on top
+                try {
+                    mapLibreMap.getStyle().addLayerAbove(bearingLayer, "user-marker-layer");
+                    Log.d(TAG, "Added measurement bearing layer above user marker");
+                } catch (Exception e) {
+                    // Fallback: add normally if user marker layer doesn't exist yet
+                    mapLibreMap.getStyle().addLayer(bearingLayer);
+                    Log.d(TAG, "Added measurement bearing layer (user marker not found, will be repositioned later)");
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error setting up measurement layers", e);
@@ -599,6 +627,9 @@ public class NativeMeasurementDetector {
                 Log.w(TAG, "Map style not ready for rendering");
                 return;
             }
+            
+            // Ensure measurement layers are positioned correctly before rendering
+            ensureMeasurementLayersOnTop();
             
             // Calculate distance and bearing for labels
             double distance = calculateDistanceNauticalMiles(start, end);
@@ -791,6 +822,98 @@ public class NativeMeasurementDetector {
         clearMeasurementRendering();
     }
     
+    /**
+     * Ensure measurement layers are positioned above user marker layers
+     * Call this after user marker layers have been created
+     */
+    public void ensureMeasurementLayersOnTop() {
+        try {
+            if (mapLibreMap.getStyle() == null || !mapLibreMap.getStyle().isFullyLoaded()) {
+                Log.w(TAG, "Map style not ready for layer repositioning");
+                return;
+            }
+            
+            // Check if user marker layer exists
+            if (mapLibreMap.getStyle().getLayer("user-marker-layer") == null) {
+                Log.d(TAG, "User marker layer not found, cannot reposition measurement layers");
+                return;
+            }
+            
+            // Debug: Log current layer stack
+            Log.d(TAG, "🔍 Repositioning measurement layers above user marker");
+            Log.d(TAG, "🔍 User marker layer exists: " + (mapLibreMap.getStyle().getLayer("user-marker-layer") != null));
+            Log.d(TAG, "🔍 Measurement line layer exists: " + (mapLibreMap.getStyle().getLayer(MEASUREMENT_LINE_LAYER_ID) != null));
+            
+            // Remove and re-add measurement layers above user marker layer
+            String[] layerIds = {
+                MEASUREMENT_LINE_LAYER_ID,
+                MEASUREMENT_POINTS_LAYER_ID, 
+                MEASUREMENT_DISTANCE_LAYER_ID,
+                MEASUREMENT_BEARING_LAYER_ID
+            };
+            
+            for (String layerId : layerIds) {
+                if (mapLibreMap.getStyle().getLayer(layerId) != null) {
+                    try {
+                        // Remove layer temporarily
+                        mapLibreMap.getStyle().removeLayer(layerId);
+                        
+                        // Re-add above user marker layer
+                        if (layerId.equals(MEASUREMENT_LINE_LAYER_ID)) {
+                            LineLayer lineLayer = new LineLayer(MEASUREMENT_LINE_LAYER_ID, MEASUREMENT_SOURCE_ID);
+                            lineLayer.setProperties(
+                                lineColor(lineColor),
+                                lineWidth((float) lineWidth),
+                                lineOpacity((float) lineOpacity)
+                            );
+                            mapLibreMap.getStyle().addLayerAbove(lineLayer, "user-marker-layer");
+                        } else if (layerId.equals(MEASUREMENT_POINTS_LAYER_ID)) {
+                            CircleLayer circleLayer = new CircleLayer(MEASUREMENT_POINTS_LAYER_ID, MEASUREMENT_SOURCE_ID);
+                            circleLayer.setProperties(
+                                circleColor(endpointColor),
+                                circleRadius((float) endpointRadius),
+                                circleOpacity((float) lineOpacity)
+                            );
+                            mapLibreMap.getStyle().addLayerAbove(circleLayer, "user-marker-layer");
+                        } else if (layerId.equals(MEASUREMENT_DISTANCE_LAYER_ID)) {
+                            SymbolLayer distanceLayer = new SymbolLayer(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_SOURCE_ID);
+                            distanceLayer.setProperties(
+                                textField(get("distance-text")),
+                                textSize(14f),
+                                textColor("#FFFFFF"),
+                                textHaloColor("#000000"),
+                                textHaloWidth(2f),
+                                textAnchor("center"),
+                                textOffset(new Float[]{0f, -1f})
+                            );
+                            distanceLayer.setFilter(eq(get("type"), literal("distance")));
+                            mapLibreMap.getStyle().addLayerAbove(distanceLayer, "user-marker-layer");
+                        } else if (layerId.equals(MEASUREMENT_BEARING_LAYER_ID)) {
+                            SymbolLayer bearingLayer = new SymbolLayer(MEASUREMENT_BEARING_LAYER_ID, MEASUREMENT_SOURCE_ID);
+                            bearingLayer.setProperties(
+                                textField(get("bearing-text")),
+                                textSize(12f),
+                                textColor("#FFFF00"),
+                                textHaloColor("#000000"),
+                                textHaloWidth(1.5f),
+                                textAnchor("center"),
+                                textOffset(new Float[]{0f, 1f})
+                            );
+                            bearingLayer.setFilter(eq(get("type"), literal("bearing")));
+                            mapLibreMap.getStyle().addLayerAbove(bearingLayer, "user-marker-layer");
+                        }
+                        
+                        Log.d(TAG, "Repositioned " + layerId + " above user marker layer");
+                    } catch (Exception e) {
+                        Log.w(TAG, "Failed to reposition layer " + layerId + ": " + e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error ensuring measurement layers on top", e);
+        }
+    }
+
     /**
      * Clean up resources
      */

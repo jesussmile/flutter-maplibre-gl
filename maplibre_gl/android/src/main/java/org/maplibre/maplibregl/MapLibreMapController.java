@@ -1725,6 +1725,12 @@ final class MapLibreMapController
           result.success(null);
           break;
         }
+      case "map#ensureMeasurementLayersOnTop":
+        {
+          ensureMeasurementLayersOnTop();
+          result.success(null);
+          break;
+        }
       default:
         result.notImplemented();
     }
@@ -2584,6 +2590,12 @@ final class MapLibreMapController
   private void clearNativeMeasurement() {
     if (nativeMeasurementDetector != null) {
       nativeMeasurementDetector.clearMeasurement();
+    }
+  }
+
+  private void ensureMeasurementLayersOnTop() {
+    if (nativeMeasurementDetector != null) {
+      nativeMeasurementDetector.ensureMeasurementLayersOnTop();
     }
   }
 
