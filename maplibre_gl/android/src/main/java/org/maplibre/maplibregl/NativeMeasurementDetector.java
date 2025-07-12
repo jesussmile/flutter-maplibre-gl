@@ -601,8 +601,7 @@ public class NativeMeasurementDetector {
                     lineWidth((float) lineWidth),
                     lineOpacity((float) lineOpacity),
                     lineCap("round"),           // Rounded line caps for better appearance
-                    lineJoin("round"),         // Rounded line joins
-                    lineDasharray(new Float[]{5f, 3f})  // Dashed line pattern for better visibility
+                    lineJoin("round")          // Rounded line joins, solid line
                 );
                 // Add above user marker layers to ensure measurement appears on top
                 try {
@@ -626,6 +625,8 @@ public class NativeMeasurementDetector {
                     circleStrokeWidth(2f),             // Border width
                     circleStrokeOpacity(0.9f)          // Border opacity
                 );
+                // Filter to only show circles for endpoint features
+                circleLayer.setFilter(eq(get("type"), literal("endpoint")));
                 // Add above user marker layers to ensure measurement appears on top
                 try {
                     mapLibreMap.getStyle().addLayerAbove(circleLayer, "user-marker-layer");
@@ -778,7 +779,9 @@ public class NativeMeasurementDetector {
             // Create features for line and points
             Feature lineFeature = Feature.fromGeometry(lineString);
             Feature startPointFeature = Feature.fromGeometry(startPoint);
+            startPointFeature.addStringProperty("type", "endpoint");  // Mark as endpoint for circle filter
             Feature endPointFeature = Feature.fromGeometry(endPoint);
+            endPointFeature.addStringProperty("type", "endpoint");    // Mark as endpoint for circle filter
             
             // Create distance label feature at midpoint
             Feature distanceFeature = Feature.fromGeometry(midPoint);
@@ -872,8 +875,7 @@ public class NativeMeasurementDetector {
                         lineWidth((float) lineWidth),
                         lineOpacity((float) lineOpacity),
                         lineCap("round"),
-                        lineJoin("round"),
-                        lineDasharray(new Float[]{5f, 3f})
+                        lineJoin("round")
                     );
                 }
                 
@@ -888,6 +890,8 @@ public class NativeMeasurementDetector {
                         circleStrokeWidth(2f),
                         circleStrokeOpacity(0.9f)
                     );
+                    // Ensure filter is applied to only show endpoint circles
+                    circleLayer.setFilter(eq(get("type"), literal("endpoint")));
                 }
                 
                 Log.d(TAG, "Updated measurement layer styles");
