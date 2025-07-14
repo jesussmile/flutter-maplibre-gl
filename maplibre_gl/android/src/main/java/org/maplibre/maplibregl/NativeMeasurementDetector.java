@@ -502,6 +502,7 @@ public class NativeMeasurementDetector {
     /**
      * Ensure all measurement layers are positioned on top of other map layers
      * This method should be called when other layers are added to maintain proper layer ordering
+     * OPTIMIZATION: Now called conditionally to prevent excessive repositioning
      */
     public void ensureMeasurementLayersOnTop() {
         try {
@@ -514,14 +515,21 @@ public class NativeMeasurementDetector {
             String topLayerId = getTopNonMeasurementLayerId();
             
             if (topLayerId != null) {
-                // Reposition measurement layers in correct order (bottom to top)
-                repositionLayerIfExists(MEASUREMENT_LINE_LAYER_ID, topLayerId);
-                repositionLayerIfExists(MEASUREMENT_POINTS_LAYER_ID, MEASUREMENT_LINE_LAYER_ID);
-                repositionLayerIfExists(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_POINTS_LAYER_ID);
-                repositionLayerIfExists(MEASUREMENT_BEARING_LAYER_ID, MEASUREMENT_DISTANCE_LAYER_ID);
-                repositionLayerIfExists(MEASUREMENT_ARROWS_LAYER_ID, MEASUREMENT_BEARING_LAYER_ID);
+                // Check if layers actually need repositioning to avoid unnecessary operations
+                boolean actuallyRepositioned = false;
                 
-                Log.d(TAG, "Repositioned measurement layers on top");
+                // Reposition measurement layers in correct order (bottom to top)
+                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_LINE_LAYER_ID, topLayerId);
+                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_POINTS_LAYER_ID, MEASUREMENT_LINE_LAYER_ID);
+                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_POINTS_LAYER_ID);
+                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_BEARING_LAYER_ID, MEASUREMENT_DISTANCE_LAYER_ID);
+                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_ARROWS_LAYER_ID, MEASUREMENT_BEARING_LAYER_ID);
+                
+                if (actuallyRepositioned) {
+                    Log.d(TAG, "Repositioned measurement layers on top");
+                } else {
+                    Log.v(TAG, "Measurement layers already positioned correctly");
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error ensuring measurement layers on top", e);
@@ -547,18 +555,47 @@ public class NativeMeasurementDetector {
     }
     
     /**
-     * Reposition a layer above another layer if it exists
+     * Reposition a layer above another layer if it exists and needs repositioning
+     * @return true if layer was actually repositioned, false if not needed or failed
      */
-    private void repositionLayerIfExists(String layerId, String aboveLayerId) {
+    private boolean repositionLayerIfExists(String layerId, String aboveLayerId) {
         try {
             Layer layer = mapLibreMap.getStyle().getLayer(layerId);
             if (layer != null) {
-                mapLibreMap.getStyle().removeLayer(layer);
-                mapLibreMap.getStyle().addLayerAbove(layer, aboveLayerId);
-                Log.d(TAG, "Repositioned layer " + layerId + " above " + aboveLayerId);
+                // Check if layer is already in correct position to avoid unnecessary operations
+                java.util.List<Layer> layers = mapLibreMap.getStyle().getLayers();
+                Layer aboveLayer = mapLibreMap.getStyle().getLayer(aboveLayerId);
+                
+                if (aboveLayer != null) {
+                    int currentLayerIndex = -1;
+                    int aboveLayerIndex = -1;
+                    
+                    for (int i = 0; i < layers.size(); i++) {
+                        Layer l = layers.get(i);
+                        if (l.getId().equals(layerId)) {
+                            currentLayerIndex = i;
+                        }
+                        if (l.getId().equals(aboveLayerId)) {
+                            aboveLayerIndex = i;
+                        }
+                    }
+                    
+                    // Only reposition if layer is not already above the target layer
+                    if (currentLayerIndex <= aboveLayerIndex) {
+                        mapLibreMap.getStyle().removeLayer(layer);
+                        mapLibreMap.getStyle().addLayerAbove(layer, aboveLayerId);
+                        Log.v(TAG, "Repositioned layer " + layerId + " above " + aboveLayerId);
+                        return true;
+                    } else {
+                        Log.v(TAG, "Layer " + layerId + " already positioned correctly above " + aboveLayerId);
+                        return false;
+                    }
+                }
             }
+            return false;
         } catch (Exception e) {
             Log.w(TAG, "Could not reposition layer " + layerId + ": " + e.getMessage());
+            return false;
         }
     }
 
@@ -725,6 +762,11 @@ public class NativeMeasurementDetector {
                     Log.d(TAG, "Added measurement arrows layer (user marker not found, will be repositioned later)");
                 }
             }
+            
+            // Ensure all layers are properly positioned after setup
+            // This is the ONLY place layer repositioning should happen in normal operation
+            ensureMeasurementLayersOnTop();
+            Log.d(TAG, "Measurement layers setup complete with proper positioning");
         } catch (Exception e) {
             Log.e(TAG, "Error setting up measurement layers", e);
         }
@@ -740,8 +782,9 @@ public class NativeMeasurementDetector {
                 return;
             }
             
-            // Ensure measurement layers are positioned correctly before rendering
-            ensureMeasurementLayersOnTop();
+            // OPTIMIZATION: Layer repositioning removed from render loop
+            // Layers are positioned once during initialization and remain stable
+            // unless the map style changes (handled by Flutter-side event system)
             
             // Calculate distance and bearing for labels
             double distance = calculateDistanceNauticalMiles(start, end);
