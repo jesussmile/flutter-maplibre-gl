@@ -90,6 +90,7 @@ import UIKit
             action: #selector(handlePanGesture(_:))
         )
         panGestureRecognizer?.delegate = self
+        panGestureRecognizer?.maximumNumberOfTouches = 1 // Only single finger for dragging markers
         
         // Tap gesture for clearing measurement
         tapGestureRecognizer = UITapGestureRecognizer(
@@ -97,6 +98,7 @@ import UIKit
             action: #selector(handleTapGesture(_:))
         )
         tapGestureRecognizer?.delegate = self
+        tapGestureRecognizer?.numberOfTouchesRequired = 1
         
         if let twoFingerLongPress = twoFingerLongPressGestureRecognizer {
             mapView.addGestureRecognizer(twoFingerLongPress)
@@ -106,6 +108,21 @@ import UIKit
         }
         if let tapGesture = tapGestureRecognizer {
             mapView.addGestureRecognizer(tapGesture)
+        }
+        
+        // Configure gesture priority - measurement gestures should have higher priority
+        setupGesturePriorities()
+    }
+    
+    private func setupGesturePriorities() {
+        // Get the map's existing gesture recognizers
+        for existingGesture in mapView.gestureRecognizers ?? [] {
+            // Our pan gesture should have priority over map pan gestures ONLY when actively measuring
+            // This is now handled dynamically in the gesture delegate methods
+            // We don't set permanent failure requirements here to avoid blocking map gestures
+            
+            // Our tap gesture should have priority over map tap gestures ONLY when measurement is visible
+            // This is also handled dynamically in the gesture delegate methods
         }
     }
     
@@ -604,11 +621,114 @@ import UIKit
 
 extension NativeMeasurementDetector: UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Allow our gestures to work simultaneously with map gestures when appropriate
-        if gestureRecognizer == panGestureRecognizer && (isDraggingStart || isDraggingEnd) {
-            return false // Don't allow map panning while dragging measurement markers
+        // During measurement creation, only allow our two-finger gesture
+        if isMeasuring && gestureRecognizer == twoFingerLongPressGestureRecognizer {
+            return false // Block all other gestures during measurement creation
         }
+        
+        // When dragging measurement markers, block all map gestures
+        if (isDraggingStart || isDraggingEnd) && gestureRecognizer == panGestureRecognizer {
+            return false // Block map gestures while dragging markers
+        }
+        
+        // For other measurement interactions, check if touch is near measurement elements
+        if hasPersistentMeasurement && (gestureRecognizer == panGestureRecognizer || gestureRecognizer == tapGestureRecognizer) {
+            let location = gestureRecognizer.location(in: mapView)
+            if isTouchNearMeasurementElements(location) {
+                return false // Block map gestures when touching measurement elements
+            }
+        }
+        
+        return true // Allow simultaneous recognition for other cases
+    }
+    
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        let location = touch.location(in: mapView)
+        
+        // Two-finger gesture should only work when no persistent measurement exists
+        if gestureRecognizer == twoFingerLongPressGestureRecognizer {
+            return !hasPersistentMeasurement
+        }
+        
+        // Pan gesture should prioritize measurement interactions only when measurement exists
+        if gestureRecognizer == panGestureRecognizer {
+            // If no measurement exists, don't interfere with map gestures
+            guard hasPersistentMeasurement else { return false }
+            return isTouchNearMeasurementElements(location)
+        }
+        
+        // Tap gesture should work for clearing measurement only when measurement exists
+        if gestureRecognizer == tapGestureRecognizer {
+            return hasPersistentMeasurement
+        }
+        
         return true
+    }
+    
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        let location = gestureRecognizer.location(in: mapView)
+        
+        // Pan gesture should only begin if near measurement elements when measurement exists
+        if gestureRecognizer == panGestureRecognizer {
+            // If no measurement exists, don't allow our pan gesture to begin
+            guard hasPersistentMeasurement else { return false }
+            return isTouchNearMeasurementElements(location)
+        }
+        
+        // Tap gesture should only begin when measurement exists
+        if gestureRecognizer == tapGestureRecognizer {
+            return hasPersistentMeasurement
+        }
+        
+        return true
+    }
+    
+    private func isTouchNearMeasurementElements(_ location: CGPoint) -> Bool {
+        guard hasPersistentMeasurement else { return false }
+        
+        let startPoint = mapView.convert(startLatLng, toPointTo: mapView)
+        let endPoint = mapView.convert(endLatLng, toPointTo: mapView)
+        
+        let distanceToStart = distance(from: location, to: startPoint)
+        let distanceToEnd = distance(from: location, to: endPoint)
+        
+        // Check if touch is near either endpoint
+        if distanceToStart <= NativeMeasurementDetector.MARKER_TOUCH_RADIUS || 
+           distanceToEnd <= NativeMeasurementDetector.MARKER_TOUCH_RADIUS {
+            return true
+        }
+        
+        // Check if touch is near the measurement line
+        return isPointNearLine(location, startPoint: startPoint, endPoint: endPoint, threshold: 20.0)
+    }
+    
+    private func isPointNearLine(_ point: CGPoint, startPoint: CGPoint, endPoint: CGPoint, threshold: CGFloat) -> Bool {
+        let A = point.x - startPoint.x
+        let B = point.y - startPoint.y
+        let C = endPoint.x - startPoint.x
+        let D = endPoint.y - startPoint.y
+        
+        let dot = A * C + B * D
+        let lenSq = C * C + D * D
+        
+        guard lenSq != 0 else { return false }
+        
+        let param = dot / lenSq
+        
+        let closestPoint: CGPoint
+        if param < 0 {
+            closestPoint = startPoint
+        } else if param > 1 {
+            closestPoint = endPoint
+        } else {
+            closestPoint = CGPoint(
+                x: startPoint.x + param * C,
+                y: startPoint.y + param * D
+            )
+        }
+        
+        let distance = sqrt(pow(point.x - closestPoint.x, 2) + pow(point.y - closestPoint.y, 2))
+        return distance <= threshold
     }
 }
 
