@@ -52,12 +52,14 @@ import UIKit
     private var initialTouchPoint: CGPoint = .zero
     private static let TAP_MOVEMENT_THRESHOLD: CGFloat = 20.0 // pixels - max movement for tap vs pan
     
-    // Measurement style configuration - Aviation-friendly colors
-    private var lineColor = "#00BFFF"        // Deep sky blue - highly visible on most map backgrounds
-    private var lineWidth = 4.0              // Slightly thicker for better visibility
-    private var lineOpacity = 0.9            // Higher opacity for better contrast
-    private var endpointColor = "#FF4500"    // Orange red - aviation standard for important markers
-    private var endpointRadius = 14.0        // Larger for better touch targeting and visibility
+    // Measurement style configuration - Match Android appearance
+    private var lineColor = "#FF0000"        // Red line to match Android
+    private var lineWidth = 3.0              // Standard line width
+    private var lineOpacity = 1.0            // Full opacity
+    private var endpointColor = "#0066CC"    // Blue endpoints with white border to match Android
+    private var endpointRadius = 6.0         // Standard radius to match Android
+    private var endpointStrokeColor = "#FFFFFF" // White border for endpoints
+    private var endpointStrokeWidth = 2.0    // Border width
     
     // Gesture recognizers
     private var twoFingerLongPressGestureRecognizer: UILongPressGestureRecognizer?
@@ -458,6 +460,8 @@ import UIKit
         )
         pointsLayer.circleColor = NSExpression(forConstantValue: UIColor(hex: endpointColor))
         pointsLayer.circleRadius = NSExpression(forConstantValue: endpointRadius)
+        pointsLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor(hex: endpointStrokeColor))
+        pointsLayer.circleStrokeWidth = NSExpression(forConstantValue: endpointStrokeWidth)
         
         style.addLayer(pointsLayer)
         
@@ -477,9 +481,13 @@ import UIKit
         let midLon = (startLatLng.longitude + endLatLng.longitude) / 2.0
         let midPoint = MLNPointFeature()
         midPoint.coordinate = CLLocationCoordinate2D(latitude: midLat, longitude: midLon)
-        midPoint.attributes = ["text": String(format: "%.2f nm", distance)]
+        midPoint.attributes = ["text": String(format: "%.1f nm", distance)]
         
-        // Create bearing labels at endpoints
+        // Calculate intelligent text positioning based on line orientation
+        let lineAngle = bearing * .pi / 180.0 // Convert to radians
+        let textOffsets = calculateBearingTextOffsets(for: lineAngle)
+        
+        // Create bearing labels at endpoints with dynamic positioning
         let startBearingPoint = MLNPointFeature()
         startBearingPoint.coordinate = startLatLng
         startBearingPoint.attributes = ["text": String(format: "%.0f°", bearing)]
@@ -505,28 +513,101 @@ import UIKit
         distanceLayer.textHaloColor = NSExpression(forConstantValue: UIColor.black)
         distanceLayer.textHaloWidth = NSExpression(forConstantValue: 2.0)
         distanceLayer.textFontSize = NSExpression(forConstantValue: 14.0)
+        distanceLayer.textAnchor = NSExpression(forConstantValue: NSValue(mlnTextAnchor: .center))
+        distanceLayer.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 0.0, dy: -1.0)))
         
         style.addLayer(distanceLayer)
         
-        // Bearing labels source and layer
+        // Create separate layers for start and end bearing labels for better positioning control
+        addBearingLabel(
+            point: startBearingPoint,
+            offset: textOffsets.start,
+            identifier: "start",
+            style: style
+        )
+        
+        addBearingLabel(
+            point: endBearingPoint,
+            offset: textOffsets.end,
+            identifier: "end",
+            style: style
+        )
+    }
+    
+    private func addBearingLabel(point: MLNPointFeature, offset: CGVector, identifier: String, style: MLNStyle) {
         let bearingSource = MLNShapeSource(
-            identifier: NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-source",
-            features: [startBearingPoint, endBearingPoint],
+            identifier: NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-" + identifier + "-source",
+            features: [point],
             options: nil
         )
         style.addSource(bearingSource)
         
         let bearingLayer = MLNSymbolStyleLayer(
-            identifier: NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID,
+            identifier: NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-" + identifier,
             source: bearingSource
         )
         bearingLayer.text = NSExpression(forKeyPath: "text")
         bearingLayer.textColor = NSExpression(forConstantValue: UIColor.yellow)
         bearingLayer.textHaloColor = NSExpression(forConstantValue: UIColor.black)
-        bearingLayer.textHaloWidth = NSExpression(forConstantValue: 2.0)
-        bearingLayer.textFontSize = NSExpression(forConstantValue: 12.0)
+        bearingLayer.textHaloWidth = NSExpression(forConstantValue: 1.5)
+        bearingLayer.textFontSize = NSExpression(forConstantValue: 16.0)
+        bearingLayer.textAnchor = NSExpression(forConstantValue: NSValue(mlnTextAnchor: .center))
+        bearingLayer.textOffset = NSExpression(forConstantValue: NSValue(cgVector: offset))
         
         style.addLayer(bearingLayer)
+    }
+    
+    // MARK: - Text Positioning Helper
+    
+    private func calculateBearingTextOffsets(for lineAngle: Double) -> (start: CGVector, end: CGVector) {
+        // Normalize angle to 0-360 degrees
+        let normalizedAngle = fmod(lineAngle * 180.0 / .pi + 360.0, 360.0)
+        
+        // Base offset distance from the endpoint
+        let offsetDistance: Double = 1.5
+        
+        // Calculate perpendicular offset based on line direction
+        // This positions text to avoid overlapping with the line
+        let perpAngle = normalizedAngle + 90.0
+        let perpRadians = perpAngle * .pi / 180.0
+        
+        // Determine which side of the line to place text
+        // For better readability, place text on the "outside" of the measurement
+        var sideMultiplier: Double = 1.0
+        
+        // Adjust text position based on line orientation for optimal readability
+        switch normalizedAngle {
+        case 0..<45, 315..<360:
+            // Horizontal-ish lines: place text above and below
+            return (
+                start: CGVector(dx: 0, dy: offsetDistance),
+                end: CGVector(dx: 0, dy: -offsetDistance)
+            )
+        case 45..<135:
+            // Diagonal ascending: offset to sides
+            return (
+                start: CGVector(dx: -offsetDistance, dy: offsetDistance * 0.5),
+                end: CGVector(dx: offsetDistance, dy: -offsetDistance * 0.5)
+            )
+        case 135..<225:
+            // Horizontal-ish lines: place text below and above
+            return (
+                start: CGVector(dx: 0, dy: -offsetDistance),
+                end: CGVector(dx: 0, dy: offsetDistance)
+            )
+        case 225..<315:
+            // Diagonal descending: offset to sides
+            return (
+                start: CGVector(dx: offsetDistance, dy: offsetDistance * 0.5),
+                end: CGVector(dx: -offsetDistance, dy: -offsetDistance * 0.5)
+            )
+        default:
+            // Fallback to standard positioning
+            return (
+                start: CGVector(dx: 0, dy: offsetDistance),
+                end: CGVector(dx: 0, dy: offsetDistance)
+            )
+        }
     }
     
     private func removeMeasurementLayers() {
@@ -536,14 +617,16 @@ import UIKit
             NativeMeasurementDetector.MEASUREMENT_LINE_LAYER_ID,
             NativeMeasurementDetector.MEASUREMENT_POINTS_LAYER_ID,
             NativeMeasurementDetector.MEASUREMENT_DISTANCE_LAYER_ID,
-            NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID
+            NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-start",
+            NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-end"
         ]
         
         let sourceIds = [
             NativeMeasurementDetector.MEASUREMENT_SOURCE_ID,
             NativeMeasurementDetector.MEASUREMENT_POINTS_LAYER_ID + "-source",
             NativeMeasurementDetector.MEASUREMENT_DISTANCE_LAYER_ID + "-source",
-            NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-source"
+            NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-start-source",
+            NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-end-source"
         ]
         
         for layerId in layerIds {
@@ -566,7 +649,9 @@ import UIKit
         lineWidth: Double?,
         lineOpacity: Double?,
         endpointColor: String?,
-        endpointRadius: Double?
+        endpointRadius: Double?,
+        endpointStrokeColor: String? = nil,
+        endpointStrokeWidth: Double? = nil
     ) {
         if let lineColor = lineColor {
             self.lineColor = lineColor
@@ -582,6 +667,12 @@ import UIKit
         }
         if let endpointRadius = endpointRadius {
             self.endpointRadius = endpointRadius
+        }
+        if let endpointStrokeColor = endpointStrokeColor {
+            self.endpointStrokeColor = endpointStrokeColor
+        }
+        if let endpointStrokeWidth = endpointStrokeWidth {
+            self.endpointStrokeWidth = endpointStrokeWidth
         }
         
         // Re-render if measurement is active
