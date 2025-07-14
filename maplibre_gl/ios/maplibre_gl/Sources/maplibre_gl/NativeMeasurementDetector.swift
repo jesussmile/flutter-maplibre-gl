@@ -406,8 +406,51 @@ import UIKit
     // MARK: - Layer Management
     
     private func initializeMeasurementLayers() {
-        // Layers will be created when first measurement is made
-        print("\(NativeMeasurementDetector.TAG): Measurement layers initialized")
+        // Setup measurement layers once during initialization - this is the ONLY place
+        // where layer positioning should happen to avoid excessive repositioning
+        setupMeasurementLayers()
+        print("\(NativeMeasurementDetector.TAG): Measurement layers initialized and positioned")
+    }
+    
+    private func setupMeasurementLayers() {
+        guard let style = mapView.style else { return }
+        
+        // Ensure our measurement layers are positioned on top of other layers
+        // This positioning only happens once during setup, not on every render
+        ensureMeasurementLayersOnTop()
+    }
+    
+    private func ensureMeasurementLayersOnTop() {
+        guard let style = mapView.style else { return }
+        
+        // Check if we have any measurement layers that need repositioning
+        let measurementLayerIds = [
+            NativeMeasurementDetector.MEASUREMENT_LINE_LAYER_ID,
+            NativeMeasurementDetector.MEASUREMENT_POINTS_LAYER_ID,
+            NativeMeasurementDetector.MEASUREMENT_DISTANCE_LAYER_ID,
+            NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-start",
+            NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-end"
+        ]
+        
+        var layersToReposition: [MLNStyleLayer] = []
+        
+        // Find existing measurement layers that need repositioning
+        for layerId in measurementLayerIds {
+            if let layer = style.layer(withIdentifier: layerId) {
+                layersToReposition.append(layer)
+            }
+        }
+        
+        // Only reposition if we actually have layers to move
+        if !layersToReposition.isEmpty {
+            print("\(NativeMeasurementDetector.TAG): Repositioning \(layersToReposition.count) measurement layers to top")
+            
+            // Remove and re-add layers to position them on top
+            for layer in layersToReposition {
+                style.removeLayer(layer)
+                style.addLayer(layer)
+            }
+        }
     }
     
     private func renderMeasurementLine() {
@@ -419,57 +462,78 @@ import UIKit
             CLLocationCoordinate2D(latitude: endLatLng.latitude, longitude: endLatLng.longitude)
         ]
         
-        // Remove existing layers and source
-        removeMeasurementLayers()
+        // OPTIMIZATION: Update existing sources instead of recreating layers
+        // This eliminates unnecessary layer repositioning during every render
         
-        // Create line source
-        let lineSource = MLNShapeSource(
-            identifier: NativeMeasurementDetector.MEASUREMENT_SOURCE_ID,
-            shape: MLNPolyline(coordinates: lineCoordinates, count: UInt(lineCoordinates.count)),
-            options: nil
-        )
-        style.addSource(lineSource)
+        // Update or create line source
+        if let existingLineSource = style.source(withIdentifier: NativeMeasurementDetector.MEASUREMENT_SOURCE_ID) as? MLNShapeSource {
+            // Update existing source with new coordinates
+            existingLineSource.shape = MLNPolyline(coordinates: lineCoordinates, count: UInt(lineCoordinates.count))
+        } else {
+            // Create line source if it doesn't exist
+            let lineSource = MLNShapeSource(
+                identifier: NativeMeasurementDetector.MEASUREMENT_SOURCE_ID,
+                shape: MLNPolyline(coordinates: lineCoordinates, count: UInt(lineCoordinates.count)),
+                options: nil
+            )
+            style.addSource(lineSource)
+            
+            // Create line layer
+            let lineLayer = MLNLineStyleLayer(
+                identifier: NativeMeasurementDetector.MEASUREMENT_LINE_LAYER_ID,
+                source: lineSource
+            )
+            lineLayer.lineColor = NSExpression(forConstantValue: UIColor(hex: lineColor))
+            lineLayer.lineWidth = NSExpression(forConstantValue: lineWidth)
+            lineLayer.lineOpacity = NSExpression(forConstantValue: lineOpacity)
+            
+            style.addLayer(lineLayer)
+            
+            // Position measurement layers on top only when first created
+            ensureMeasurementLayersOnTop()
+        }
         
-        // Create line layer
-        let lineLayer = MLNLineStyleLayer(
-            identifier: NativeMeasurementDetector.MEASUREMENT_LINE_LAYER_ID,
-            source: lineSource
-        )
-        lineLayer.lineColor = NSExpression(forConstantValue: UIColor(hex: lineColor))
-        lineLayer.lineWidth = NSExpression(forConstantValue: lineWidth)
-        lineLayer.lineOpacity = NSExpression(forConstantValue: lineOpacity)
-        
-        style.addLayer(lineLayer)
-        
-        // Create points for start and end markers
+        // Update or create points source
         let startPoint = MLNPointFeature()
         startPoint.coordinate = startLatLng
         let endPoint = MLNPointFeature()
         endPoint.coordinate = endLatLng
         
-        let pointsSource = MLNShapeSource(
-            identifier: NativeMeasurementDetector.MEASUREMENT_POINTS_LAYER_ID + "-source",
-            features: [startPoint, endPoint],
-            options: nil
-        )
-        style.addSource(pointsSource)
+        let pointsSourceId = NativeMeasurementDetector.MEASUREMENT_POINTS_LAYER_ID + "-source"
         
-        let pointsLayer = MLNCircleStyleLayer(
-            identifier: NativeMeasurementDetector.MEASUREMENT_POINTS_LAYER_ID,
-            source: pointsSource
-        )
-        pointsLayer.circleColor = NSExpression(forConstantValue: UIColor(hex: endpointColor))
-        pointsLayer.circleRadius = NSExpression(forConstantValue: endpointRadius)
-        pointsLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor(hex: endpointStrokeColor))
-        pointsLayer.circleStrokeWidth = NSExpression(forConstantValue: endpointStrokeWidth)
+        if let existingPointsSource = style.source(withIdentifier: pointsSourceId) as? MLNShapeSource {
+            // Update existing source with new coordinates
+            existingPointsSource.shape = MLNShapeCollectionFeature(shapes: [startPoint, endPoint])
+        } else {
+            // Create points source if it doesn't exist
+            let pointsSource = MLNShapeSource(
+                identifier: pointsSourceId,
+                features: [startPoint, endPoint],
+                options: nil
+            )
+            style.addSource(pointsSource)
+            
+            // Create points layer
+            let pointsLayer = MLNCircleStyleLayer(
+                identifier: NativeMeasurementDetector.MEASUREMENT_POINTS_LAYER_ID,
+                source: pointsSource
+            )
+            pointsLayer.circleColor = NSExpression(forConstantValue: UIColor(hex: endpointColor))
+            pointsLayer.circleRadius = NSExpression(forConstantValue: endpointRadius)
+            pointsLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor(hex: endpointStrokeColor))
+            pointsLayer.circleStrokeWidth = NSExpression(forConstantValue: endpointStrokeWidth)
+            
+            style.addLayer(pointsLayer)
+            
+            // Position measurement layers on top only when first created
+            ensureMeasurementLayersOnTop()
+        }
         
-        style.addLayer(pointsLayer)
-        
-        // Add distance and bearing labels
-        addMeasurementLabels()
+        // Update measurement labels
+        updateMeasurementLabels()
     }
     
-    private func addMeasurementLabels() {
+    private func updateMeasurementLabels() {
         guard let style = mapView.style else { return }
         
         let distance = calculateDistance()
@@ -496,37 +560,46 @@ import UIKit
         endBearingPoint.coordinate = endLatLng
         endBearingPoint.attributes = ["text": String(format: "%.0f°", reverseBearing)]
         
-        // Distance label source and layer
-        let distanceSource = MLNShapeSource(
-            identifier: NativeMeasurementDetector.MEASUREMENT_DISTANCE_LAYER_ID + "-source",
-            features: [midPoint],
-            options: nil
-        )
-        style.addSource(distanceSource)
+        // Update or create distance label source and layer
+        let distanceSourceId = NativeMeasurementDetector.MEASUREMENT_DISTANCE_LAYER_ID + "-source"
         
-        let distanceLayer = MLNSymbolStyleLayer(
-            identifier: NativeMeasurementDetector.MEASUREMENT_DISTANCE_LAYER_ID,
-            source: distanceSource
-        )
-        distanceLayer.text = NSExpression(forKeyPath: "text")
-        distanceLayer.textColor = NSExpression(forConstantValue: UIColor.white)
-        distanceLayer.textHaloColor = NSExpression(forConstantValue: UIColor.black)
-        distanceLayer.textHaloWidth = NSExpression(forConstantValue: 2.0)
-        distanceLayer.textFontSize = NSExpression(forConstantValue: 14.0)
-        distanceLayer.textAnchor = NSExpression(forConstantValue: NSValue(mlnTextAnchor: .center))
-        distanceLayer.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 0.0, dy: -1.0)))
+        if let existingDistanceSource = style.source(withIdentifier: distanceSourceId) as? MLNShapeSource {
+            // Update existing source
+            existingDistanceSource.shape = MLNShapeCollectionFeature(shapes: [midPoint])
+        } else {
+            // Create distance source if it doesn't exist
+            let distanceSource = MLNShapeSource(
+                identifier: distanceSourceId,
+                features: [midPoint],
+                options: nil
+            )
+            style.addSource(distanceSource)
+            
+            // Create distance layer
+            let distanceLayer = MLNSymbolStyleLayer(
+                identifier: NativeMeasurementDetector.MEASUREMENT_DISTANCE_LAYER_ID,
+                source: distanceSource
+            )
+            distanceLayer.text = NSExpression(forKeyPath: "text")
+            distanceLayer.textColor = NSExpression(forConstantValue: UIColor.white)
+            distanceLayer.textHaloColor = NSExpression(forConstantValue: UIColor.black)
+            distanceLayer.textHaloWidth = NSExpression(forConstantValue: 2.0)
+            distanceLayer.textFontSize = NSExpression(forConstantValue: 14.0)
+            distanceLayer.textAnchor = NSExpression(forConstantValue: NSValue(mlnTextAnchor: .center))
+            distanceLayer.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 0.0, dy: -1.0)))
+            
+            style.addLayer(distanceLayer)
+        }
         
-        style.addLayer(distanceLayer)
-        
-        // Create separate layers for start and end bearing labels for better positioning control
-        addBearingLabel(
+        // Update bearing labels for start and end points
+        updateBearingLabel(
             point: startBearingPoint,
             offset: textOffsets.start,
             identifier: "start",
             style: style
         )
         
-        addBearingLabel(
+        updateBearingLabel(
             point: endBearingPoint,
             offset: textOffsets.end,
             identifier: "end",
@@ -534,27 +607,36 @@ import UIKit
         )
     }
     
-    private func addBearingLabel(point: MLNPointFeature, offset: CGVector, identifier: String, style: MLNStyle) {
-        let bearingSource = MLNShapeSource(
-            identifier: NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-" + identifier + "-source",
-            features: [point],
-            options: nil
-        )
-        style.addSource(bearingSource)
+    private func updateBearingLabel(point: MLNPointFeature, offset: CGVector, identifier: String, style: MLNStyle) {
+        let bearingSourceId = NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-" + identifier + "-source"
         
-        let bearingLayer = MLNSymbolStyleLayer(
-            identifier: NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-" + identifier,
-            source: bearingSource
-        )
-        bearingLayer.text = NSExpression(forKeyPath: "text")
-        bearingLayer.textColor = NSExpression(forConstantValue: UIColor.yellow)
-        bearingLayer.textHaloColor = NSExpression(forConstantValue: UIColor.black)
-        bearingLayer.textHaloWidth = NSExpression(forConstantValue: 1.5)
-        bearingLayer.textFontSize = NSExpression(forConstantValue: 16.0)
-        bearingLayer.textAnchor = NSExpression(forConstantValue: NSValue(mlnTextAnchor: .center))
-        bearingLayer.textOffset = NSExpression(forConstantValue: NSValue(cgVector: offset))
-        
-        style.addLayer(bearingLayer)
+        if let existingBearingSource = style.source(withIdentifier: bearingSourceId) as? MLNShapeSource {
+            // Update existing source
+            existingBearingSource.shape = MLNShapeCollectionFeature(shapes: [point])
+        } else {
+            // Create bearing source if it doesn't exist
+            let bearingSource = MLNShapeSource(
+                identifier: bearingSourceId,
+                features: [point],
+                options: nil
+            )
+            style.addSource(bearingSource)
+            
+            // Create bearing layer
+            let bearingLayer = MLNSymbolStyleLayer(
+                identifier: NativeMeasurementDetector.MEASUREMENT_BEARING_LAYER_ID + "-" + identifier,
+                source: bearingSource
+            )
+            bearingLayer.text = NSExpression(forKeyPath: "text")
+            bearingLayer.textColor = NSExpression(forConstantValue: UIColor.yellow)
+            bearingLayer.textHaloColor = NSExpression(forConstantValue: UIColor.black)
+            bearingLayer.textHaloWidth = NSExpression(forConstantValue: 1.5)
+            bearingLayer.textFontSize = NSExpression(forConstantValue: 16.0)
+            bearingLayer.textAnchor = NSExpression(forConstantValue: NSValue(mlnTextAnchor: .center))
+            bearingLayer.textOffset = NSExpression(forConstantValue: NSValue(cgVector: offset))
+            
+            style.addLayer(bearingLayer)
+        }
     }
     
     // MARK: - Text Positioning Helper
