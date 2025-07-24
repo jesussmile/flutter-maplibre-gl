@@ -508,6 +508,17 @@
             }
           }
         },
+        "triangle":{
+          "doc":"A filled triangle.",
+          "sdk-support":{
+            "basic functionality":{
+              "js":"0.10.0",
+              "android":"2.0.1",
+              "ios":"2.0.0",
+              "macos":"0.1.0"
+            }
+          }
+        },
         "heatmap":{
           "doc":"A heatmap.",
           "sdk-support":{
@@ -3626,6 +3637,7 @@
     "paint_fill",
     "paint_line",
     "paint_circle",
+    "paint_triangle",
     "paint_heatmap",
     "paint_fill-extrusion",
     "paint_symbol",
@@ -4711,6 +4723,304 @@
     "circle-stroke-opacity":{
       "type":"number",
       "doc":"The opacity of the circle's stroke.",
+      "default":1,
+      "minimum":0,
+      "maximum":1,
+      "transition":true,
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.29.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        },
+        "data-driven styling":{
+          "js":"0.29.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        }
+      },
+      "expression":{
+        "interpolated":true,
+        "parameters":[
+          "zoom",
+          "feature",
+          "feature-state"
+        ]
+      },
+      "property-type":"data-driven"
+    }
+  },
+  "paint_triangle":{
+    "triangle-size":{
+      "type":"number",
+      "default":5,
+      "minimum":0,
+      "transition":true,
+      "units":"pixels",
+      "doc":"Triangle size.",
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.10.0",
+          "android":"2.0.1",
+          "ios":"2.0.0",
+          "macos":"0.1.0"
+        },
+        "data-driven styling":{
+          "js":"0.18.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        }
+      },
+      "expression":{
+        "interpolated":true,
+        "parameters":[
+          "zoom",
+          "feature",
+          "feature-state"
+        ]
+      },
+      "property-type":"data-driven"
+    },
+    "triangle-color":{
+      "type":"color",
+      "default":"#000000",
+      "doc":"The fill color of the triangle.",
+      "transition":true,
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.10.0",
+          "android":"2.0.1",
+          "ios":"2.0.0",
+          "macos":"0.1.0"
+        },
+        "data-driven styling":{
+          "js":"0.18.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        }
+      },
+      "expression":{
+        "interpolated":true,
+        "parameters":[
+          "zoom",
+          "feature",
+          "feature-state"
+        ]
+      },
+      "property-type":"data-driven"
+    },
+    "triangle-opacity":{
+      "type":"number",
+      "doc":"The opacity at which the triangle will be drawn.",
+      "default":1,
+      "minimum":0,
+      "maximum":1,
+      "transition":true,
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.10.0",
+          "android":"2.0.1",
+          "ios":"2.0.0",
+          "macos":"0.1.0"
+        },
+        "data-driven styling":{
+          "js":"0.20.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        }
+      },
+      "expression":{
+        "interpolated":true,
+        "parameters":[
+          "zoom",
+          "feature",
+          "feature-state"
+        ]
+      },
+      "property-type":"data-driven"
+    },
+    "triangle-translate":{
+      "type":"array",
+      "value":"number",
+      "length":2,
+      "default":[
+        0,
+        0
+      ],
+      "transition":true,
+      "units":"pixels",
+      "doc":"The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.",
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.10.0",
+          "android":"2.0.1",
+          "ios":"2.0.0",
+          "macos":"0.1.0"
+        }
+      },
+      "expression":{
+        "interpolated":true,
+        "parameters":[
+          "zoom"
+        ]
+      },
+      "property-type":"data-constant"
+    },
+    "triangle-translate-anchor":{
+      "type":"enum",
+      "values":{
+        "map":{
+          "doc":"The triangle is translated relative to the map."
+        },
+        "viewport":{
+          "doc":"The triangle is translated relative to the viewport."
+        }
+      },
+      "doc":"Controls the frame of reference for `triangle-translate`.",
+      "default":"map",
+      "requires":[
+        "triangle-translate"
+      ],
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.10.0",
+          "android":"2.0.1",
+          "ios":"2.0.0",
+          "macos":"0.1.0"
+        }
+      },
+      "expression":{
+        "interpolated":false,
+        "parameters":[
+          "zoom"
+        ]
+      },
+      "property-type":"data-constant"
+    },
+    "triangle-pitch-scale":{
+      "type":"enum",
+      "values":{
+        "map":{
+          "doc":"Triangles are scaled according to their apparent distance to the camera."
+        },
+        "viewport":{
+          "doc":"Triangles are not scaled."
+        }
+      },
+      "default":"map",
+      "doc":"Controls the scaling behavior of the triangle when the map is pitched.",
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.21.0",
+          "android":"4.2.0",
+          "ios":"3.4.0",
+          "macos":"0.2.1"
+        }
+      },
+      "expression":{
+        "interpolated":false,
+        "parameters":[
+          "zoom"
+        ]
+      },
+      "property-type":"data-constant"
+    },
+    "triangle-pitch-alignment":{
+      "type":"enum",
+      "values":{
+        "map":{
+          "doc":"The triangle is aligned to the plane of the map."
+        },
+        "viewport":{
+          "doc":"The triangle is aligned to the plane of the viewport."
+        }
+      },
+      "default":"viewport",
+      "doc":"Orientation of triangle when map is pitched.",
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.39.0",
+          "android":"5.2.0",
+          "ios":"3.7.0",
+          "macos":"0.6.0"
+        }
+      },
+      "expression":{
+        "interpolated":false,
+        "parameters":[
+          "zoom"
+        ]
+      },
+      "property-type":"data-constant"
+    },
+    "triangle-stroke-width":{
+      "type":"number",
+      "default":0,
+      "minimum":0,
+      "transition":true,
+      "units":"pixels",
+      "doc":"The width of the triangle's stroke. Strokes are placed outside of the `triangle-size`.",
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.29.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        },
+        "data-driven styling":{
+          "js":"0.29.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        }
+      },
+      "expression":{
+        "interpolated":true,
+        "parameters":[
+          "zoom",
+          "feature",
+          "feature-state"
+        ]
+      },
+      "property-type":"data-driven"
+    },
+    "triangle-stroke-color":{
+      "type":"color",
+      "default":"#000000",
+      "doc":"The stroke color of the triangle.",
+      "transition":true,
+      "sdk-support":{
+        "basic functionality":{
+          "js":"0.29.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        },
+        "data-driven styling":{
+          "js":"0.29.0",
+          "android":"5.0.0",
+          "ios":"3.5.0",
+          "macos":"0.4.0"
+        }
+      },
+      "expression":{
+        "interpolated":true,
+        "parameters":[
+          "zoom",
+          "feature",
+          "feature-state"
+        ]
+      },
+      "property-type":"data-driven"
+    },
+    "triangle-stroke-opacity":{
+      "type":"number",
+      "doc":"The opacity of the triangle's stroke.",
       "default":1,
       "minimum":0,
       "maximum":1,

@@ -318,6 +318,9 @@ class LayerPropertyConverter {
     return properties.toArray(new PropertyValue[properties.size()]);
   }
 
+  // Triangle layer properties are handled by creating triangular polygons with fill layers
+  // This is a placeholder - actual triangle rendering is done via custom polygon generation
+
   static PropertyValue[] interpretLineLayerProperties(Object o) {
     final Map<String, String> data = (Map<String, String>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();

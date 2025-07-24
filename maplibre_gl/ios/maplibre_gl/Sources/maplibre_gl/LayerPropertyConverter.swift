@@ -166,6 +166,9 @@ class LayerPropertyConverter {
         }
     }
 
+    // Triangle layer properties are handled by creating triangular polygons with fill layers
+    // This is a placeholder - actual triangle rendering is done via custom polygon generation
+
     class func addLineProperties(lineLayer: MLNLineStyleLayer, properties: [String: String]) {
         for (propertyName, propertyValue) in properties {
             let expression = interpretExpression(propertyName: propertyName, expression: propertyValue)
