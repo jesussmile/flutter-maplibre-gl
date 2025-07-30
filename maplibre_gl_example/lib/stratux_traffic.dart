@@ -4,8 +4,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -324,13 +322,13 @@ class _StratuxTrafficBodyState extends State<StratuxTrafficBody> {
   }
 
   String _colorToString(Color color) {
-    return '#${color.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+    return '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
   }
 
   Future<void> _loadCustomIcon() async {
     try {
-      final ByteData bytes = await rootBundle.load('assets/plane2.png');
-      final Uint8List list = bytes.buffer.asUint8List();
+      final bytes = await rootBundle.load('assets/plane2.png');
+      final list = bytes.buffer.asUint8List();
       await _mapController!.addImage('plane-icon', list);
       _iconLoaded = true;
     } catch (e) {
@@ -392,7 +390,7 @@ class _StratuxTrafficBodyState extends State<StratuxTrafficBody> {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
