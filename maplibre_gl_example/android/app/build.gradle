@@ -46,20 +46,22 @@ android {
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         
-        externalNativeBuild {
-            cmake {
-                cppFlags "-std=c++14"
-                arguments "-DANDROID_STL=c++_shared"
-            }
-        }
+        // Temporarily disable native CMake arguments
+        // externalNativeBuild {
+        //     cmake {
+        //         cppFlags "-std=c++14"
+        //         arguments "-DANDROID_STL=c++_shared"
+        //     }
+        // }
     }
     
-    externalNativeBuild {
-        cmake {
-            path "src/main/cpp/CMakeLists.txt"
-            version "3.10.2"
-        }
-    }
+    // Temporarily disable native build to fix CMake issues
+    // externalNativeBuild {
+    //     cmake {
+    //         path "src/main/cpp/CMakeLists.txt"
+    //         version "3.10.2"
+    //     }
+    // }
 
     buildTypes {
         release {
