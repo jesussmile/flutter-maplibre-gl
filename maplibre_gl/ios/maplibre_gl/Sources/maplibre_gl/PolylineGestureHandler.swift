@@ -218,13 +218,14 @@ class PolylineGestureHandler: NSObject {
         currentBreakPoint = updatedBreakPoint
         breakPointSystem.updateBreakPoint(updatedBreakPoint)
         
+        // Update break point visual position
+        renderer.showBreakPoint(lineId: breakPoint.parentLineId, coordinate: coordinate)
+        
         // Calculate new coordinates with the updated break point
         let newCoordinates = calculateNewCoordinates(breakPoint: updatedBreakPoint, originalCoordinates: originalCoordinates)
         
-        // Update preview line
-        renderer.showPreviewLine(lineId: breakPoint.parentLineId, coordinates: newCoordinates)
-        
         // Send real-time updates to Flutter during dragging
+        // Note: We don't show preview line here since the actual polyline is updated in real-time
         delegate?.onPolylineModified(lineId: breakPoint.parentLineId, newCoordinates: newCoordinates)
         
         NSLog("\(PolylineGestureHandler.TAG): Sent real-time update for line \(breakPoint.parentLineId) with \(newCoordinates.count) coordinates")
