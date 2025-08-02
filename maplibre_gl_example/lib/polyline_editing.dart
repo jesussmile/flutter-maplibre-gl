@@ -154,14 +154,36 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
   }
 
   // Callback handlers for polyline editing events
+  // Update blue line when broken into segments
   void _onPolylineBroken(String lineId, List<LatLng> segment1, List<LatLng> segment2) {
     _logEvent('FLUTTER: Polyline broken callback received for $lineId');
     _logEvent('FLUTTER: Segment1 has ${segment1.length} points, Segment2 has ${segment2.length} points');
+
+    // Update current blue route with the new segments
+    setState(() {
+      _currentBlueRoute = List.from(segment1)
+        ..addAll(segment2);
+
+      if (_blueLine != null) {
+        // Update blue line geometry to reflect new path
+        controller!.updateLine(_blueLine!, LineOptions(geometry: _currentBlueRoute));
+      }
+    });
   }
   
   void _onPolylineModified(String lineId, List<LatLng> newCoordinates) {
     _logEvent('FLUTTER: Polyline modified callback received for $lineId');
     _logEvent('FLUTTER: New coordinates have ${newCoordinates.length} points');
+    
+    // Update current blue route with the modified coordinates
+    setState(() {
+      _currentBlueRoute = List.from(newCoordinates);
+      
+      if (_blueLine != null) {
+        // Update blue line geometry to reflect real-time changes
+        controller!.updateLine(_blueLine!, LineOptions(geometry: _currentBlueRoute));
+      }
+    });
   }
   
   void _onEditingError(String lineId, String error) {
