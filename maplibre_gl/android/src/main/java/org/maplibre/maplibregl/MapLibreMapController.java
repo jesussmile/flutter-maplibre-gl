@@ -98,6 +98,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+// Polyline editing imports
+import org.maplibre.maplibregl.PolylineEditingManager;
+import org.maplibre.maplibregl.PolylineBreakPointSystem;
+import org.maplibre.maplibregl.EditablePolylineRenderer;
+import org.maplibre.maplibregl.PolylineGestureDetector;
 
 /** Controller of a single MapLibreMaps MapView instance. */
 @SuppressLint("MissingPermission")
@@ -140,6 +145,10 @@ final class MapLibreMapController
   private Style style;
   private Feature draggedFeature;
   private AndroidGesturesManager androidGesturesManager;
+  private PolylineEditingManager polylineEditingManager;
+  private PolylineBreakPointSystem polylineBreakPointSystem;
+  private EditablePolylineRenderer polylineRenderer;
+  private PolylineGestureDetector polylineGestureDetector;
 
   private LatLng dragOrigin;
   private LatLng dragPrevious;
@@ -172,6 +181,11 @@ final class MapLibreMapController
 
           mapLibreMap.addOnMapClickListener(MapLibreMapController.this);
           mapLibreMap.addOnMapLongClickListener(MapLibreMapController.this);
+
+          // Initialize polyline renderer after style is loaded
+          if (polylineRenderer != null) {
+            polylineRenderer.initialize();
+          }
 
           methodChannel.invokeMethod("map#onStyleLoaded", null);
         }
@@ -239,6 +253,24 @@ final class MapLibreMapController
     mapLibreMap.addOnCameraMoveListener(this);
     mapLibreMap.addOnCameraIdleListener(this);
 
+    // Initialize polyline editing manager
+    polylineEditingManager = new PolylineEditingManager(mapLibreMap);
+    
+    // Initialize polyline break point system
+    polylineBreakPointSystem = new PolylineBreakPointSystem(mapLibreMap);
+    
+    // Initialize polyline renderer
+    polylineRenderer = new EditablePolylineRenderer(mapLibreMap);
+    
+    // Initialize polyline gesture detector
+    polylineGestureDetector = new PolylineGestureDetector(
+        mapLibreMap, 
+        polylineEditingManager, 
+        polylineBreakPointSystem,
+        polylineRenderer,
+        new PolylineGestureListener()
+    );
+
     if (androidGesturesManager != null) {
       androidGesturesManager.setMoveGestureListener(new MoveGestureListener());
       mapView.setOnTouchListener(
@@ -258,6 +290,14 @@ final class MapLibreMapController
               // Handle two-finger hold gesture detection
               if (twoFingerHoldGestureDetector != null) {
                 twoFingerHoldGestureDetector.onTouchEvent(event);
+              }
+              
+              // Handle polyline editing gestures
+              if (polylineGestureDetector != null) {
+                boolean polylineHandled = polylineGestureDetector.onTouchEvent(event);
+                if (polylineHandled) {
+                  return true; // Polyline gesture consumed the event
+                }
               }
 
               return draggedFeature != null;
@@ -1731,6 +1771,61 @@ final class MapLibreMapController
           result.success(null);
           break;
         }
+      case "line#enableEditing":
+        {
+          try {
+            String lineId = call.argument("lineId");
+            Boolean enabled = call.argument("enabled");
+            if (lineId != null && enabled != null && polylineEditingManager != null) {
+              polylineEditingManager.enableLineEditing(lineId, enabled);
+              result.success(null);
+            } else {
+              result.error("INVALID_ARGUMENTS", "lineId and enabled are required", null);
+            }
+          } catch (Exception e) {
+            Log.e(TAG, "Error in line#enableEditing: " + e.getMessage(), e);
+            result.error("NATIVE_ERROR", "Failed to enable/disable line editing: " + e.getMessage(), null);
+          }
+          break;
+        }
+      case "line#setEditingStyle":
+        {
+          try {
+            Map<String, Object> style = call.arguments();
+            if (style != null && polylineEditingManager != null) {
+              polylineEditingManager.setEditingStyle(style);
+              
+              // Also update the renderer styling
+              if (polylineRenderer != null) {
+                polylineRenderer.updateStyle(style);
+              }
+              
+              result.success(null);
+            } else {
+              result.error("INVALID_ARGUMENTS", "style is required", null);
+            }
+          } catch (Exception e) {
+            Log.e(TAG, "Error in line#setEditingStyle: " + e.getMessage(), e);
+            result.error("NATIVE_ERROR", "Failed to set editing style: " + e.getMessage(), null);
+          }
+          break;
+        }
+      case "line#isEditable":
+        {
+          try {
+            String lineId = call.argument("lineId");
+            if (lineId != null && polylineEditingManager != null) {
+              boolean isEditable = polylineEditingManager.isLineEditable(lineId);
+              result.success(isEditable);
+            } else {
+              result.error("INVALID_ARGUMENTS", "lineId is required", null);
+            }
+          } catch (Exception e) {
+            Log.e(TAG, "Error in line#isEditable: " + e.getMessage(), e);
+            result.error("NATIVE_ERROR", "Failed to check if line is editable: " + e.getMessage(), null);
+          }
+          break;
+        }
       default:
         result.notImplemented();
     }
@@ -2622,5 +2717,93 @@ final class MapLibreMapController
     arguments.put("durationMs", (double) duration);
     
     methodChannel.invokeMethod(eventName, arguments);
+  }
+
+  /**
+   * Listener for polyline gesture events.
+   */
+  private class PolylineGestureListener implements PolylineGestureDetector.OnPolylineGestureListener {
+    
+    @Override
+    public void onPolylineBroken(@NonNull String lineId, @NonNull LatLng breakPoint, 
+                                @NonNull List<LatLng> segment1, @NonNull List<LatLng> segment2) {
+      Log.d(TAG, "Polyline broken: " + lineId + " at " + breakPoint);
+      
+      try {
+        // Show break point marker
+        if (polylineRenderer != null) {
+          polylineRenderer.showBreakPoint(lineId, breakPoint);
+        }
+        
+        // Convert LatLng lists to coordinate arrays for Flutter
+        List<List<Double>> segment1Coords = convertLatLngListToCoordinates(segment1);
+        List<List<Double>> segment2Coords = convertLatLngListToCoordinates(segment2);
+        
+        // Send callback to Flutter
+        Map<String, Object> arguments = new HashMap<>();
+        arguments.put("lineId", lineId);
+        arguments.put("segment1", segment1Coords);
+        arguments.put("segment2", segment2Coords);
+        
+        methodChannel.invokeMethod("polylineEditing#onBroken", arguments);
+      } catch (Exception e) {
+        Log.e(TAG, "Error in onPolylineBroken callback: " + e.getMessage(), e);
+        // Send error callback instead
+        onPolylineEditingError(lineId, "Failed to process polyline break: " + e.getMessage());
+      }
+    }
+    
+    @Override
+    public void onPolylineModified(@NonNull String lineId, @NonNull List<LatLng> newCoordinates) {
+      Log.d(TAG, "Polyline modified: " + lineId);
+      
+      // Hide visual feedback elements
+      if (polylineRenderer != null) {
+        polylineRenderer.hideBreakPoint(lineId);
+        polylineRenderer.hidePreviewLine(lineId);
+      }
+      
+      // Convert LatLng list to coordinate array for Flutter
+      List<List<Double>> coordinates = convertLatLngListToCoordinates(newCoordinates);
+      
+      // Send callback to Flutter
+      Map<String, Object> arguments = new HashMap<>();
+      arguments.put("lineId", lineId);
+      arguments.put("coordinates", coordinates);
+      
+      methodChannel.invokeMethod("polylineEditing#onModified", arguments);
+    }
+    
+    @Override
+    public void onPolylineEditingError(@NonNull String lineId, @NonNull String error) {
+      Log.e(TAG, "Polyline editing error for " + lineId + ": " + error);
+      
+      // Hide visual feedback elements on error
+      if (polylineRenderer != null) {
+        polylineRenderer.hideBreakPoint(lineId);
+        polylineRenderer.hidePreviewLine(lineId);
+      }
+      
+      // Send error callback to Flutter
+      Map<String, Object> arguments = new HashMap<>();
+      arguments.put("lineId", lineId);
+      arguments.put("error", error);
+      
+      methodChannel.invokeMethod("polylineEditing#onError", arguments);
+    }
+    
+    /**
+     * Converts a list of LatLng objects to a list of coordinate arrays for Flutter.
+     */
+    private List<List<Double>> convertLatLngListToCoordinates(@NonNull List<LatLng> latLngs) {
+      List<List<Double>> coordinates = new ArrayList<>();
+      for (LatLng latLng : latLngs) {
+        List<Double> coord = new ArrayList<>();
+        coord.add(latLng.getLatitude());
+        coord.add(latLng.getLongitude());
+        coordinates.add(coord);
+      }
+      return coordinates;
+    }
   }
 }

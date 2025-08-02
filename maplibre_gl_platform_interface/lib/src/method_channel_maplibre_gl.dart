@@ -193,6 +193,29 @@ class MapLibreMethodChannel extends MapLibrePlatform {
           'bearing': bearing,
           'duration': duration
         });
+      case 'polylineEditing#onBroken':
+        final String lineId = call.arguments['lineId'];
+        final List<dynamic> segment1Raw = call.arguments['segment1'];
+        final List<dynamic> segment2Raw = call.arguments['segment2'];
+        onPolylineBrokenPlatform({
+          'lineId': lineId,
+          'segment1': segment1Raw,
+          'segment2': segment2Raw,
+        });
+      case 'polylineEditing#onModified':
+        final String lineId = call.arguments['lineId'];
+        final List<dynamic> coordinatesRaw = call.arguments['coordinates'];
+        onPolylineModifiedPlatform({
+          'lineId': lineId,
+          'coordinates': coordinatesRaw,
+        });
+      case 'polylineEditing#onError':
+        final String lineId = call.arguments['lineId'];
+        final String error = call.arguments['error'];
+        onPolylineEditingErrorPlatform({
+          'lineId': lineId,
+          'error': error,
+        });
       default:
         throw MissingPluginException();
     }
@@ -1013,5 +1036,27 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<void> ensureMeasurementLayersOnTop() async {
     await _channel.invokeMethod('map#ensureMeasurementLayersOnTop');
+  }
+
+  @override
+  Future<void> enableLineEditing(String lineId, bool enabled) async {
+    await _channel.invokeMethod('line#enableEditing', <String, dynamic>{
+      'lineId': lineId,
+      'enabled': enabled,
+    });
+  }
+
+  @override
+  Future<void> setLineEditingStyle(Map<String, dynamic> style) async {
+    await _channel.invokeMethod('line#setEditingStyle', style);
+  }
+
+  @override
+  Future<bool> isLineEditable(String lineId) async {
+    final result =
+        await _channel.invokeMethod('line#isEditable', <String, dynamic>{
+      'lineId': lineId,
+    });
+    return result as bool;
   }
 }

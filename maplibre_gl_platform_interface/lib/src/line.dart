@@ -64,6 +64,12 @@ class LineOptions {
     this.linePattern,
     this.geometry,
     this.draggable,
+    this.editable,
+    this.editingCallbacks,
+    this.breakPointColor,
+    this.breakPointRadius,
+    this.previewLineColor,
+    this.previewLineOpacity,
   });
 
   final String? lineJoin;
@@ -76,6 +82,42 @@ class LineOptions {
   final String? linePattern;
   final List<LatLng>? geometry;
   final bool? draggable;
+
+  /// Whether this polyline can be interactively edited by the user.
+  ///
+  /// When set to true, users can long press on the polyline to break it into
+  /// segments and drag the break points to modify the path. Defaults to false
+  /// for backward compatibility.
+  final bool? editable;
+
+  /// Callback functions for handling polyline editing events.
+  ///
+  /// These callbacks will be triggered when the user interacts with an editable
+  /// polyline, such as breaking it or modifying its coordinates.
+  final PolylineEditingCallbacks? editingCallbacks;
+
+  /// Color of the break point marker displayed during editing.
+  ///
+  /// This should be a hex color string (e.g., "#FF0000" for red).
+  /// Defaults to a platform-specific color if not specified.
+  final String? breakPointColor;
+
+  /// Radius of the break point marker in pixels.
+  ///
+  /// Defaults to a platform-specific size if not specified.
+  final double? breakPointRadius;
+
+  /// Color of the preview line shown during drag operations.
+  ///
+  /// This should be a hex color string (e.g., "#00FF00" for green).
+  /// Defaults to a semi-transparent version of the original line color.
+  final String? previewLineColor;
+
+  /// Opacity of the preview line shown during drag operations.
+  ///
+  /// Should be a value between 0.0 (transparent) and 1.0 (opaque).
+  /// Defaults to 0.7 if not specified.
+  final double? previewLineOpacity;
 
   static const LineOptions defaultOptions = LineOptions();
 
@@ -91,6 +133,12 @@ class LineOptions {
       linePattern: changes.linePattern ?? linePattern,
       geometry: changes.geometry ?? geometry,
       draggable: changes.draggable ?? draggable,
+      editable: changes.editable ?? editable,
+      editingCallbacks: changes.editingCallbacks ?? editingCallbacks,
+      breakPointColor: changes.breakPointColor ?? breakPointColor,
+      breakPointRadius: changes.breakPointRadius ?? breakPointRadius,
+      previewLineColor: changes.previewLineColor ?? previewLineColor,
+      previewLineOpacity: changes.previewLineOpacity ?? previewLineOpacity,
     );
   }
 
@@ -116,6 +164,11 @@ class LineOptions {
           geometry?.map((LatLng latLng) => latLng.toJson()).toList());
     }
     addIfPresent('draggable', draggable);
+    addIfPresent('editable', editable);
+    addIfPresent('breakPointColor', breakPointColor);
+    addIfPresent('breakPointRadius', breakPointRadius);
+    addIfPresent('previewLineColor', previewLineColor);
+    addIfPresent('previewLineOpacity', previewLineOpacity);
     return json;
   }
 

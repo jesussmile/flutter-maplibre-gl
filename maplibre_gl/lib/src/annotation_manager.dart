@@ -190,6 +190,84 @@ class LineManager extends AnnotationManager<Line> {
         _baseProperties.copyWith(const LineLayerProperties(
             linePattern: [Expressions.get, 'linePattern'])),
       ];
+
+  @override
+  Future<void> add(Line annotation) async {
+    await super.add(annotation);
+
+    // Register editable lines with the polyline editing manager
+    if (annotation.options.editable == true) {
+      await controller.enablePolylineEditingById(annotation.id, true);
+
+      // Set editing style if provided
+      if (annotation.options.breakPointColor != null ||
+          annotation.options.breakPointRadius != null ||
+          annotation.options.previewLineColor != null ||
+          annotation.options.previewLineOpacity != null) {
+        final style = PolylineEditingStyle(
+          breakPointColor: annotation.options.breakPointColor ?? '#FF0000',
+          breakPointRadius: annotation.options.breakPointRadius ?? 8.0,
+          previewLineColor: annotation.options.previewLineColor ?? '#00FF00',
+          previewLineOpacity: annotation.options.previewLineOpacity ?? 0.7,
+        );
+        await controller.setPolylineEditingStyle(style);
+      }
+    }
+  }
+
+  @override
+  Future<void> addAll(Iterable<Line> annotations) async {
+    await super.addAll(annotations);
+
+    // Register all editable lines with the polyline editing manager
+    for (final annotation in annotations) {
+      if (annotation.options.editable == true) {
+        await controller.enablePolylineEditingById(annotation.id, true);
+      }
+    }
+  }
+
+  @override
+  Future<void> set(Line annotation) async {
+    await super.set(annotation);
+
+    // Update editing state if it changed
+    if (annotation.options.editable != null) {
+      await controller.enablePolylineEditingById(
+          annotation.id, annotation.options.editable!);
+    }
+  }
+
+  @override
+  Future<void> remove(Line annotation) async {
+    // Disable editing before removing
+    if (annotation.options.editable == true) {
+      await controller.enablePolylineEditingById(annotation.id, false);
+    }
+    await super.remove(annotation);
+  }
+
+  @override
+  Future<void> removeAll(Iterable<Line> annotations) async {
+    // Disable editing for all editable lines before removing
+    for (final annotation in annotations) {
+      if (annotation.options.editable == true) {
+        await controller.enablePolylineEditingById(annotation.id, false);
+      }
+    }
+    await super.removeAll(annotations);
+  }
+
+  @override
+  Future<void> clear() async {
+    // Disable editing for all editable lines before clearing
+    for (final annotation in annotations) {
+      if (annotation.options.editable == true) {
+        await controller.enablePolylineEditingById(annotation.id, false);
+      }
+    }
+    await super.clear();
+  }
 }
 
 class FillManager extends AnnotationManager<Fill> {

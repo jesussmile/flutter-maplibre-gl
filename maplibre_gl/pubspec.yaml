@@ -17,6 +17,10 @@ dependencies:
     path: ../maplibre_gl_web
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  mockito: ^5.4.0
+  build_runner: ^2.4.0
   very_good_analysis: ^5.0.0
 
 flutter:

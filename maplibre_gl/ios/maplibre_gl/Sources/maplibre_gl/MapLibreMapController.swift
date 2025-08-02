@@ -30,6 +30,12 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
     
     // Native measurement detector
     private var nativeMeasurementDetector: NativeMeasurementDetector?
+    
+    // Polyline editing components
+    private var polylineEditingManager: PolylineEditingManager?
+    private var polylineBreakPointSystem: PolylineBreakPointSystem?
+    private var polylineRenderer: EditablePolylineRenderer?
+    private var polylineGestureHandler: PolylineGestureHandler?
 
     func view() -> UIView {
         return mapView
@@ -998,6 +1004,9 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         case "map#clearNativeMeasurement":
             clearNativeMeasurement()
             result(nil)
+            
+        case "line#enableEditing", "line#setEditingStyle", "line#isEditable":
+            handlePolylineEditingMethodCall(methodCall: methodCall, result: result)
 
         default:
             result(FlutterMethodNotImplemented)
@@ -1354,6 +1363,9 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
 
         addedShapesByLayer.removeAll()
         interactiveFeatureLayerIds.removeAll()
+        
+        // Initialize polyline editing components
+        initializePolylineEditing()
 
         mapReadyResult?(nil)
 
@@ -2050,6 +2062,170 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             mapView.removeGestureRecognizer(recognizer)
             twoFingerHoldGestureRecognizer = nil
         }
+    }
+    
+    // MARK: - Polyline Editing
+    
+    /**
+     * Initializes the polyline editing components.
+     */
+    private func initializePolylineEditing() {
+        // Initialize polyline editing manager
+        polylineEditingManager = PolylineEditingManager(mapView: mapView)
+        
+        // Initialize polyline break point system
+        polylineBreakPointSystem = PolylineBreakPointSystem(mapView: mapView)
+        
+        // Initialize polyline renderer
+        polylineRenderer = EditablePolylineRenderer(mapView: mapView)
+        polylineRenderer?.initialize()
+        
+        // Initialize polyline gesture handler
+        if let editingManager = polylineEditingManager,
+           let breakPointSystem = polylineBreakPointSystem,
+           let renderer = polylineRenderer {
+            polylineGestureHandler = PolylineGestureHandler(
+                mapView: mapView,
+                editingManager: editingManager,
+                breakPointSystem: breakPointSystem,
+                renderer: renderer
+            )
+            polylineGestureHandler?.delegate = self
+        }
+        
+        NSLog("MapLibreMapController: Polyline editing components initialized")
+    }
+    
+    /**
+     * Handles polyline editing method calls.
+     */
+    private func handlePolylineEditingMethodCall(methodCall: FlutterMethodCall, result: @escaping FlutterResult) {
+        switch methodCall.method {
+        case "line#enableEditing":
+            handleEnableLineEditing(methodCall: methodCall, result: result)
+        case "line#setEditingStyle":
+            handleSetLineEditingStyle(methodCall: methodCall, result: result)
+        case "line#isEditable":
+            handleIsLineEditable(methodCall: methodCall, result: result)
+        default:
+            result(FlutterMethodNotImplemented)
+        }
+    }
+    
+    /**
+     * Handles the line#enableEditing method call.
+     */
+    private func handleEnableLineEditing(methodCall: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let arguments = methodCall.arguments as? [String: Any],
+              let lineId = arguments["lineId"] as? String,
+              let enabled = arguments["enabled"] as? Bool else {
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "lineId and enabled are required", details: nil))
+            return
+        }
+        
+        guard let editingManager = polylineEditingManager else {
+            result(FlutterError(code: "NOT_INITIALIZED", message: "Polyline editing manager not initialized", details: nil))
+            return
+        }
+        
+        do {
+            editingManager.enableLineEditing(lineId: lineId, enabled: enabled)
+            result(nil)
+        } catch {
+            result(FlutterError(code: "NATIVE_ERROR", message: "Failed to enable/disable line editing: \(error.localizedDescription)", details: nil))
+        }
+    }
+    
+    /**
+     * Handles the line#setEditingStyle method call.
+     */
+    private func handleSetLineEditingStyle(methodCall: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let style = methodCall.arguments as? [String: Any] else {
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "style is required", details: nil))
+            return
+        }
+        
+        guard let editingManager = polylineEditingManager,
+              let renderer = polylineRenderer else {
+            result(FlutterError(code: "NOT_INITIALIZED", message: "Polyline editing components not initialized", details: nil))
+            return
+        }
+        
+        do {
+            editingManager.setEditingStyle(style: style)
+            renderer.updateStyle(style)
+            result(nil)
+        } catch {
+            result(FlutterError(code: "NATIVE_ERROR", message: "Failed to set editing style: \(error.localizedDescription)", details: nil))
+        }
+    }
+    
+    /**
+     * Handles the line#isEditable method call.
+     */
+    private func handleIsLineEditable(methodCall: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let arguments = methodCall.arguments as? [String: Any],
+              let lineId = arguments["lineId"] as? String else {
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "lineId is required", details: nil))
+            return
+        }
+        
+        guard let editingManager = polylineEditingManager else {
+            result(FlutterError(code: "NOT_INITIALIZED", message: "Polyline editing manager not initialized", details: nil))
+            return
+        }
+        
+        do {
+            let isEditable = editingManager.isLineEditable(lineId: lineId)
+            result(isEditable)
+        } catch {
+            result(FlutterError(code: "NATIVE_ERROR", message: "Failed to check if line is editable: \(error.localizedDescription)", details: nil))
+        }
+    }
+}
+
+// MARK: - PolylineGestureHandlerDelegate
+
+extension MapLibreMapController: PolylineGestureHandlerDelegate {
+    func onPolylineBroken(lineId: String, breakPoint: CLLocationCoordinate2D, segment1: [CLLocationCoordinate2D], segment2: [CLLocationCoordinate2D]) {
+        NSLog("MapLibreMapController: Polyline broken: \(lineId) at \(breakPoint.latitude), \(breakPoint.longitude)")
+        
+        // Convert coordinates to Flutter format
+        let segment1Coords = segment1.map { [$0.latitude, $0.longitude] }
+        let segment2Coords = segment2.map { [$0.latitude, $0.longitude] }
+        
+        let arguments: [String: Any] = [
+            "lineId": lineId,
+            "segment1": segment1Coords,
+            "segment2": segment2Coords
+        ]
+        
+        channel?.invokeMethod("polylineEditing#onBroken", arguments: arguments)
+    }
+    
+    func onPolylineModified(lineId: String, newCoordinates: [CLLocationCoordinate2D]) {
+        NSLog("MapLibreMapController: Polyline modified: \(lineId)")
+        
+        // Convert coordinates to Flutter format
+        let coordinates = newCoordinates.map { [$0.latitude, $0.longitude] }
+        
+        let arguments: [String: Any] = [
+            "lineId": lineId,
+            "coordinates": coordinates
+        ]
+        
+        channel?.invokeMethod("polylineEditing#onModified", arguments: arguments)
+    }
+    
+    func onPolylineEditingError(lineId: String, error: String) {
+        NSLog("MapLibreMapController: Polyline editing error for \(lineId): \(error)")
+        
+        let arguments: [String: Any] = [
+            "lineId": lineId,
+            "error": error
+        ]
+        
+        channel?.invokeMethod("polylineEditing#onError", arguments: arguments)
     }
 }
 

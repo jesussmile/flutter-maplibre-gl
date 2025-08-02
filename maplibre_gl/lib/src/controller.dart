@@ -182,7 +182,49 @@ class MapLibreMapController extends ChangeNotifier {
     });
 
     _maplibrePlatform.onTwoFingerHoldGesturePlatform.add((dict) {
-      onTwoFingerHoldGesture?.call(dict['point'], dict['latLng'], dict['duration']);
+      onTwoFingerHoldGesture?.call(
+          dict['point'], dict['latLng'], dict['duration']);
+    });
+
+    // Polyline editing callbacks
+    _maplibrePlatform.onPolylineBrokenPlatform.add((dict) {
+      final lineId = dict['lineId'] as String;
+      final segment1Raw = dict['segment1'] as List<dynamic>;
+      final segment2Raw = dict['segment2'] as List<dynamic>;
+
+      // Convert raw coordinates to LatLng objects
+      final List<LatLng> segment1 =
+          segment1Raw.map((coord) => LatLng(coord[0], coord[1])).toList();
+      final List<LatLng> segment2 =
+          segment2Raw.map((coord) => LatLng(coord[0], coord[1])).toList();
+
+      // Find the line and trigger its callback
+      final line = lines.firstWhere((l) => l.id == lineId);
+      line.options.editingCallbacks?.onPolylineBroken
+          ?.call(lineId, segment1, segment2);
+    });
+
+    _maplibrePlatform.onPolylineModifiedPlatform.add((dict) {
+      final lineId = dict['lineId'] as String;
+      final coordinatesRaw = dict['coordinates'] as List<dynamic>;
+
+      // Convert raw coordinates to LatLng objects
+      final List<LatLng> coordinates =
+          coordinatesRaw.map((coord) => LatLng(coord[0], coord[1])).toList();
+
+      // Find the line and trigger its callback
+      final line = lines.firstWhere((l) => l.id == lineId);
+      line.options.editingCallbacks?.onPolylineModified
+          ?.call(lineId, coordinates);
+    });
+
+    _maplibrePlatform.onPolylineEditingErrorPlatform.add((dict) {
+      final lineId = dict['lineId'] as String;
+      final error = dict['error'] as String;
+
+      // Find the line and trigger its callback
+      final line = lines.firstWhere((l) => l.id == lineId);
+      line.options.editingCallbacks?.onEditingError?.call(lineId, error);
     });
   }
 
@@ -284,7 +326,7 @@ class MapLibreMapController extends ChangeNotifier {
     bool? doubleClickZoomEnabled,
   }) async {
     final Map<String, dynamic> updates = {};
-    
+
     if (scrollGesturesEnabled != null) {
       updates['scrollGesturesEnabled'] = scrollGesturesEnabled;
     }
@@ -300,7 +342,7 @@ class MapLibreMapController extends ChangeNotifier {
     if (doubleClickZoomEnabled != null) {
       updates['doubleClickZoomEnabled'] = doubleClickZoomEnabled;
     }
-    
+
     if (updates.isNotEmpty) {
       await _updateMapOptions(updates);
     }
@@ -947,6 +989,57 @@ class MapLibreMapController extends ChangeNotifier {
   Future<void> clearLines() async {
     await lineManager!.clear();
     notifyListeners();
+  }
+
+  /// Enables or disables interactive editing for the specified [line].
+  ///
+  /// When editing is enabled, users can long press on the line to break it into
+  /// segments and drag the break points to modify the path.
+  ///
+  /// The line must be a current member of the [lines] set and must have been
+  /// created with `editable: true` in its [LineOptions].
+  ///
+  /// The returned [Future] completes once the editing state has been updated
+  /// on the platform side.
+  Future<void> enablePolylineEditing(Line line, bool enabled) async {
+    await _maplibrePlatform.enableLineEditing(line.id, enabled);
+  }
+
+  /// Enables or disables interactive editing for a polyline by its ID.
+  ///
+  /// This is a convenience method for enabling editing when you have the line ID
+  /// rather than the Line object.
+  ///
+  /// The returned [Future] completes once the editing state has been updated
+  /// on the platform side.
+  Future<void> enablePolylineEditingById(String lineId, bool enabled) async {
+    await _maplibrePlatform.enableLineEditing(lineId, enabled);
+  }
+
+  /// Sets the visual styling for polyline editing operations.
+  ///
+  /// This configures how break points, preview lines, and other editing
+  /// elements appear during interactive editing sessions.
+  ///
+  /// The [style] parameter should contain styling properties such as:
+  /// - `breakPointColor`: Color of break point markers
+  /// - `breakPointRadius`: Size of break point markers
+  /// - `previewLineColor`: Color of preview lines during dragging
+  /// - `previewLineOpacity`: Opacity of preview lines
+  ///
+  /// The returned [Future] completes once the style has been applied
+  /// on the platform side.
+  Future<void> setPolylineEditingStyle(PolylineEditingStyle style) async {
+    await _maplibrePlatform.setLineEditingStyle(style.toJson());
+  }
+
+  /// Checks whether interactive editing is currently enabled for the specified [line].
+  ///
+  /// The line must be a current member of the [lines] set.
+  ///
+  /// Returns `true` if editing is enabled, `false` otherwise.
+  Future<bool> isPolylineEditable(Line line) async {
+    return await _maplibrePlatform.isLineEditable(line.id);
   }
 
   /// Adds a circle to the map, configured using the specified custom [options].

@@ -52,6 +52,12 @@ abstract class MapLibrePlatform {
   final onNativeMeasurementUpdate = ArgumentCallbacks<Map<String, dynamic>>();
   final onNativeMeasurementEnd = ArgumentCallbacks<Map<String, dynamic>>();
 
+  // Polyline editing callbacks
+  final onPolylineBrokenPlatform = ArgumentCallbacks<Map<String, dynamic>>();
+  final onPolylineModifiedPlatform = ArgumentCallbacks<Map<String, dynamic>>();
+  final onPolylineEditingErrorPlatform =
+      ArgumentCallbacks<Map<String, dynamic>>();
+
   Future<void> initPlatform(int id);
   Widget buildView(
       Map<String, dynamic> creationParams,
@@ -235,6 +241,11 @@ abstract class MapLibrePlatform {
   Future<void> clearNativeMeasurement();
   Future<void> ensureMeasurementLayersOnTop();
 
+  // Polyline editing methods
+  Future<void> enableLineEditing(String lineId, bool enabled);
+  Future<void> setLineEditingStyle(Map<String, dynamic> style);
+  Future<bool> isLineEditable(String lineId);
+
   @mustCallSuper
   void dispose() {
     // clear all callbacks to avoid cyclic refs
@@ -256,5 +267,8 @@ abstract class MapLibrePlatform {
     onNativeMeasurementStart.clear();
     onNativeMeasurementUpdate.clear();
     onNativeMeasurementEnd.clear();
+    onPolylineBrokenPlatform.clear();
+    onPolylineModifiedPlatform.clear();
+    onPolylineEditingErrorPlatform.clear();
   }
 }
