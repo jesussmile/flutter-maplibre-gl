@@ -242,7 +242,7 @@ abstract class MapLibrePlatform {
   Future<void> ensureMeasurementLayersOnTop();
 
   // Polyline editing methods
-  Future<void> enableLineEditing(String lineId, bool enabled);
+  Future<void> enableLineEditing(String lineId, bool enabled, [List<LatLng>? coordinates]);
   Future<void> setLineEditingStyle(Map<String, dynamic> style);
   Future<bool> isLineEditable(String lineId);
 

@@ -262,14 +262,75 @@ final class MapLibreMapController
     // Initialize polyline renderer
     polylineRenderer = new EditablePolylineRenderer(mapLibreMap);
     
-    // Initialize polyline gesture detector
-    polylineGestureDetector = new PolylineGestureDetector(
-        mapLibreMap, 
-        polylineEditingManager, 
-        polylineBreakPointSystem,
-        polylineRenderer,
-        new PolylineGestureListener()
-    );
+  // Initialize polyline gesture detector with callback implementation
+  polylineGestureDetector = new PolylineGestureDetector(
+      mapLibreMap, 
+      polylineEditingManager, 
+      polylineBreakPointSystem,
+      polylineRenderer,
+      new PolylineGestureDetector.OnPolylineGestureListener() {
+        @Override
+        public void onPolylineBroken(@NonNull String lineId, @NonNull LatLng breakPoint, 
+                                   @NonNull List<LatLng> segment1, @NonNull List<LatLng> segment2) {
+          try {
+            // Show break point marker visually
+            if (polylineRenderer != null) {
+              polylineRenderer.showBreakPoint(lineId, breakPoint);
+            }
+            
+            // Convert LatLng coordinates to Flutter format
+            List<List<Double>> segment1Coords = convertLatLngListToCoordinates(segment1);
+            List<List<Double>> segment2Coords = convertLatLngListToCoordinates(segment2);
+            
+            Map<String, Object> arguments = new HashMap<>();
+            arguments.put("lineId", lineId);
+            arguments.put("segment1", segment1Coords);
+            arguments.put("segment2", segment2Coords);
+            
+            Log.d(TAG, "Sending polylineEditing#onBroken callback for line: " + lineId);
+            methodChannel.invokeMethod("polylineEditing#onBroken", arguments);
+          } catch (Exception e) {
+            Log.e(TAG, "Error sending onPolylineBroken callback: " + e.getMessage(), e);
+          }
+        }
+        
+        @Override
+        public void onPolylineModified(@NonNull String lineId, @NonNull List<LatLng> newCoordinates) {
+          try {
+            // Hide visual feedback elements
+            if (polylineRenderer != null) {
+              polylineRenderer.hideBreakPoint(lineId);
+            }
+            
+            // Convert LatLng coordinates to Flutter format
+            List<List<Double>> coordinates = convertLatLngListToCoordinates(newCoordinates);
+            
+            Map<String, Object> arguments = new HashMap<>();
+            arguments.put("lineId", lineId);
+            arguments.put("coordinates", coordinates);
+            
+            Log.d(TAG, "Sending polylineEditing#onModified callback for line: " + lineId);
+            methodChannel.invokeMethod("polylineEditing#onModified", arguments);
+          } catch (Exception e) {
+            Log.e(TAG, "Error sending onPolylineModified callback: " + e.getMessage(), e);
+          }
+        }
+        
+        @Override
+        public void onPolylineEditingError(@NonNull String lineId, @NonNull String error) {
+          try {
+            Map<String, Object> arguments = new HashMap<>();
+            arguments.put("lineId", lineId);
+            arguments.put("error", error);
+            
+            Log.d(TAG, "Sending polylineEditing#onError callback for line: " + lineId);
+            methodChannel.invokeMethod("polylineEditing#onError", arguments);
+          } catch (Exception e) {
+            Log.e(TAG, "Error sending onPolylineEditingError callback: " + e.getMessage(), e);
+          }
+        }
+      }
+  );
 
     if (androidGesturesManager != null) {
       androidGesturesManager.setMoveGestureListener(new MoveGestureListener());
@@ -1776,8 +1837,35 @@ final class MapLibreMapController
           try {
             String lineId = call.argument("lineId");
             Boolean enabled = call.argument("enabled");
+            List<Object> coordinatesList = call.argument("coordinates");
+            
             if (lineId != null && enabled != null && polylineEditingManager != null) {
               polylineEditingManager.enableLineEditing(lineId, enabled);
+              
+              // If enabling and coordinates are provided, store them for the break point system
+              if (enabled && coordinatesList != null && polylineBreakPointSystem != null) {
+                List<LatLng> coordinates = new ArrayList<>();
+                for (Object coordObj : coordinatesList) {
+                  if (coordObj instanceof List) {
+                    List<Object> coord = (List<Object>) coordObj;
+                    if (coord.size() >= 2) {
+                      double lat = ((Number) coord.get(0)).doubleValue();
+                      double lng = ((Number) coord.get(1)).doubleValue();
+                      coordinates.add(new LatLng(lat, lng));
+                    }
+                  }
+                }
+                
+                if (!coordinates.isEmpty()) {
+                  polylineBreakPointSystem.setPolylineCoordinates(lineId, coordinates);
+                  Log.d(TAG, "Stored coordinates for editable polyline " + lineId + ": " + coordinates.size() + " points");
+                }
+              } else if (!enabled && polylineBreakPointSystem != null) {
+                // If disabling, remove stored coordinates
+                polylineBreakPointSystem.removePolylineCoordinates(lineId);
+                Log.d(TAG, "Removed stored coordinates for polyline " + lineId);
+              }
+              
               result.success(null);
             } else {
               result.error("INVALID_ARGUMENTS", "lineId and enabled are required", null);
@@ -2720,6 +2808,20 @@ final class MapLibreMapController
   }
 
   /**
+   * Converts a list of LatLng objects to a list of coordinate arrays for Flutter.
+   */
+  private List<List<Double>> convertLatLngListToCoordinates(@NonNull List<LatLng> latLngs) {
+    List<List<Double>> coordinates = new ArrayList<>();
+    for (LatLng latLng : latLngs) {
+      List<Double> coord = new ArrayList<>();
+      coord.add(latLng.getLatitude());
+      coord.add(latLng.getLongitude());
+      coordinates.add(coord);
+    }
+    return coordinates;
+  }
+
+  /**
    * Listener for polyline gesture events.
    */
   private class PolylineGestureListener implements PolylineGestureDetector.OnPolylineGestureListener {
@@ -2760,7 +2862,6 @@ final class MapLibreMapController
       // Hide visual feedback elements
       if (polylineRenderer != null) {
         polylineRenderer.hideBreakPoint(lineId);
-        polylineRenderer.hidePreviewLine(lineId);
       }
       
       // Convert LatLng list to coordinate array for Flutter
@@ -2781,7 +2882,6 @@ final class MapLibreMapController
       // Hide visual feedback elements on error
       if (polylineRenderer != null) {
         polylineRenderer.hideBreakPoint(lineId);
-        polylineRenderer.hidePreviewLine(lineId);
       }
       
       // Send error callback to Flutter
@@ -2790,20 +2890,6 @@ final class MapLibreMapController
       arguments.put("error", error);
       
       methodChannel.invokeMethod("polylineEditing#onError", arguments);
-    }
-    
-    /**
-     * Converts a list of LatLng objects to a list of coordinate arrays for Flutter.
-     */
-    private List<List<Double>> convertLatLngListToCoordinates(@NonNull List<LatLng> latLngs) {
-      List<List<Double>> coordinates = new ArrayList<>();
-      for (LatLng latLng : latLngs) {
-        List<Double> coord = new ArrayList<>();
-        coord.add(latLng.getLatitude());
-        coord.add(latLng.getLongitude());
-        coordinates.add(coord);
-      }
-      return coordinates;
     }
   }
 }

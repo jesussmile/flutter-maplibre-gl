@@ -152,7 +152,7 @@ public class PolylineGestureDetector {
             
             // Validate touch location
             PolylineEditingErrorHandler.ValidationResult validation = errorHandler.validateTouchLocation(
-                event.getX(), event.getY(), mapLibreMap.getWidth(), mapLibreMap.getHeight());
+                event.getX(), event.getY(), (int) mapLibreMap.getWidth(), (int) mapLibreMap.getHeight());
             
             if (!validation.isValid) {
                 Log.w(TAG, "Invalid touch location: " + validation.errorMessage);
@@ -324,7 +324,10 @@ public class PolylineGestureDetector {
                 // Update visual feedback
                 if (renderer != null) {
                     renderer.updateBreakPoint(activeLineId, breakPointLocation);
-                    renderer.showPreviewLine(activeLineId, updatedSession.getCombinedCoordinates());
+                    // TODO: Update the actual polyline coordinates on the map
+                    // This will replace the preview line functionality
+                    Log.d(TAG, "Segment1 coordinates: " + updatedSession.segment1Coordinates.size() + " points");
+                    Log.d(TAG, "Segment2 coordinates: " + updatedSession.segment2Coordinates.size() + " points");
                 }
                 
                 Log.d(TAG, "Updated break point to: " + breakPointLocation);
@@ -417,6 +420,11 @@ public class PolylineGestureDetector {
         if (longPressRunnable != null) {
             handler.removeCallbacks(longPressRunnable);
             longPressRunnable = null;
+        }
+        
+        // Clean up visual feedback elements
+        if (activeLineId != null && renderer != null) {
+            renderer.hideBreakPoint(activeLineId);
         }
         
         isLongPressActive = false;

@@ -1039,11 +1039,18 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
-  Future<void> enableLineEditing(String lineId, bool enabled) async {
-    await _channel.invokeMethod('line#enableEditing', <String, dynamic>{
+  Future<void> enableLineEditing(String lineId, bool enabled, [List<LatLng>? coordinates]) async {
+    final args = <String, dynamic>{
       'lineId': lineId,
       'enabled': enabled,
-    });
+    };
+    
+    // Include coordinates when enabling editing
+    if (enabled && coordinates != null && coordinates.isNotEmpty) {
+      args['coordinates'] = coordinates.map((coord) => [coord.latitude, coord.longitude]).toList();
+    }
+    
+    await _channel.invokeMethod('line#enableEditing', args);
   }
 
   @override

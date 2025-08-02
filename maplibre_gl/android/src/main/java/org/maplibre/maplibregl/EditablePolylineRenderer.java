@@ -13,12 +13,10 @@ import androidx.annotation.Nullable;
 import org.maplibre.android.geometry.LatLng;
 import org.maplibre.android.maps.MapLibreMap;
 import org.maplibre.android.style.layers.CircleLayer;
-import org.maplibre.android.style.layers.LineLayer;
 import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.sources.GeoJsonSource;
 import org.maplibre.geojson.Feature;
 import org.maplibre.geojson.FeatureCollection;
-import org.maplibre.geojson.LineString;
 import org.maplibre.geojson.Point;
 
 import java.util.ArrayList;
@@ -31,9 +29,7 @@ import java.util.Map;
  * 
  * This class manages the visual representation of:
  * - Break point markers during editing
- * - Preview lines during drag operations
  * - Visual state management for active editing sessions
- * - Smooth animation transitions for editing operations
  */
 public class EditablePolylineRenderer {
     private static final String TAG = "EditablePolylineRenderer";
@@ -41,30 +37,21 @@ public class EditablePolylineRenderer {
     // Layer and source IDs
     private static final String BREAK_POINT_SOURCE_ID = "polyline-editing-break-points";
     private static final String BREAK_POINT_LAYER_ID = "polyline-editing-break-points-layer";
-    private static final String PREVIEW_LINE_SOURCE_ID = "polyline-editing-preview-lines";
-    private static final String PREVIEW_LINE_LAYER_ID = "polyline-editing-preview-lines-layer";
     
     // Default styling
     private static final String DEFAULT_BREAK_POINT_COLOR = "#FF0000";
     private static final float DEFAULT_BREAK_POINT_RADIUS = 8.0f;
     private static final String DEFAULT_BREAK_POINT_BORDER_COLOR = "#FFFFFF";
     private static final float DEFAULT_BREAK_POINT_BORDER_WIDTH = 2.0f;
-    private static final String DEFAULT_PREVIEW_LINE_COLOR = "#00FF00";
-    private static final float DEFAULT_PREVIEW_LINE_OPACITY = 0.7f;
-    private static final float DEFAULT_PREVIEW_LINE_WIDTH = 3.0f;
     
     private final MapLibreMap mapLibreMap;
     private final Map<String, BreakPointVisualState> activeBreakPoints;
-    private final Map<String, PreviewLineVisualState> activePreviewLines;
     
     // Current styling configuration
     private String breakPointColor = DEFAULT_BREAK_POINT_COLOR;
     private float breakPointRadius = DEFAULT_BREAK_POINT_RADIUS;
     private String breakPointBorderColor = DEFAULT_BREAK_POINT_BORDER_COLOR;
     private float breakPointBorderWidth = DEFAULT_BREAK_POINT_BORDER_WIDTH;
-    private String previewLineColor = DEFAULT_PREVIEW_LINE_COLOR;
-    private float previewLineOpacity = DEFAULT_PREVIEW_LINE_OPACITY;
-    private float previewLineWidth = DEFAULT_PREVIEW_LINE_WIDTH;
     
     private boolean isInitialized = false;
     
@@ -101,32 +88,6 @@ public class EditablePolylineRenderer {
     }
     
     /**
-     * Represents the visual state of a preview line.
-     */
-    public static class PreviewLineVisualState {
-        public final String lineId;
-        public final List<LatLng> coordinates;
-        public final boolean isVisible;
-        public final long createdTime;
-        
-        public PreviewLineVisualState(@NonNull String lineId, @NonNull List<LatLng> coordinates, 
-                                    boolean isVisible) {
-            this.lineId = lineId;
-            this.coordinates = new ArrayList<>(coordinates);
-            this.isVisible = isVisible;
-            this.createdTime = System.currentTimeMillis();
-        }
-        
-        public PreviewLineVisualState withCoordinates(@NonNull List<LatLng> newCoordinates) {
-            return new PreviewLineVisualState(lineId, newCoordinates, isVisible);
-        }
-        
-        public PreviewLineVisualState withVisibility(boolean visible) {
-            return new PreviewLineVisualState(lineId, coordinates, visible);
-        }
-    }
-    
-    /**
      * Creates a new EditablePolylineRenderer.
      * 
      * @param mapLibreMap The MapLibre map instance
@@ -134,7 +95,6 @@ public class EditablePolylineRenderer {
     public EditablePolylineRenderer(@NonNull MapLibreMap mapLibreMap) {
         this.mapLibreMap = mapLibreMap;
         this.activeBreakPoints = new HashMap<>();
-        this.activePreviewLines = new HashMap<>();
         
         Log.d(TAG, "EditablePolylineRenderer created");
     }
@@ -155,12 +115,6 @@ public class EditablePolylineRenderer {
             // Add break point source and layer
             if (!addBreakPointLayer()) {
                 Log.e(TAG, "Failed to add break point layer");
-                return false;
-            }
-            
-            // Add preview line source and layer
-            if (!addPreviewLineLayer()) {
-                Log.e(TAG, "Failed to add preview line layer");
                 return false;
             }
             
@@ -202,26 +156,9 @@ public class EditablePolylineRenderer {
             }
         }
         
-        // Update preview line styling
-        if (style.containsKey("previewLineColor")) {
-            previewLineColor = (String) style.get("previewLineColor");
-        }
-        if (style.containsKey("previewLineOpacity")) {
-            Object opacity = style.get("previewLineOpacity");
-            if (opacity instanceof Number) {
-                previewLineOpacity = ((Number) opacity).floatValue();
-            }
-        }
-        if (style.containsKey("previewLineWidth")) {
-            Object width = style.get("previewLineWidth");
-            if (width instanceof Number) {
-                previewLineWidth = ((Number) width).floatValue();
-            }
-        }
-        
-        // Apply updated styling to existing layers
+        // Update break point layer styling
         if (isInitialized) {
-            updateLayerStyling();
+            updateBreakPointLayerStyling();
         }
     }
     
@@ -327,88 +264,6 @@ public class EditablePolylineRenderer {
     }
     
     /**
-     * Shows a preview line with the specified coordinates.
-     * 
-     * @param lineId The ID of the polyline
-     * @param coordinates The coordinates of the preview line
-     */
-    public void showPreviewLine(@NonNull String lineId, @NonNull List<LatLng> coordinates) {
-        if (!isInitialized) {
-            Log.w(TAG, "Renderer not initialized, cannot show preview line");
-            return;
-        }
-        
-        if (coordinates.size() < 2) {
-            Log.w(TAG, "Preview line requires at least 2 coordinates");
-            return;
-        }
-        
-        Log.d(TAG, "Showing preview line for line " + lineId + " with " + coordinates.size() + " points");
-        
-        try {
-            PreviewLineVisualState state = new PreviewLineVisualState(lineId, coordinates, true);
-            activePreviewLines.put(lineId, state);
-            updatePreviewLineSource();
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Error showing preview line: " + e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * Updates the coordinates of an existing preview line.
-     * 
-     * @param lineId The ID of the polyline
-     * @param newCoordinates The new coordinates of the preview line
-     */
-    public void updatePreviewLine(@NonNull String lineId, @NonNull List<LatLng> newCoordinates) {
-        if (!isInitialized) {
-            return;
-        }
-        
-        PreviewLineVisualState currentState = activePreviewLines.get(lineId);
-        if (currentState == null) {
-            Log.w(TAG, "No active preview line found for line " + lineId);
-            return;
-        }
-        
-        if (newCoordinates.size() < 2) {
-            Log.w(TAG, "Preview line requires at least 2 coordinates");
-            return;
-        }
-        
-        try {
-            PreviewLineVisualState updatedState = currentState.withCoordinates(newCoordinates);
-            activePreviewLines.put(lineId, updatedState);
-            updatePreviewLineSource();
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Error updating preview line: " + e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * Hides the preview line for the specified polyline.
-     * 
-     * @param lineId The ID of the polyline
-     */
-    public void hidePreviewLine(@NonNull String lineId) {
-        if (!isInitialized) {
-            return;
-        }
-        
-        try {
-            activePreviewLines.remove(lineId);
-            updatePreviewLineSource();
-            
-            Log.d(TAG, "Hidden preview line for line " + lineId);
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Error hiding preview line: " + e.getMessage(), e);
-        }
-    }
-    
-    /**
      * Clears all visual feedback elements.
      */
     public void clearAll() {
@@ -418,15 +273,11 @@ public class EditablePolylineRenderer {
         
         try {
             int breakPointCount = activeBreakPoints.size();
-            int previewLineCount = activePreviewLines.size();
             
             activeBreakPoints.clear();
-            activePreviewLines.clear();
-            
             updateBreakPointSource();
-            updatePreviewLineSource();
             
-            Log.d(TAG, "Cleared " + breakPointCount + " break points and " + previewLineCount + " preview lines");
+            Log.d(TAG, "Cleared " + breakPointCount + " break points");
             
         } catch (Exception e) {
             Log.e(TAG, "Error clearing visual feedback: " + e.getMessage(), e);
@@ -440,15 +291,6 @@ public class EditablePolylineRenderer {
      */
     public int getActiveBreakPointCount() {
         return activeBreakPoints.size();
-    }
-    
-    /**
-     * Gets the number of active preview lines.
-     * 
-     * @return The number of active preview lines
-     */
-    public int getActivePreviewLineCount() {
-        return activePreviewLines.size();
     }
     
     /**
@@ -491,38 +333,9 @@ public class EditablePolylineRenderer {
     }
     
     /**
-     * Adds the preview line source and layer to the map.
+     * Updates the styling of break point layer.
      */
-    private boolean addPreviewLineLayer() {
-        try {
-            // Add empty source
-            GeoJsonSource previewLineSource = new GeoJsonSource(PREVIEW_LINE_SOURCE_ID, 
-                FeatureCollection.fromFeatures(new ArrayList<>()));
-            mapLibreMap.getStyle().addSource(previewLineSource);
-            
-            // Add line layer for preview lines
-            LineLayer previewLineLayer = new LineLayer(PREVIEW_LINE_LAYER_ID, PREVIEW_LINE_SOURCE_ID);
-            previewLineLayer.setProperties(
-                PropertyFactory.lineColor(Color.parseColor(previewLineColor)),
-                PropertyFactory.lineWidth(previewLineWidth),
-                PropertyFactory.lineOpacity(previewLineOpacity)
-            );
-            
-            mapLibreMap.getStyle().addLayer(previewLineLayer);
-            
-            Log.d(TAG, "Added preview line layer");
-            return true;
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Error adding preview line layer: " + e.getMessage(), e);
-            return false;
-        }
-    }
-    
-    /**
-     * Updates the styling of existing layers.
-     */
-    private void updateLayerStyling() {
+    private void updateBreakPointLayerStyling() {
         try {
             // Update break point layer styling
             CircleLayer breakPointLayer = (CircleLayer) mapLibreMap.getStyle().getLayer(BREAK_POINT_LAYER_ID);
@@ -535,17 +348,7 @@ public class EditablePolylineRenderer {
                 );
             }
             
-            // Update preview line layer styling
-            LineLayer previewLineLayer = (LineLayer) mapLibreMap.getStyle().getLayer(PREVIEW_LINE_LAYER_ID);
-            if (previewLineLayer != null) {
-                previewLineLayer.setProperties(
-                    PropertyFactory.lineColor(Color.parseColor(previewLineColor)),
-                    PropertyFactory.lineWidth(previewLineWidth),
-                    PropertyFactory.lineOpacity(previewLineOpacity)
-                );
-            }
-            
-            Log.d(TAG, "Updated layer styling");
+            Log.d(TAG, "Updated break point layer styling");
             
         } catch (Exception e) {
             Log.e(TAG, "Error updating layer styling: " + e.getMessage(), e);
@@ -580,55 +383,17 @@ public class EditablePolylineRenderer {
     }
     
     /**
-     * Updates the preview line source with current preview line data.
-     */
-    private void updatePreviewLineSource() {
-        try {
-            List<Feature> features = new ArrayList<>();
-            
-            for (PreviewLineVisualState state : activePreviewLines.values()) {
-                if (state.isVisible && state.coordinates.size() >= 2) {
-                    List<Point> points = new ArrayList<>();
-                    for (LatLng coord : state.coordinates) {
-                        points.add(Point.fromLngLat(coord.getLongitude(), coord.getLatitude()));
-                    }
-                    
-                    LineString lineString = LineString.fromLngLats(points);
-                    Feature feature = Feature.fromGeometry(lineString);
-                    feature.addStringProperty("lineId", state.lineId);
-                    features.add(feature);
-                }
-            }
-            
-            GeoJsonSource source = (GeoJsonSource) mapLibreMap.getStyle().getSource(PREVIEW_LINE_SOURCE_ID);
-            if (source != null) {
-                source.setGeoJson(FeatureCollection.fromFeatures(features));
-            }
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Error updating preview line source: " + e.getMessage(), e);
-        }
-    }
-    
-    /**
      * Logs the current state of the renderer for debugging.
      */
     public void logState() {
         Log.d(TAG, "EditablePolylineRenderer state:");
         Log.d(TAG, "  Initialized: " + isInitialized);
         Log.d(TAG, "  Active break points: " + activeBreakPoints.size());
-        Log.d(TAG, "  Active preview lines: " + activePreviewLines.size());
         
         for (Map.Entry<String, BreakPointVisualState> entry : activeBreakPoints.entrySet()) {
             BreakPointVisualState state = entry.getValue();
             Log.d(TAG, "    Break point " + entry.getKey() + ": visible=" + state.isVisible + 
                       ", dragging=" + state.isDragging + ", location=" + state.location);
-        }
-        
-        for (Map.Entry<String, PreviewLineVisualState> entry : activePreviewLines.entrySet()) {
-            PreviewLineVisualState state = entry.getValue();
-            Log.d(TAG, "    Preview line " + entry.getKey() + ": visible=" + state.isVisible + 
-                      ", points=" + state.coordinates.size());
         }
     }
 }

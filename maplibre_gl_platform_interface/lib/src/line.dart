@@ -165,6 +165,8 @@ class LineOptions {
     }
     addIfPresent('draggable', draggable);
     addIfPresent('editable', editable);
+    // Note: editingCallbacks are not serialized as they contain function references
+    // and are handled separately by the method channel layer
     addIfPresent('breakPointColor', breakPointColor);
     addIfPresent('breakPointRadius', breakPointRadius);
     addIfPresent('previewLineColor', previewLineColor);

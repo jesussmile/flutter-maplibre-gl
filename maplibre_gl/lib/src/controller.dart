@@ -1002,7 +1002,8 @@ class MapLibreMapController extends ChangeNotifier {
   /// The returned [Future] completes once the editing state has been updated
   /// on the platform side.
   Future<void> enablePolylineEditing(Line line, bool enabled) async {
-    await _maplibrePlatform.enableLineEditing(line.id, enabled);
+    // Pass the line's coordinates when enabling editing
+    await _maplibrePlatform.enableLineEditing(line.id, enabled, line.options.geometry);
   }
 
   /// Enables or disables interactive editing for a polyline by its ID.
