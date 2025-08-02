@@ -4,7 +4,14 @@ This guide helps you migrate existing MapLibre GL Flutter applications to suppor
 
 ## Overview
 
-✅ **Production Ready Feature** - The Interactive Polyline Editing feature is fully implemented with real native gesture detection, cross-platform consistency, and comprehensive testing. 
+✅ **Production Ready Feature** - The Interactive Polyline Editing feature is fully implemented with real native gesture detection, cross-platform consistency, and comprehensive testing.
+
+### What's New in the Current Implementation
+- **Real-time Visual Feedback**: Orange break point markers that move during drag operations
+- **Proper Line Structure**: Maintains start → break point → end structure (3 points total)
+- **No Preview Line Conflicts**: Only the actual polyline updates, no conflicting visual elements
+- **Memory Efficient**: Automatic cleanup of break points and editing sessions
+- **Cross-Platform Consistency**: Identical behavior on Android and iOS
 
 The feature is fully backward compatible. Existing polylines will continue to work without changes, and editing is opt-in through new optional properties.
 
@@ -85,7 +92,12 @@ class _MyMapPageState extends State<MyMapPage> {
 
   // New callback handlers
   void _handleRouteBreak(String lineId, List<LatLng> segment1, List<LatLng> segment2) {
-    print('Route $lineId was broken into ${segment1.length} + ${segment2.length} segments');
+    print('Break point created on route $lineId');
+    print('Segments: ${segment1.length} + ${segment2.length} points');
+    
+    // The break point coordinate is segment1.last (or segment2.first)
+    final breakPoint = segment1.last;
+    print('Break point location: ${breakPoint.latitude}, ${breakPoint.longitude}');
     
     // Update your application state
     _updateRouteInDatabase(lineId, segment1, segment2);
@@ -97,13 +109,21 @@ class _MyMapPageState extends State<MyMapPage> {
   }
 
   void _handleRouteModify(String lineId, List<LatLng> newCoordinates) {
-    print('Route $lineId was modified: ${newCoordinates.length} points');
+    // Real-time updates during drag and final update on completion
+    print('Route $lineId modified: ${newCoordinates.length} points');
     
-    // Save updated coordinates
-    _saveUpdatedRoute(lineId, newCoordinates);
-    
-    // Recalculate any derived data (distance, time, etc.)
-    _recalculateRouteMetrics(lineId, newCoordinates);
+    // newCoordinates structure: [start, current_break_point, end]
+    if (newCoordinates.length == 3) {
+      final startPoint = newCoordinates[0];
+      final breakPoint = newCoordinates[1];  // Current drag position
+      final endPoint = newCoordinates[2];
+      
+      // Save updated coordinates
+      _saveUpdatedRoute(lineId, newCoordinates);
+      
+      // Recalculate route metrics in real-time
+      _recalculateRouteMetrics(lineId, newCoordinates);
+    }
   }
 
   void _handleEditingError(String lineId, String error) {

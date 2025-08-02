@@ -4,6 +4,23 @@ This guide helps diagnose and resolve common issues with the Interactive Polylin
 
 ✅ **Production Ready Implementation** - This troubleshooting guide covers the fully implemented, production-ready interactive polyline editing feature with real native gesture detection and cross-platform support.
 
+## Current Implementation Status
+
+### What Works ✅
+- **Long Press Detection**: Creates orange break point markers at touch location
+- **Real-time Dragging**: Break point visual follows finger during drag operations
+- **Coordinate Updates**: Real-time coordinate updates sent to Flutter during drag
+- **Line Structure**: Maintains proper start → break point → end line structure
+- **Cross-Platform**: Consistent behavior on Android and iOS
+- **Memory Management**: Proper cleanup of break points and editing sessions
+- **Error Handling**: Comprehensive error detection and reporting
+
+### Implementation Details
+- **iOS**: Uses UILongPressGestureRecognizer + UIPanGestureRecognizer with MLNCircleStyleLayer break points
+- **Android**: Uses OnMapLongClickListener + gesture detection with SymbolLayer break points
+- **Coordinate Structure**: Always 3 points during editing: [start, current_break_point, end]
+- **Visual Feedback**: Orange circle that moves with drag, no conflicting preview lines
+
 ## Quick Diagnostics
 
 ### Is Editing Working?
@@ -110,10 +127,11 @@ final lineOptions = LineOptions(
 
 ### 2. Visual Feedback Issues
 
-#### Issue: Break points not visible
+#### Issue: Orange break point not visible or not moving
 
 **Symptoms:**
-- Editing works but break points can't be seen
+- Long press creates break point but orange circle is not visible
+- Break point circle appears but doesn't move during drag operations
 - Drag operations work but without visual feedback
 
 **Diagnosis:**

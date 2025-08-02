@@ -4,6 +4,22 @@ This guide provides practical examples and best practices for implementing inter
 
 ✅ **Real Implementation** - All features of interactive polyline editing are now production-ready, including real native gesture support, cross-platform consistency, and robust error handling.
 
+## How It Works
+
+### User Interaction Flow
+1. **Long Press**: User long presses on any point along an editable polyline
+2. **Break Point Creation**: An orange break point marker appears at the touch location
+3. **Drag Operation**: User can drag the break point to reshape the line
+4. **Real-time Updates**: The polyline updates in real-time, maintaining the path from start → break point → end
+5. **Completion**: When user releases, the final coordinates are saved
+
+### Technical Details
+- Original 2-point line becomes a 3-point line: [start, break_point, end]
+- Break point visual (orange circle) follows drag operations
+- Real-time coordinate updates are sent to Flutter during dragging
+- Original coordinates are preserved for proper line structure
+- No conflicting preview lines - only the actual polyline updates
+
 ## Quick Start
 
 ### Basic Setup
@@ -68,9 +84,10 @@ class _MyMapPageState extends State<MyMapPage> {
 ### User Interaction
 
 Users can now:
-- **Long press** on any point along the blue route
-- **Drag** the created break point to modify the route
-- See **real-time preview** during drag operations
+- **Long press** on any point along the blue route to create an orange break point
+- **Drag** the orange break point to reshape the route
+- See **real-time line updates** during drag operations - the line goes from start → break point → end
+- **Release** to finalize the edit
 
 ## Common Use Cases
 
@@ -130,28 +147,39 @@ class _FlightRouteEditorState extends State<FlightRouteEditor> {
   }
 
   void _handleRouteBreak(String lineId, List<LatLng> segment1, List<LatLng> segment2) {
-    // Route was broken - might add waypoint here
+    // Break point created - this is called once when long press creates the break point
     final route = routes.firstWhere((r) => r.id == lineId);
     
-    // Calculate intermediate waypoint
-    final breakPoint = segment1.last; // Break point coordinates
+    // The break point coordinate is the last point of segment1 (or first of segment2)
+    final breakPoint = segment1.last;
     
-    // Update route with new waypoint
+    print('Break point created on route ${route.departure.icao} → ${route.arrival.icao}');
+    print('Break point location: ${breakPoint.latitude}, ${breakPoint.longitude}');
+    
+    // Optionally add waypoint to flight plan
     _addWaypoint(route, breakPoint);
   }
 
   void _handleRouteModify(String lineId, List<LatLng> newCoordinates) {
-    // Route coordinates changed - update navigation
+    // Real-time coordinate updates during drag and final update on completion
     final routeIndex = routes.indexWhere((r) => r.id == lineId);
     if (routeIndex != -1) {
+      // newCoordinates will always have 3 points: [start, current_break_point, end]
+      final startPoint = newCoordinates[0];
+      final breakPoint = newCoordinates[1];  // This is where the user is dragging
+      final endPoint = newCoordinates[2];
+      
       setState(() {
         routes[routeIndex] = routes[routeIndex].copyWith(
           coordinates: newCoordinates,
         );
       });
       
-      // Recalculate flight plan
+      // Recalculate flight plan with new break point
       _recalculateFlightPlan(routes[routeIndex]);
+      
+      // Update distance and time estimates
+      _updateFlightMetrics(routes[routeIndex], breakPoint);
     }
   }
 
@@ -195,14 +223,26 @@ class DeliveryRouteManager {
   }
 
   void _optimizeRoute(String lineId, List<LatLng> newCoordinates) {
-    // Recalculate delivery times and distances
-    final newRoute = RouteOptimizer.optimize(newCoordinates, stops);
+    // Real-time route optimization during drag operations
+    // newCoordinates structure: [start, current_break_point, end]
     
-    // Update delivery schedule
-    DeliveryScheduler.updateSchedule(newRoute);
-    
-    // Notify drivers of route changes
-    NotificationService.notifyDrivers(newRoute);
+    if (newCoordinates.length == 3) {
+      final detourPoint = newCoordinates[1]; // The break point being dragged
+      
+      // Recalculate delivery times and distances with detour
+      final optimizedRoute = RouteOptimizer.optimizeWithDetour(
+        newCoordinates, 
+        stops, 
+        detourPoint
+      );
+      
+      // Update delivery schedule in real-time
+      DeliveryScheduler.updateSchedule(optimizedRoute);
+      
+      // Show estimated time impact to driver
+      final timeImpact = calculateTimeImpact(originalRoute, optimizedRoute);
+      _showTimeImpactToDriver(timeImpact);
+    }
   }
 
   void _handleOptimizationError(String lineId, String error) {
@@ -278,10 +318,15 @@ class _TrailEditorState extends State<TrailEditor> {
   }
 
   void _handleTrailModification(String lineId, List<LatLng> newCoordinates) {
-    // Trail was modified - recalculate metrics
+    // Trail was modified - recalculate metrics in real-time
+    // During drag: newCoordinates = [start, current_break_point, end]
+    
     final distance = TrailCalculator.calculateDistance(newCoordinates);
     final elevation = TrailCalculator.calculateElevationGain(newCoordinates);
     final difficulty = TrailCalculator.assessDifficulty(distance, elevation);
+
+    // Show real-time metrics to user during drag
+    _updateTrailMetricsDisplay(distance, elevation, difficulty);
 
     setState(() {
       currentTrail = currentTrail!.copyWith(
@@ -292,8 +337,8 @@ class _TrailEditorState extends State<TrailEditor> {
       );
     });
 
-    // Update trail database
-    TrailDatabase.updateTrail(currentTrail!);
+    // Update trail database (consider debouncing for performance)
+    _debouncedUpdate(() => TrailDatabase.updateTrail(currentTrail!));
   }
 
   void _handleTrailError(String lineId, String error) {

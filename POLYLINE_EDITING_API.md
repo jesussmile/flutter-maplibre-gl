@@ -4,11 +4,20 @@ This document provides comprehensive API reference for the Interactive Polyline 
 
 ## Overview
 
-The Interactive Polyline Editing feature enables users to modify polylines on maps through native gesture recognition. Users can long press on any point along a polyline to break it into segments, then drag the break point to create new routing paths.
+The Interactive Polyline Editing feature enables users to modify polylines on maps through native gesture recognition. Users can long press on any point along a polyline to create a break point, then drag that break point to reshape the line while maintaining the complete path from start to end.
 
-**Status:** ✅ **Production Ready** - Real interactive implementation with native gesture detection, cross-platform consistency, and comprehensive testing completed.
+**Status:** ✅ **Production Ready** - Fully implemented with real native gesture detection, cross-platform consistency, and comprehensive testing completed.
 
 **Platform Support:** Android and iOS only (native implementation required)
+
+## Key Features
+
+- **Real-time Editing**: Long press to create break points, drag to reshape polylines
+- **Visual Feedback**: Orange break point markers that move with drag operations
+- **Coordinate Updates**: Real-time coordinate updates sent to Flutter during drag operations
+- **Cross-Platform**: Consistent behavior on both Android and iOS
+- **Memory Efficient**: Proper cleanup of editing sessions and break points
+- **Error Handling**: Comprehensive error detection and reporting
 
 ## Core Classes
 
@@ -88,39 +97,49 @@ class PolylineEditingCallbacks {
 #### Callbacks
 
 ##### `onPolylineBroken`
-Called when a polyline is broken into two segments.
+Called when a polyline break point is initially created (long press event).
 
 **Parameters:**
 - `lineId` (`String`): Unique identifier of the polyline
-- `segment1` (`List<LatLng>`): Coordinates of the first segment
-- `segment2` (`List<LatLng>`): Coordinates of the second segment
+- `segment1` (`List<LatLng>`): Coordinates from start to break point
+- `segment2` (`List<LatLng>`): Coordinates from break point to end
+
+**Note:** This callback is triggered once when the break point is created, not during drag operations.
 
 **Usage:**
 ```dart
 onPolylineBroken: (lineId, segment1, segment2) {
-  // Handle polyline breaking
-  print('Line $lineId broken: ${segment1.length} + ${segment2.length} points');
+  // Handle polyline break point creation
+  print('Break point created on line $lineId: ${segment1.length} + ${segment2.length} points');
   
-  // Update your application state
-  updateRouteSegments(lineId, segment1, segment2);
+  // Optionally handle the break (e.g., create waypoints)
+  handleBreakPointCreated(lineId, segment1.last); // Break point coordinate
 },
 ```
 
 ##### `onPolylineModified`
-Called when a polyline's coordinates are modified through dragging.
+Called in real-time during drag operations and when dragging is completed.
 
 **Parameters:**
 - `lineId` (`String`): Unique identifier of the polyline
-- `newCoordinates` (`List<LatLng>`): Updated coordinates of the polyline
+- `newCoordinates` (`List<LatLng>`): Updated coordinates of the polyline (always 3 points: start, break point, end)
+
+**Behavior:**
+- Called continuously during drag operations for real-time updates
+- Called once more when drag operation is completed
+- Coordinates maintain the structure: [start, current_break_point, end]
 
 **Usage:**
 ```dart
 onPolylineModified: (lineId, newCoordinates) {
-  // Handle coordinate updates
-  print('Line $lineId modified: ${newCoordinates.length} total points');
+  // Handle real-time coordinate updates
+  print('Line $lineId modified: ${newCoordinates.length} points');
   
-  // Save updated route
-  saveRouteCoordinates(lineId, newCoordinates);
+  // Update your application state in real-time
+  updateRouteCoordinates(lineId, newCoordinates);
+  
+  // Access the break point coordinate
+  final breakPoint = newCoordinates[1]; // Middle coordinate is the break point
 },
 ```
 
@@ -371,16 +390,19 @@ final callbacks = PolylineEditingCallbacks(
 ### Android Implementation ✅ **Fully Implemented**
 - Real `PolylineEditingManager.java` for comprehensive state management
 - Native `OnMapLongClickListener` for precise long press detection
-- `SymbolLayer` break point markers with real-time dragging
+- `SymbolLayer` break point markers with real-time position updates
 - Geometric calculations for polyline intersection and distance
 - Complete integration with MapLibre Android SDK gesture system
+- Real-time coordinate calculation and updates
 
 ### iOS Implementation ✅ **Fully Implemented**
 - Real `PolylineEditingManager.swift` with MLNMapView integration
 - `UILongPressGestureRecognizer` and `UIPanGestureRecognizer` for gestures
-- `MLNAnnotation` objects for break point visualization
+- `MLNCircleStyleLayer` break point visualization with real-time updates
+- Original coordinate tracking for proper line structure maintenance
 - Core Animation transitions and haptic feedback via Taptic Engine
 - Complete method channel integration with Flutter layer
+- Break point visual follows drag operations in real-time
 
 ### Web Platform
 - Interactive polyline editing is **not supported** on web platform
