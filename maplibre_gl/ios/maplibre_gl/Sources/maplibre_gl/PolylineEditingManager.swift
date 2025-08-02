@@ -11,6 +11,7 @@ class PolylineEditingManager {
     private static let TAG = "PolylineEditingManager"
     
     private let mapView: MLNMapView
+    private weak var controller: MapLibreMapController?
     private var editableLines: [String: PolylineEditingConfig] = [:]
     private var globalEditingStyle: [String: Any] = [:]
     
@@ -31,8 +32,9 @@ class PolylineEditingManager {
         }
     }
     
-    init(mapView: MLNMapView) {
+    init(mapView: MLNMapView, controller: MapLibreMapController) {
         self.mapView = mapView
+        self.controller = controller
         setupDefaultStyle()
     }
     
@@ -176,16 +178,174 @@ class PolylineEditingManager {
     }
     
     /**
-     * Gets the coordinates for a line from the map view.
-     * This is a placeholder implementation - in a real scenario, this would
-     * query the map's style sources to get the actual line coordinates.
+     * Gets the coordinates for a line from the map view by searching through all shape sources.
      *
      * @param lineId The ID of the line to get coordinates for
      * @return An array of coordinates for the line
      */
     private func getLineCoordinates(lineId: String) -> [CLLocationCoordinate2D] {
-        // TODO: Implement actual coordinate retrieval from map sources
-        // For now, return empty array as this would be populated when the line is registered
+        guard let style = mapView.style else {
+            NSLog("\(PolylineEditingManager.TAG): Map style not available")
+            return []
+        }
+        
+        // Strategy 1: Search through stored shapes in the controller (most reliable)
+        if let controller = controller {
+            let storedShapes = controller.getAllStoredShapes()
+            for (sourceId, shape) in storedShapes {
+                // Try exact match first
+                let coordinates = extractCoordinatesFromShape(shape: shape, targetLineId: lineId)
+                if !coordinates.isEmpty {
+                    NSLog("\(PolylineEditingManager.TAG): Found coordinates for line \(lineId): \(coordinates.count) points from stored shapes in source \(sourceId)")
+                    return coordinates
+                }
+                
+                // If no exact match, try sourceId-based matching (lineId might match sourceId)
+                if sourceId == lineId {
+                    let coordinates = extractCoordinatesFromAnyShape(shape: shape)
+                    if !coordinates.isEmpty {
+                        NSLog("\(PolylineEditingManager.TAG): Found coordinates for line \(lineId) by matching sourceId: \(coordinates.count) points")
+                        return coordinates
+                    }
+                }
+            }
+        }
+        
+        // Strategy 2: Search through all shape sources
+        for source in style.sources {
+            if let shapeSource = source as? MLNShapeSource,
+               let shape = shapeSource.shape {
+                
+                // Try exact match first
+                let coordinates = extractCoordinatesFromShape(shape: shape, targetLineId: lineId)
+                if !coordinates.isEmpty {
+                    NSLog("\(PolylineEditingManager.TAG): Found coordinates for line \(lineId): \(coordinates.count) points from shape source")
+                    return coordinates
+                }
+                
+                // If no exact match and source identifier matches lineId, extract any polyline coordinates
+                if source.identifier == lineId {
+                    let coordinates = extractCoordinatesFromAnyShape(shape: shape)
+                    if !coordinates.isEmpty {
+                        NSLog("\(PolylineEditingManager.TAG): Found coordinates for line \(lineId) by matching source identifier: \(coordinates.count) points")
+                        return coordinates
+                    }
+                }
+            }
+        }
+        
+        NSLog("\(PolylineEditingManager.TAG): No coordinates found for line \(lineId)")
+        return []
+    }
+    
+    /**
+     * Extracts coordinates from an MLNShape, searching for a specific line ID.
+     *
+     * @param shape The MLNShape to search through
+     * @param targetLineId The line ID to search for
+     * @return An array of coordinates if found, empty array otherwise
+     */
+    private func extractCoordinatesFromShape(shape: MLNShape, targetLineId: String) -> [CLLocationCoordinate2D] {
+        // Handle different types of MLNShape
+        switch shape {
+        case let polylineFeature as MLNPolylineFeature:
+            // Polyline feature - check if it matches our target ID
+            if let identifier = polylineFeature.identifier as? String, identifier == targetLineId {
+                return Array(UnsafeBufferPointer(start: polylineFeature.coordinates, count: Int(polylineFeature.pointCount)))
+            }
+            
+        case let shapeCollection as MLNShapeCollectionFeature:
+            // Collection of shapes - search through all shapes
+            for subShape in shapeCollection.shapes {
+                let coordinates = extractCoordinatesFromShape(shape: subShape, targetLineId: targetLineId)
+                if !coordinates.isEmpty {
+                    return coordinates
+                }
+            }
+            
+        case let multiPolylineFeature as MLNMultiPolylineFeature:
+            // Multiple polyline features - check the feature itself for ID match
+            // Note: MLNMultiPolylineFeature.polylines contains MLNPolyline objects (not MLNPolylineFeature)
+            // which don't have identifiers, so we check the parent feature instead
+            if let identifier = multiPolylineFeature.identifier as? String, identifier == targetLineId {
+                // Return coordinates from the first polyline in the multi-polyline
+                if multiPolylineFeature.polylines.count > 0 {
+                    let firstPolyline = multiPolylineFeature.polylines[0]
+                    return Array(UnsafeBufferPointer(start: firstPolyline.coordinates, count: Int(firstPolyline.pointCount)))
+                }
+            }
+            
+        default:
+            // For other shape types (including MLNPolyline, MLNMultiPolyline), 
+            // check if the shape itself is an MLNFeature with the matching ID
+            if let feature = shape as? MLNFeature,
+               let identifier = feature.identifier as? String,
+               identifier == targetLineId {
+                
+                // Try to extract coordinates based on the actual shape type
+                if let polyline = feature as? MLNPolylineFeature {
+                    return Array(UnsafeBufferPointer(start: polyline.coordinates, count: Int(polyline.pointCount)))
+                } else {
+                    NSLog("\(PolylineEditingManager.TAG): Found matching feature \(targetLineId) but unable to extract coordinates from type: \(type(of: shape))")
+                }
+            }
+            
+            // Special handling for MLNPolyline (which doesn't implement MLNFeature)
+            if let polyline = shape as? MLNPolyline {
+                // MLNPolyline doesn't have identifier property, so we need to check if this is
+                // the only polyline in the source and assume it matches the target ID
+                // This is a limitation of MapLibre's MLNPolyline class
+                NSLog("\(PolylineEditingManager.TAG): Found MLNPolyline but cannot verify ID (no identifier property)")
+                // We could return coordinates here as a fallback, but it's risky without ID verification
+                // return Array(UnsafeBufferPointer(start: polyline.coordinates, count: Int(polyline.pointCount)))
+            }
+        }
+        
+        return []
+    }
+    
+    /**
+     * Extracts coordinates from any MLNShape without ID verification.
+     * This is used as a fallback when we match by sourceId instead of feature ID.
+     *
+     * @param shape The MLNShape to extract coordinates from
+     * @return An array of coordinates if found, empty array otherwise
+     */
+    private func extractCoordinatesFromAnyShape(shape: MLNShape) -> [CLLocationCoordinate2D] {
+        switch shape {
+        case let polyline as MLNPolyline:
+            return Array(UnsafeBufferPointer(start: polyline.coordinates, count: Int(polyline.pointCount)))
+            
+        case let polylineFeature as MLNPolylineFeature:
+            return Array(UnsafeBufferPointer(start: polylineFeature.coordinates, count: Int(polylineFeature.pointCount)))
+            
+        case let shapeCollection as MLNShapeCollectionFeature:
+            // Return coordinates from the first polyline in the collection
+            for subShape in shapeCollection.shapes {
+                let coordinates = extractCoordinatesFromAnyShape(shape: subShape)
+                if !coordinates.isEmpty {
+                    return coordinates
+                }
+            }
+            
+        case let multiPolyline as MLNMultiPolyline:
+            // Return coordinates from the first polyline
+            if multiPolyline.polylines.count > 0 {
+                let firstPolyline = multiPolyline.polylines[0]
+                return Array(UnsafeBufferPointer(start: firstPolyline.coordinates, count: Int(firstPolyline.pointCount)))
+            }
+            
+        case let multiPolylineFeature as MLNMultiPolylineFeature:
+            // Return coordinates from the first polyline feature
+            if multiPolylineFeature.polylines.count > 0 {
+                let firstPolylineFeature = multiPolylineFeature.polylines[0]
+                return Array(UnsafeBufferPointer(start: firstPolylineFeature.coordinates, count: Int(firstPolylineFeature.pointCount)))
+            }
+            
+        default:
+            NSLog("\(PolylineEditingManager.TAG): Cannot extract coordinates from unsupported shape type: \(type(of: shape))")
+        }
+        
         return []
     }
     

@@ -2067,11 +2067,25 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
     // MARK: - Polyline Editing
     
     /**
+     * Provides access to the stored shapes for polyline editing.
+     */
+    func getStoredShape(for sourceId: String) -> MLNShape? {
+        return addedShapesByLayer[sourceId]
+    }
+    
+    /**
+     * Gets all stored shapes.
+     */
+    func getAllStoredShapes() -> [String: MLNShape] {
+        return addedShapesByLayer
+    }
+    
+    /**
      * Initializes the polyline editing components.
      */
     private func initializePolylineEditing() {
         // Initialize polyline editing manager
-        polylineEditingManager = PolylineEditingManager(mapView: mapView)
+        polylineEditingManager = PolylineEditingManager(mapView: mapView, controller: self)
         
         // Initialize polyline break point system
         polylineBreakPointSystem = PolylineBreakPointSystem(mapView: mapView)

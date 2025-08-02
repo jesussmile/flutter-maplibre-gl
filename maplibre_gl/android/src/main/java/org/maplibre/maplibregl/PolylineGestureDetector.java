@@ -19,6 +19,7 @@ import org.maplibre.geojson.Feature;
 import org.maplibre.geojson.LineString;
 import org.maplibre.geojson.Point;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -324,13 +325,16 @@ public class PolylineGestureDetector {
                 // Update visual feedback
                 if (renderer != null) {
                     renderer.updateBreakPoint(activeLineId, breakPointLocation);
-                    // TODO: Update the actual polyline coordinates on the map
-                    // This will replace the preview line functionality
-                    Log.d(TAG, "Segment1 coordinates: " + updatedSession.segment1Coordinates.size() + " points");
-                    Log.d(TAG, "Segment2 coordinates: " + updatedSession.segment2Coordinates.size() + " points");
                 }
                 
+                // Send real-time updates to Flutter during dragging
+                List<LatLng> combinedCoordinates = new ArrayList<>();
+                combinedCoordinates.addAll(updatedSession.segment1Coordinates);
+                combinedCoordinates.addAll(updatedSession.segment2Coordinates);
+                listener.onPolylineModified(activeLineId, combinedCoordinates);
+                
                 Log.d(TAG, "Updated break point to: " + breakPointLocation);
+                Log.d(TAG, "Sent real-time update with " + combinedCoordinates.size() + " points");
             }
             
         } catch (Exception e) {

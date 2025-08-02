@@ -10,7 +10,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import 'page.dart';
 
 class PolylineEditingPage extends ExamplePage {
-  const PolylineEditingPage({super.key}) 
+  const PolylineEditingPage({super.key})
       : super(const Icon(Icons.edit_road), 'Interactive Polyline Editing');
 
   @override
@@ -28,26 +28,26 @@ class PolylineEditingBody extends StatefulWidget {
 
 class PolylineEditingBodyState extends State<PolylineEditingBody> {
   MapLibreMapController? controller;
-  
+
   // Single blue polyline for testing
   // Blue route: West to East United States
   static const List<LatLng> _blueRoute = [
     LatLng(37.7749, -122.4194), // San Francisco, CA (West US)
-    LatLng(40.7128, -74.0060),  // New York, NY (East US)
+    LatLng(40.7128, -74.0060), // New York, NY (East US)
   ];
 
   Line? _blueLine;
-  
+
   // Markers for start and end points
-  Circle? _startMarker;      // San Francisco (start of blue)
-  Circle? _endMarker;        // New York (end of blue)
-  
+  Circle? _startMarker; // San Francisco (start of blue)
+  Circle? _endMarker; // New York (end of blue)
+
   // Track active break points
   final Map<String, Circle> _activeBreakPoints = {};
-  
+
   final List<String> _eventLog = [];
   bool _blueEditingEnabled = true;
-  
+
   // Current route coordinates (can be modified)
   List<LatLng> _currentBlueRoute = List.from(_blueRoute);
 
@@ -65,7 +65,8 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
 
   void _logEvent(String event) {
     setState(() {
-      _eventLog.insert(0, '${DateTime.now().toString().substring(11, 19)}: $event');
+      _eventLog.insert(
+          0, '${DateTime.now().toString().substring(11, 19)}: $event');
       // Keep only last 10 events
       if (_eventLog.length > 10) {
         _eventLog.removeLast();
@@ -122,7 +123,7 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
           circleStrokeWidth: 2.0,
         ),
       );
-      
+
       _endMarker = await controller!.addCircle(
         CircleOptions(
           geometry: const LatLng(40.7128, -74.0060), // New York (end)
@@ -136,18 +137,20 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
       // Set initial editing style with orange preview lines
       await controller!.setPolylineEditingStyle(
         const PolylineEditingStyle(
-          breakPointColor: '#FF6600',    // Orange break points for visibility
-          breakPointRadius: 12.0,         // Larger break points for easier dragging
+          breakPointColor: '#FF6600', // Orange break points for visibility
+          breakPointRadius: 12.0, // Larger break points for easier dragging
           breakPointBorderColor: '#FFFFFF', // White border for contrast
-          breakPointBorderWidth: 2.0,     // Border width
-          previewLineColor: '#FF6600',    // Orange preview lines matching breakpoint
-          previewLineOpacity: 0.7,        // Semi-transparent for visual feedback
-          previewLineWidth: 3.0,          // Visible width for preview line
-          enableHapticFeedback: true,     // Keep haptic feedback
+          breakPointBorderWidth: 2.0, // Border width
+          previewLineColor:
+              '#FF6600', // Orange preview lines matching breakpoint
+          previewLineOpacity: 0.7, // Semi-transparent for visual feedback
+          previewLineWidth: 3.0, // Visible width for preview line
+          enableHapticFeedback: true, // Keep haptic feedback
         ),
       );
 
-      _logEvent('Added blue polyline with start and end markers and editing callbacks');
+      _logEvent(
+          'Added blue polyline with start and end markers and editing callbacks');
     } catch (e) {
       _logEvent('Error adding blue route: $e');
     }
@@ -155,37 +158,40 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
 
   // Callback handlers for polyline editing events
   // Update blue line when broken into segments
-  void _onPolylineBroken(String lineId, List<LatLng> segment1, List<LatLng> segment2) {
+  void _onPolylineBroken(
+      String lineId, List<LatLng> segment1, List<LatLng> segment2) {
     _logEvent('FLUTTER: Polyline broken callback received for $lineId');
-    _logEvent('FLUTTER: Segment1 has ${segment1.length} points, Segment2 has ${segment2.length} points');
+    _logEvent(
+        'FLUTTER: Segment1 has ${segment1.length} points, Segment2 has ${segment2.length} points');
 
     // Update current blue route with the new segments
     setState(() {
-      _currentBlueRoute = List.from(segment1)
-        ..addAll(segment2);
+      _currentBlueRoute = List.from(segment1)..addAll(segment2);
 
       if (_blueLine != null) {
         // Update blue line geometry to reflect new path
-        controller!.updateLine(_blueLine!, LineOptions(geometry: _currentBlueRoute));
+        controller!
+            .updateLine(_blueLine!, LineOptions(geometry: _currentBlueRoute));
       }
     });
   }
-  
+
   void _onPolylineModified(String lineId, List<LatLng> newCoordinates) {
     _logEvent('FLUTTER: Polyline modified callback received for $lineId');
     _logEvent('FLUTTER: New coordinates have ${newCoordinates.length} points');
-    
+
     // Update current blue route with the modified coordinates
     setState(() {
       _currentBlueRoute = List.from(newCoordinates);
-      
+
       if (_blueLine != null) {
         // Update blue line geometry to reflect real-time changes
-        controller!.updateLine(_blueLine!, LineOptions(geometry: _currentBlueRoute));
+        controller!
+            .updateLine(_blueLine!, LineOptions(geometry: _currentBlueRoute));
       }
     });
   }
-  
+
   void _onEditingError(String lineId, String error) {
     _logEvent('FLUTTER: Editing error for $lineId: $error');
   }
@@ -199,7 +205,8 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
 
     try {
       await controller!.enablePolylineEditing(_blueLine!, _blueEditingEnabled);
-      _logEvent('Blue Route editing ${_blueEditingEnabled ? 'enabled' : 'disabled'}');
+      _logEvent(
+          'Blue Route editing ${_blueEditingEnabled ? 'enabled' : 'disabled'}');
     } catch (e) {
       _logEvent('Error toggling Blue Route editing: $e');
     }
@@ -213,7 +220,7 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
       await controller!.removeLine(_blueLine!);
       _blueLine = null;
     }
-    
+
     // Remove existing markers
     if (_startMarker != null) {
       await controller!.removeCircle(_startMarker!);
@@ -245,7 +252,8 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
     if (_blueLine != null) {
       try {
         final isEditable = await controller!.isPolylineEditable(_blueLine!);
-        _logEvent('Blue Route is currently ${isEditable ? 'editable' : 'not editable'}');
+        _logEvent(
+            'Blue Route is currently ${isEditable ? 'editable' : 'not editable'}');
       } catch (e) {
         _logEvent('Error checking if Blue Route is editable: $e');
       }
@@ -261,13 +269,14 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
           breakPointRadius: 14.0,
           breakPointBorderColor: '#FFFFFF',
           breakPointBorderWidth: 3.0,
-          previewLineColor: color,        // Match preview line color to breakpoint
-          previewLineOpacity: 0.7,        // Semi-transparent preview lines
-          previewLineWidth: 3.0,          // Visible preview line width
+          previewLineColor: color, // Match preview line color to breakpoint
+          previewLineOpacity: 0.7, // Semi-transparent preview lines
+          previewLineWidth: 3.0, // Visible preview line width
           enableHapticFeedback: true,
         ),
       );
-      _logEvent('Updated editing style with ${useRedBreakPoints ? 'red' : 'orange'} break points and preview lines');
+      _logEvent(
+          'Updated editing style with ${useRedBreakPoints ? 'red' : 'orange'} break points and preview lines');
     } catch (e) {
       _logEvent('Error setting editing style: $e');
     }
@@ -289,12 +298,12 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
             ),
           ),
         ),
-        
+
         // Instructions
         Container(
           padding: const EdgeInsets.all(8.0),
           color: Colors.blue.shade50,
-        child: const Text(
+          child: const Text(
             'Polyline Editing with Two-Segment Preview Lines\n'
             '• BLUE LINE: West US to East US (San Francisco to New York)\n'
             '• WHITE CIRCLES: Start and end points\n'
@@ -305,7 +314,7 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
             textAlign: TextAlign.center,
           ),
         ),
-        
+
         // Control Buttons
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -326,11 +335,16 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
                       TextButton(
                         onPressed: _toggleBlueEditing,
                         style: TextButton.styleFrom(
-                          backgroundColor: _blueEditingEnabled ? Colors.green.shade100 : Colors.red.shade100,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          backgroundColor: _blueEditingEnabled
+                              ? Colors.green.shade100
+                              : Colors.red.shade100,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
                         ),
                         child: Text(
-                          _blueEditingEnabled ? 'Blue Line\nEditable' : 'Blue Line\nDisabled',
+                          _blueEditingEnabled
+                              ? 'Blue Line\nEditable'
+                              : 'Blue Line\nDisabled',
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 12),
                         ),
@@ -339,7 +353,7 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
                   ),
                 ],
               ),
-              
+
               // Action Buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -357,7 +371,7 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
             ],
           ),
         ),
-        
+
         // Event Log
         Expanded(
           child: Container(
@@ -379,13 +393,15 @@ class PolylineEditingBodyState extends State<PolylineEditingBody> {
                   child: _eventLog.isEmpty
                       ? const Text(
                           'No events yet. Try long pressing on routes to create break points!',
-                          style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                          style: TextStyle(
+                              fontStyle: FontStyle.italic, color: Colors.grey),
                         )
                       : ListView.builder(
                           itemCount: _eventLog.length,
                           itemBuilder: (context, index) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2.0),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 2.0),
                               child: Text(
                                 _eventLog[index],
                                 style: const TextStyle(

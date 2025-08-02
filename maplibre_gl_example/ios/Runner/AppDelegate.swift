@@ -9,10 +9,6 @@ import UIKit
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
     
-    // Register the LERC decoder plugin
-    let registry = self.registrar(forPlugin: "LercDecoderPlugin")
-    LercDecoderPlugin.register(with: registry!)
-    
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }

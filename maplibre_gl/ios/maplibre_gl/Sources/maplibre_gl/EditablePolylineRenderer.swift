@@ -386,17 +386,17 @@ class EditablePolylineRenderer {
         
         // Remove layers and sources
         if let style = mapView.style {
-            if style.layer(withIdentifier: breakPointLayerId) != nil {
-                style.removeLayer(withIdentifier: breakPointLayerId)
+            if let breakPointLayer = style.layer(withIdentifier: breakPointLayerId) {
+                style.removeLayer(breakPointLayer)
             }
-            if style.layer(withIdentifier: previewLineLayerId) != nil {
-                style.removeLayer(withIdentifier: previewLineLayerId)
+            if let previewLineLayer = style.layer(withIdentifier: previewLineLayerId) {
+                style.removeLayer(previewLineLayer)
             }
-            if style.source(withIdentifier: breakPointSourceId) != nil {
-                style.removeSource(withIdentifier: breakPointSourceId)
+            if let breakPointSource = style.source(withIdentifier: breakPointSourceId) {
+                style.removeSource(breakPointSource)
             }
-            if style.source(withIdentifier: previewLineSourceId) != nil {
-                style.removeSource(withIdentifier: previewLineSourceId)
+            if let previewLineSource = style.source(withIdentifier: previewLineSourceId) {
+                style.removeSource(previewLineSource)
             }
         }
         

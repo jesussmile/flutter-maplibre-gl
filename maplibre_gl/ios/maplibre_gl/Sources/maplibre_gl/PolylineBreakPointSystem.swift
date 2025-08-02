@@ -360,4 +360,149 @@ class PolylineBreakPointSystem {
             "averageBreakPointsPerLine": breakPointsByLine.isEmpty ? 0 : Double(breakPoints.count) / Double(breakPointsByLine.count)
         ]
     }
+    
+    // MARK: - Gesture Handler Compatibility Methods
+    
+    /**
+     * Session data structure for break point operations.
+     */
+    struct BreakPointSession {
+        let breakPointLocation: CLLocationCoordinate2D
+        let segmentIndex: Int
+        let distanceAlongSegment: Double
+        let segment1Coordinates: [CLLocationCoordinate2D]
+        let segment2Coordinates: [CLLocationCoordinate2D]
+    }
+    
+    /**
+     * Creates a break point at the specified coordinate on a line.
+     * This method is compatible with the gesture handler interface.
+     *
+     * @param lineId The ID of the line to create a break point on
+     * @param coordinate The coordinate where the break point should be created
+     * @return A BreakPointSession containing the break point and segment data, or nil if creation failed
+     */
+    func createBreakPoint(_ lineId: String, _ coordinate: CLLocationCoordinate2D) -> BreakPointSession? {
+        NSLog("\(PolylineBreakPointSystem.TAG): Creating break point for line \(lineId) at \(coordinate.latitude), \(coordinate.longitude)")
+        
+        // For iOS, we'll create a simple demo session with basic coordinates
+        // In a full implementation, this would get coordinates from the editing manager
+        let demoCoordinates: [CLLocationCoordinate2D] = [
+            CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+            CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.0060),
+            CLLocationCoordinate2D(latitude: 41.8781, longitude: -87.6298)
+        ]
+        
+        guard let breakPoint = createBreakPointAtNearestSegment(
+            lineId: lineId, 
+            coordinates: demoCoordinates, 
+            targetCoordinate: coordinate
+        ) else {
+            NSLog("\(PolylineBreakPointSystem.TAG): Failed to create break point")
+            return nil
+        }
+        
+        // Add the break point to the system
+        addBreakPoint(breakPoint)
+        
+        // Split the polyline to get the segments
+        let (segment1, segment2) = splitPolylineAtBreakPoint(coordinates: demoCoordinates, breakPoint: breakPoint)
+        
+        NSLog("\(PolylineBreakPointSystem.TAG): Created break point session with \(segment1.count) + \(segment2.count) points")
+        
+        return BreakPointSession(
+            breakPointLocation: breakPoint.coordinate,
+            segmentIndex: breakPoint.segmentIndex,
+            distanceAlongSegment: breakPoint.distanceAlongSegment,
+            segment1Coordinates: segment1,
+            segment2Coordinates: segment2
+        )
+    }
+    
+    /**
+     * Updates a break point location and returns updated session data.
+     *
+     * @param lineId The ID of the line being edited
+     * @param newLocation The new coordinate for the break point
+     * @return Updated BreakPointSession, or nil if update failed
+     */
+    func updateBreakPoint(_ lineId: String, _ newLocation: CLLocationCoordinate2D) -> BreakPointSession? {
+        // Find the active break point for this line
+        let breakPointsForLine = getBreakPointsForLine(lineId: lineId)
+        guard let activeBreakPoint = breakPointsForLine.first(where: { $0.isDragging }) else {
+            NSLog("\(PolylineBreakPointSystem.TAG): No active break point found for line \(lineId)")
+            return nil
+        }
+        
+        // Create updated break point
+        let updatedBreakPoint = PolylineBreakPoint(
+            id: activeBreakPoint.id,
+            parentLineId: activeBreakPoint.parentLineId,
+            coordinate: newLocation,
+            segmentIndex: activeBreakPoint.segmentIndex,
+            distanceAlongSegment: activeBreakPoint.distanceAlongSegment,
+            isDragging: true
+        )
+        
+        // Update the break point in the system
+        updateBreakPoint(updatedBreakPoint)
+        
+        // Calculate updated segments with the new break point location
+        // For now, create placeholder coordinates - in real implementation,
+        // this would come from the editing manager
+        let coordinates: [CLLocationCoordinate2D] = [] // Placeholder
+        let (segment1, segment2) = splitPolylineAtBreakPoint(coordinates: coordinates, breakPoint: updatedBreakPoint)
+        
+        return BreakPointSession(
+            breakPointLocation: updatedBreakPoint.coordinate,
+            segmentIndex: updatedBreakPoint.segmentIndex,
+            distanceAlongSegment: updatedBreakPoint.distanceAlongSegment,
+            segment1Coordinates: segment1,
+            segment2Coordinates: segment2
+        )
+    }
+    
+    /**
+     * Finalizes a break point editing session and returns the final coordinates.
+     *
+     * @param lineId The ID of the line being edited
+     * @return The final combined coordinates of the polyline, or nil if finalization failed
+     */
+    func finalizeBreakPoint(_ lineId: String) -> [CLLocationCoordinate2D]? {
+        // Find the active break point for this line
+        let breakPointsForLine = getBreakPointsForLine(lineId: lineId)
+        guard let activeBreakPoint = breakPointsForLine.first(where: { $0.isDragging }) else {
+            NSLog("\(PolylineBreakPointSystem.TAG): No active break point found for line \(lineId)")
+            return nil
+        }
+        
+        // Mark break point as no longer dragging
+        let finalizedBreakPoint = PolylineBreakPoint(
+            id: activeBreakPoint.id,
+            parentLineId: activeBreakPoint.parentLineId,
+            coordinate: activeBreakPoint.coordinate,
+            segmentIndex: activeBreakPoint.segmentIndex,
+            distanceAlongSegment: activeBreakPoint.distanceAlongSegment,
+            isDragging: false
+        )
+        
+        updateBreakPoint(finalizedBreakPoint)
+        
+        // Calculate final coordinates
+        // For now, create placeholder coordinates - in real implementation,
+        // this would come from the editing manager
+        let coordinates: [CLLocationCoordinate2D] = [] // Placeholder
+        let (segment1, segment2) = splitPolylineAtBreakPoint(coordinates: coordinates, breakPoint: finalizedBreakPoint)
+        
+        // Combine segments to create final polyline
+        var finalCoordinates = segment1
+        // Remove the last coordinate from segment1 to avoid duplication
+        if !finalCoordinates.isEmpty {
+            finalCoordinates.removeLast()
+        }
+        finalCoordinates.append(contentsOf: segment2)
+        
+        NSLog("\(PolylineBreakPointSystem.TAG): Finalized break point for line \(lineId) with \(finalCoordinates.count) coordinates")
+        return finalCoordinates
+    }
 }

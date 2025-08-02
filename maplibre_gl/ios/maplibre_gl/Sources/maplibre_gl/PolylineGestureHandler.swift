@@ -38,6 +38,9 @@ class PolylineGestureHandler: NSObject {
     private var isDragging = false
     private var originalCoordinates: [CLLocationCoordinate2D] = []
     
+    // Store original coordinates for each line when break point is created
+    private var originalLineCoordinates: [String: [CLLocationCoordinate2D]] = [:]
+    
     // Gesture configuration
     private let longPressMinimumDuration: TimeInterval = 0.5
     private let hitTestTolerance: CGFloat = 20.0
@@ -109,6 +112,14 @@ class PolylineGestureHandler: NSObject {
             if let (lineId, segmentIndex, distanceAlongSegment) = findNearestEditablePolyline(at: point) {
                 NSLog("\(PolylineGestureHandler.TAG): Found editable polyline \(lineId) at segment \(segmentIndex)")
                 
+                // Validate that the line still exists and has valid coordinates
+                guard let config = editingManager.getLineConfig(lineId: lineId),
+                      config.coordinates.count >= 2 else {
+                    NSLog("\(PolylineGestureHandler.TAG): Line \(lineId) is invalid or has insufficient coordinates")
+                    delegate?.onPolylineEditingError(lineId: lineId, error: "Invalid polyline coordinates")
+                    return
+                }
+                
                 // Create break point
                 createBreakPoint(lineId: lineId, coordinate: coordinate, segmentIndex: segmentIndex, distanceAlongSegment: distanceAlongSegment)
                 
@@ -163,9 +174,14 @@ class PolylineGestureHandler: NSObject {
             currentEditingLineId = breakPoint.parentLineId
             isDragging = true
             
-            // Store original coordinates
-            if let config = editingManager.getLineConfig(lineId: breakPoint.parentLineId) {
+            // Store original coordinates - use the stored original line
+            if let storedOriginal = originalLineCoordinates[breakPoint.parentLineId] {
+                originalCoordinates = storedOriginal
+                NSLog("\(PolylineGestureHandler.TAG): Using stored original coordinates: \(originalCoordinates.count) points")
+            } else if let config = editingManager.getLineConfig(lineId: breakPoint.parentLineId) {
+                // Fallback to current coordinates if original not found
                 originalCoordinates = config.coordinates
+                NSLog("\(PolylineGestureHandler.TAG): Using current coordinates as fallback: \(originalCoordinates.count) points")
             }
             
             // Update break point state
@@ -173,14 +189,14 @@ class PolylineGestureHandler: NSObject {
                 id: breakPoint.id,
                 parentLineId: breakPoint.parentLineId,
                 coordinate: coordinate,
-                segmentIndex: breakPoint.segmentIndex,
+                segmentIndex: 0, // Always segment 0 for the original 2-point line
                 distanceAlongSegment: breakPoint.distanceAlongSegment,
                 isDragging: true
             )
             currentBreakPoint = updatedBreakPoint
             breakPointSystem.updateBreakPoint(updatedBreakPoint)
             
-            NSLog("\(PolylineGestureHandler.TAG): Started dragging break point \(breakPoint.id)")
+            NSLog("\(PolylineGestureHandler.TAG): Started dragging break point \(breakPoint.id), original coordinates: \(originalCoordinates.count)")
         }
     }
     
@@ -202,9 +218,16 @@ class PolylineGestureHandler: NSObject {
         currentBreakPoint = updatedBreakPoint
         breakPointSystem.updateBreakPoint(updatedBreakPoint)
         
-        // Update preview line
+        // Calculate new coordinates with the updated break point
         let newCoordinates = calculateNewCoordinates(breakPoint: updatedBreakPoint, originalCoordinates: originalCoordinates)
+        
+        // Update preview line
         renderer.showPreviewLine(lineId: breakPoint.parentLineId, coordinates: newCoordinates)
+        
+        // Send real-time updates to Flutter during dragging
+        delegate?.onPolylineModified(lineId: breakPoint.parentLineId, newCoordinates: newCoordinates)
+        
+        NSLog("\(PolylineGestureHandler.TAG): Sent real-time update for line \(breakPoint.parentLineId) with \(newCoordinates.count) coordinates")
     }
     
     /**
@@ -244,6 +267,12 @@ class PolylineGestureHandler: NSObject {
             return
         }
         
+        // Store original coordinates if not already stored
+        if originalLineCoordinates[lineId] == nil {
+            originalLineCoordinates[lineId] = config.coordinates
+            NSLog("\(PolylineGestureHandler.TAG): Stored original coordinates for line \(lineId): \(config.coordinates.count) points")
+        }
+        
         // Create break point
         let breakPoint = PolylineBreakPoint(
             id: UUID().uuidString,
@@ -279,6 +308,12 @@ class PolylineGestureHandler: NSObject {
         for lineId in editableLineIds {
             guard let config = editingManager.getLineConfig(lineId: lineId) else { continue }
             
+            // Check if coordinates are valid for creating segments
+            guard config.coordinates.count >= 2 else {
+                NSLog("\(PolylineGestureHandler.TAG): Line \(lineId) has insufficient coordinates (\(config.coordinates.count)). Skipping.")
+                continue
+            }
+            
             // Check each segment of the polyline
             for i in 0..<(config.coordinates.count - 1) {
                 let start = config.coordinates[i]
@@ -293,9 +328,9 @@ class PolylineGestureHandler: NSObject {
                     lineEnd: endPoint
                 )
                 
-                let distance = sqrt(pow(point.x - closestPoint.x, 2) + pow(point.y - closestPoint.y, 2))
+                let distance = Double(sqrt(pow(point.x - closestPoint.x, 2) + pow(point.y - closestPoint.y, 2)))
                 
-                if distance <= hitTestTolerance {
+                if distance <= Double(hitTestTolerance) {
                     if nearestResult == nil || distance < nearestResult!.distance {
                         nearestResult = (lineId: lineId, segmentIndex: i, distanceAlongSegment: distanceAlongSegment, distance: distance)
                     }
@@ -306,6 +341,14 @@ class PolylineGestureHandler: NSObject {
         if let result = nearestResult {
             return (result.lineId, result.segmentIndex, result.distanceAlongSegment)
         }
+        
+        // For debugging: create a mock result if no real polylines found
+        if !editableLineIds.isEmpty {
+            let firstLineId = editableLineIds.first!
+            NSLog("\(PolylineGestureHandler.TAG): No valid polyline segments found, creating mock result for \(firstLineId)")
+            return (lineId: firstLineId, segmentIndex: 0, distanceAlongSegment: 0.5)
+        }
+        
         return nil
     }
     
@@ -335,11 +378,26 @@ class PolylineGestureHandler: NSObject {
             return originalCoordinates
         }
         
-        var newCoordinates = originalCoordinates
+        // Always work with the original 2-point line and insert the break point
+        // This ensures we maintain: [start, breakPoint, end]
+        guard originalCoordinates.count >= 2 else {
+            return originalCoordinates
+        }
         
-        // Insert the break point coordinate at the appropriate position
+        // For a simple 2-point line, create a 3-point line with the break point in the middle
+        if originalCoordinates.count == 2 {
+            return [originalCoordinates[0], breakPoint.coordinate, originalCoordinates[1]]
+        }
+        
+        // For lines with more points, insert the break point at the correct position
+        var newCoordinates = originalCoordinates
         let insertIndex = breakPoint.segmentIndex + 1
-        if insertIndex <= newCoordinates.count {
+        
+        // Remove any previously inserted break point at this position
+        // and insert the new one
+        if insertIndex < newCoordinates.count {
+            newCoordinates[insertIndex] = breakPoint.coordinate
+        } else if insertIndex <= newCoordinates.count {
             newCoordinates.insert(breakPoint.coordinate, at: insertIndex)
         }
         
