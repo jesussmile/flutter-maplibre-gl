@@ -12,7 +12,6 @@ A new Flutter plugin.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
-  # Include only Swift source files - LERC handled by main project
   s.source_files = 'maplibre_gl/Sources/maplibre_gl/*.swift'
   
   

@@ -809,15 +809,6 @@ final class MapLibreMapController
     return null;
   }
 
-  private void generateLercTile(String sourceId, int x, int y, int z, byte[] lercData, 
-                               Map<String, Object> renderOptions, MethodChannel.Result result) {
-    // This method will be called from Flutter to generate a tile from LERC data
-    // For now, we'll return an error indicating that LERC decoding should be done on the Flutter side
-    // and the result should be passed as a raster tile image
-    result.error("LERC_NOT_SUPPORTED", 
-        "LERC decoding should be done on Flutter side. Use raster source with pre-rendered tiles.", 
-        null);
-  }
 
   @Override
   public void onMethodCall(MethodCall call, MethodChannel.Result result) {
@@ -1790,19 +1781,6 @@ final class MapLibreMapController
 
         reply.put("sources", sourceIds);
         result.success(reply);
-        break;
-      }
-      case "lerc#generateTile":
-        {
-          final String sourceId = call.argument("sourceId");
-          final int x = call.argument("x");
-          final int y = call.argument("y");
-          final int z = call.argument("z");
-          final byte[] lercData = call.argument("lercData");
-          final Map<String, Object> renderOptions = call.argument("renderOptions");
-          
-          // Generate tile from LERC data
-          generateLercTile(sourceId, x, y, z, lercData, renderOptions, result);
         break;
       }
       case "imageOverlay#addControls":
