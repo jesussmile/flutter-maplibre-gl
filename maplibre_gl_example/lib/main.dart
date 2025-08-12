@@ -18,6 +18,8 @@ import 'package:maplibre_gl_example/pmtiles.dart';
 import 'package:maplibre_gl_example/presentation/gps_location/gps_location_page.dart';
 import 'package:maplibre_gl_example/stratux_traffic.dart';
 
+import 'adsb_traffic_page.dart';
+
 import 'animate_camera.dart';
 import 'annotation_order_maps.dart';
 import 'click_annotations.dart';
@@ -69,6 +71,7 @@ final List<ExamplePage> _allPages = <ExamplePage>[
   const AttributionPage(),
   const GpsLocationPage(),
   const StratuxTrafficPage(),
+  ADSBTrafficPage(),
 ];
 
 class MapsDemo extends StatefulWidget {

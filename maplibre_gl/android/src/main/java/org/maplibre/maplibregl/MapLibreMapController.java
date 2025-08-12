@@ -1531,6 +1531,36 @@ final class MapLibreMapController
           result.success(null);
           break;
         }
+      case "adsbArrowLayer#add":
+        {
+          final String sourceId = call.argument("sourceId");
+          final String layerId = call.argument("layerId");
+          final String belowLayerId = call.argument("belowLayerId");
+          final String sourceLayer = call.argument("sourceLayer");
+          final Double minzoom = call.argument("minzoom");
+          final Double maxzoom = call.argument("maxzoom");
+          final String filter = call.argument("filter");
+          final boolean enableInteraction = call.argument("enableInteraction");
+          final PropertyValue[] properties =
+              LayerPropertyConverter.interpretSymbolLayerProperties(call.argument("properties"));
+
+          Expression filterExpression = parseFilter(filter);
+
+          addADSBArrowLayer(
+              layerId,
+              sourceId,
+              belowLayerId,
+              sourceLayer,
+              minzoom != null ? minzoom.floatValue() : null,
+              maxzoom != null ? maxzoom.floatValue() : null,
+              properties,
+              enableInteraction,
+              filterExpression);
+          updateLocationComponentLayer();
+
+          result.success(null);
+          break;
+        }
       case "rasterLayer#add":
         {
           final String sourceId = call.argument("sourceId");
@@ -3173,6 +3203,266 @@ final class MapLibreMapController
     }
     
     return defaultRadiusPx;
+  }
+
+  /**
+   * Ensures that an ADSB arrow icon exists in the map style.
+   * Creates a programmatic arrow bitmap if it doesn't exist.
+   */
+  private void ensureADSBArrowIconExists() {
+    final String arrowIconId = "maplibre-adsb-arrow-icon";
+    
+    try {
+      // Check if icon already exists
+      if (style != null && style.getImage(arrowIconId) != null) {
+        Log.v(TAG, "ADSB Arrow icon already exists: " + arrowIconId);
+        return;
+      }
+      
+      // Create ADSB arrow bitmap programmatically
+      Bitmap arrowBitmap = createADSBArrowBitmap();
+      
+      if (style != null && arrowBitmap != null) {
+        style.addImage(arrowIconId, arrowBitmap, false); // false = not SDF
+        Log.d(TAG, "Added ADSB arrow icon to style: " + arrowIconId);
+      } else {
+        Log.e(TAG, "Failed to add ADSB arrow icon - style or bitmap is null");
+        throw new RuntimeException("Cannot add ADSB arrow icon: style or bitmap is null");
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error ensuring ADSB arrow icon exists: " + e.getMessage(), e);
+      throw new RuntimeException("Failed to create ADSB arrow icon", e);
+    }
+  }
+  
+  /**
+   * Creates an ADSB traffic arrow bitmap programmatically.
+   * Returns a bitmap containing a filled arrow shape like the attached screenshot.
+   */
+  private Bitmap createADSBArrowBitmap() {
+    try {
+      // Create a high-resolution bitmap to avoid pixelation when scaled
+      int size = 64; // Fixed 64x64 pixels for crisp rendering at all scales
+      
+      // Create bitmap and canvas
+      Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(bitmap);
+      
+      // Create paint for ADSB arrow with anti-aliasing
+      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      paint.setColor(0xFF4CAF50); // Green color like in screenshot
+      paint.setStyle(Paint.Style.FILL);
+      paint.setFilterBitmap(true); // Enable bitmap filtering for smoother scaling
+      
+      // Create ADSB arrow path (pointing right/east by default)
+      Path arrowPath = new Path();
+      float centerX = size / 2.0f;
+      float centerY = size / 2.0f;
+      float arrowLength = size * 0.6f; // Arrow length
+      float arrowWidth = size * 0.3f;  // Arrow width
+      float headLength = size * 0.25f; // Arrow head length
+      float headWidth = size * 0.4f;   // Arrow head width
+      
+      // Calculate arrow points (pointing right)
+      float bodyLeft = centerX - arrowLength/2;
+      float bodyRight = centerX + arrowLength/2 - headLength;
+      float bodyTop = centerY - arrowWidth/2;
+      float bodyBottom = centerY + arrowWidth/2;
+      
+      float headLeft = bodyRight;
+      float headRight = centerX + arrowLength/2;
+      float headTop = centerY - headWidth/2;
+      float headBottom = centerY + headWidth/2;
+      float tipX = headRight;
+      float tipY = centerY;
+      
+      // Build arrow path
+      arrowPath.moveTo(bodyLeft, bodyTop);          // Start at body top-left
+      arrowPath.lineTo(bodyRight, bodyTop);         // Body top edge
+      arrowPath.lineTo(headLeft, headTop);          // Arrow head top-left
+      arrowPath.lineTo(tipX, tipY);                 // Arrow tip
+      arrowPath.lineTo(headLeft, headBottom);       // Arrow head bottom-left
+      arrowPath.lineTo(bodyRight, bodyBottom);      // Body bottom edge
+      arrowPath.lineTo(bodyLeft, bodyBottom);       // Body bottom-left
+      arrowPath.close();
+      
+      canvas.drawPath(arrowPath, paint);
+      
+      // Add stroke for better visibility
+      Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      strokePaint.setColor(0xFF2E7D32); // Darker green stroke
+      strokePaint.setStyle(Paint.Style.STROKE);
+      strokePaint.setStrokeWidth(1.5f); // Thinner stroke for arrow
+      strokePaint.setFilterBitmap(true);
+      canvas.drawPath(arrowPath, strokePaint);
+      
+      Log.d(TAG, "Created ADSB arrow bitmap: " + size + "x" + size + " pixels");
+      return bitmap;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error creating ADSB arrow bitmap: " + e.getMessage(), e);
+      return null;
+    }
+  }
+  
+  /**
+   * Adds a symbol layer configured to render ADSB arrows using the arrow icon.
+   */
+  private void addADSBArrowSymbolLayer(
+      String layerName,
+      String sourceName,
+      String belowLayerId,
+      String sourceLayer,
+      Float minZoom,
+      Float maxZoom,
+      PropertyValue[] properties,
+      boolean enableInteraction,
+      Expression filter) {
+    
+    try {
+      final String arrowIconId = "maplibre-adsb-arrow-icon";
+      
+      // Create symbol layer
+      SymbolLayer symbolLayer = new SymbolLayer(layerName, sourceName);
+      
+      // Configure basic symbol properties for arrow rendering
+      List<PropertyValue> symbolProperties = new ArrayList<>();
+      
+      // Set the arrow icon
+      symbolProperties.add(PropertyFactory.iconImage(arrowIconId));
+      
+      // Default symbol properties for ADSB arrows
+      symbolProperties.add(PropertyFactory.iconSize(0.5f)); // Medium size for traffic visibility
+      symbolProperties.add(PropertyFactory.iconAllowOverlap(true));
+      symbolProperties.add(PropertyFactory.iconIgnorePlacement(true));
+      // Use viewport alignment to prevent scaling with zoom
+      symbolProperties.add(PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT));
+      symbolProperties.add(PropertyFactory.iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT));
+      
+      // Process input properties and map arrow-specific properties to symbol properties
+      if (properties != null) {
+        for (PropertyValue<?> prop : properties) {
+          if (prop != null) {
+            try {
+              switch (prop.name) {
+                case "arrow-size":
+                case "adsb-size":
+                  // Map arrow-size to icon-size
+                  if (prop.value instanceof Number) {
+                    float size = ((Number) prop.value).floatValue() / 32.0f; // Scale for arrows
+                    symbolProperties.add(PropertyFactory.iconSize(size));
+                  } else if (prop.value instanceof Expression) {
+                    symbolProperties.add(PropertyFactory.iconSize((Expression) prop.value));
+                  }
+                  break;
+                case "arrow-opacity":
+                case "adsb-opacity":
+                  // Map arrow-opacity to icon-opacity
+                  if (prop.value instanceof Number) {
+                    symbolProperties.add(PropertyFactory.iconOpacity(((Number) prop.value).floatValue()));
+                  } else if (prop.value instanceof Expression) {
+                    symbolProperties.add(PropertyFactory.iconOpacity((Expression) prop.value));
+                  }
+                  break;
+                case "arrow-rotation":
+                case "adsb-rotation":
+                case "heading":
+                  // Map rotation/heading to icon-rotate
+                  if (prop.value instanceof Number) {
+                    symbolProperties.add(PropertyFactory.iconRotate(((Number) prop.value).floatValue()));
+                  } else if (prop.value instanceof Expression) {
+                    symbolProperties.add(PropertyFactory.iconRotate((Expression) prop.value));
+                  }
+                  break;
+                case "arrow-offset":
+                case "adsb-offset":
+                  // Map arrow-offset to icon-offset
+                  if (prop.value instanceof float[] && ((float[]) prop.value).length >= 2) {
+                    float[] offset = (float[]) prop.value;
+                    symbolProperties.add(PropertyFactory.iconOffset(new Float[]{offset[0], offset[1]}));
+                  } else if (prop.value instanceof Expression) {
+                    symbolProperties.add(PropertyFactory.iconOffset((Expression) prop.value));
+                  }
+                  break;
+                default:
+                  Log.v(TAG, "ADSB Arrow property not mapped to symbol layer: " + prop.name);
+                  break;
+              }
+            } catch (Exception e) {
+              Log.w(TAG, "Failed to process ADSB arrow property: " + prop.name + ", error: " + e.getMessage());
+            }
+          }
+        }
+      }
+      
+      // Apply all collected properties to the symbol layer
+      symbolLayer.setProperties(symbolProperties.toArray(new PropertyValue[0]));
+      
+      // Set other layer properties
+      if (sourceLayer != null) {
+        symbolLayer.setSourceLayer(sourceLayer);
+      }
+      if (minZoom != null) {
+        symbolLayer.setMinZoom(minZoom);
+      }
+      if (maxZoom != null) {
+        symbolLayer.setMaxZoom(maxZoom);
+      }
+      if (filter != null) {
+        symbolLayer.setFilter(filter);
+      }
+      
+      // Add layer to style
+      if (style != null) {
+        if (belowLayerId != null) {
+          style.addLayerBelow(symbolLayer, belowLayerId);
+        } else {
+          style.addLayer(symbolLayer);
+        }
+        
+        Log.d(TAG, "Added ADSB arrow symbol layer: " + layerName + " with source: " + sourceName);
+        
+        if (enableInteraction) {
+          interactiveFeatureLayerIds.add(layerName);
+        }
+      } else {
+        throw new RuntimeException("Cannot add ADSB arrow symbol layer: style is null");
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error adding ADSB arrow symbol layer: " + layerName, e);
+      throw new RuntimeException("Failed to add ADSB arrow symbol layer: " + layerName, e);
+    }
+  }
+  
+  /**
+   * Main method to add ADSB arrow layer
+   */
+  private void addADSBArrowLayer(
+      String layerName,
+      String sourceName,
+      String belowLayerId,
+      String sourceLayer,
+      Float minZoom,
+      Float maxZoom,
+      PropertyValue[] properties,
+      boolean enableInteraction,
+      Expression filter) {
+    
+    try {
+      Log.d(TAG, "Adding ADSB arrow symbol layer: " + layerName);
+      
+      // Create ADSB arrow icon if it doesn't exist
+      ensureADSBArrowIconExists();
+      
+      // Use symbol layer with ADSB arrow icon
+      addADSBArrowSymbolLayer(layerName, sourceName, belowLayerId, sourceLayer, minZoom, maxZoom, properties, enableInteraction, filter);
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Failed to create ADSB arrow layer: " + e.getMessage(), e);
+      // Could add fallback here
+    }
   }
 
   /**
