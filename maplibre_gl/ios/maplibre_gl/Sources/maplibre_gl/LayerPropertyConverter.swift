@@ -166,48 +166,76 @@ class LayerPropertyConverter {
         }
     }
 
-    // TODO: Triangle layer property converter stub - MLNTriangleStyleLayer not available yet
-    // class func addTriangleProperties(triangleLayer: MLNTriangleStyleLayer, properties: [String: String]) {
-    //     for (propertyName, propertyValue) in properties {
-    //         let expression = interpretExpression(propertyName: propertyName, expression: propertyValue)
-    //         switch propertyName {
-    //             case "triangle-size":
-    //                 triangleLayer.triangleSize = expression
-    //             case "triangle-color":
-    //                 triangleLayer.triangleColor = expression
-    //             case "triangle-opacity":
-    //                 triangleLayer.triangleOpacity = expression
-    //             case "triangle-translate":
-    //                 triangleLayer.triangleTranslate = expression
-    //             case "triangle-translate-anchor":
-    //                 triangleLayer.triangleTranslateAnchor = expression
-    //             case "triangle-pitch-scale":
-    //                 triangleLayer.trianglePitchScale = expression
-    //             case "triangle-pitch-alignment":
-    //                 triangleLayer.trianglePitchAlignment = expression
-    //             case "triangle-stroke-width":
-    //                 triangleLayer.triangleStrokeWidth = expression
-    //             case "triangle-stroke-color":
-    //                 triangleLayer.triangleStrokeColor = expression
-    //             case "triangle-stroke-opacity":
-    //                 triangleLayer.triangleStrokeOpacity = expression
-    //             case "triangle-blur":
-    //                 triangleLayer.triangleBlur = expression
-    //             case "triangle-rotation":
-    //                 triangleLayer.triangleRotation = expression
-    //             case "triangle-rotation-alignment":
-    //                 triangleLayer.triangleRotationAlignment = expression
-    //             case "triangle-sort-key":
-    //                 triangleLayer.triangleSortKey = expression
-    //             case "visibility":
-    //                 let trimmedPropertyValue = propertyValue.trimmingCharacters(in: .init(charactersIn: "\""))
-    //                 triangleLayer.isVisible = trimmedPropertyValue == "visible"
-    //          
-    //             default:
-    //                 break
-    //         }
-    //     }
-    // }
+    /**
+     * Custom triangle layer property converter for MLNTriangleCustomStyleLayer
+     * Since we use MLNCustomStyleLayer, we process properties for our custom layer to consume
+     */
+    class func addTriangleProperties(triangleLayer: MLNTriangleCustomStyleLayer, properties: [String: String]) {
+        for (propertyName, propertyValue) in properties {
+            // Parse the property value - may be literal or expression
+            var parsedValue: Any?
+            
+            switch propertyName {
+            case "triangle-size":
+            case "triangle-opacity":
+            case "triangle-blur":
+            case "triangle-rotation":
+            case "triangle-stroke-width":
+            case "triangle-stroke-opacity":
+            case "triangle-sort-key":
+                // Parse numbers - try literal first, then expression
+                if let numberValue = Float(propertyValue) {
+                    parsedValue = numberValue
+                } else {
+                    parsedValue = interpretExpression(propertyName: propertyName, expression: propertyValue)
+                }
+                
+            case "triangle-color":
+            case "triangle-stroke-color":
+                // Parse colors - can be hex strings or expressions
+                if propertyValue.hasPrefix("#") || propertyValue.hasPrefix("rgb") {
+                    parsedValue = propertyValue
+                } else {
+                    parsedValue = interpretExpression(propertyName: propertyName, expression: propertyValue)
+                }
+                
+            case "triangle-translate":
+                // Parse arrays [x, y] or expressions
+                if propertyValue.hasPrefix("[") {
+                    // Parse as JSON array
+                    if let data = propertyValue.data(using: .utf8),
+                       let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [Float] {
+                        parsedValue = jsonArray
+                    }
+                } else {
+                    parsedValue = interpretExpression(propertyName: propertyName, expression: propertyValue)
+                }
+                
+            case "triangle-translate-anchor":
+            case "triangle-pitch-scale":
+            case "triangle-pitch-alignment":
+            case "triangle-rotation-alignment":
+                // Parse enum strings
+                let trimmedValue = propertyValue.trimmingCharacters(in: .init(charactersIn: "\""))
+                parsedValue = trimmedValue
+                
+            case "visibility":
+                // Parse visibility enum
+                let trimmedPropertyValue = propertyValue.trimmingCharacters(in: .init(charactersIn: "\""))
+                triangleLayer.isVisible = trimmedPropertyValue == "visible"
+                continue // Skip the generic property update since we handle visibility directly
+                
+            default:
+                // Unknown property - try to parse as expression for future compatibility
+                parsedValue = interpretExpression(propertyName: propertyName, expression: propertyValue)
+            }
+            
+            // Update the triangle layer with parsed property
+            if let value = parsedValue {
+                triangleLayer.updateProperty(name: propertyName, value: value)
+            }
+        }
+    }
 
     class func addLineProperties(lineLayer: MLNLineStyleLayer, properties: [String: String]) {
         for (propertyName, propertyValue) in properties {

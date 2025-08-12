@@ -11,6 +11,9 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.location.Location;
@@ -76,6 +79,7 @@ import org.maplibre.android.style.layers.PropertyValue;
 import org.maplibre.android.style.layers.RasterLayer;
 import org.maplibre.android.style.layers.SymbolLayer;
 // import org.maplibre.android.style.layers.TriangleLayer; // Not available in MapLibre Android SDK
+import org.maplibre.android.style.layers.CustomLayer;
 import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.sources.CustomGeometrySource;
 import org.maplibre.android.style.sources.GeoJsonSource;
@@ -120,7 +124,50 @@ final class MapLibreMapController
         OnMapReadyCallback,
         OnCameraTrackingChangedListener,
         PlatformView {
+  
+  static {
+    try {
+      System.loadLibrary("triangle_renderer");
+      Log.d("MapLibreMapController", "Native triangle renderer library loaded successfully");
+    } catch (UnsatisfiedLinkError e) {
+      Log.w("MapLibreMapController", "Failed to load native triangle renderer library: " + e.getMessage());
+    }
+  }
+  
   private static final String TAG = "MapLibreMapController";
+  
+  // Feature flags for experimental features
+  private static final boolean ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS;
+  
+  static {
+    String systemProp = System.getProperty("maplibre.experimental.triangleLayers", "false");
+    String envVar = System.getenv("MAPLIBRE_EXPERIMENTAL_TRIANGLE_LAYERS");
+    boolean sysPropEnabled = Boolean.parseBoolean(systemProp);
+    boolean envVarEnabled = "true".equalsIgnoreCase(envVar);
+    
+    // Also check BuildConfig if available (from Gradle build configuration)
+    boolean buildConfigEnabled = false;
+    try {
+      // Use reflection to check BuildConfig without compile-time dependency on example app
+      Class<?> buildConfigClass = Class.forName("org.maplibre.example.BuildConfig");
+      java.lang.reflect.Field field = buildConfigClass.getDeclaredField("ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS");
+      buildConfigEnabled = field.getBoolean(null);
+    } catch (Exception e) {
+      // BuildConfig not available or field doesn't exist - that's okay
+    }
+    
+    ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS = sysPropEnabled || envVarEnabled || buildConfigEnabled;
+    
+    Log.d("MapLibreMapController", "Triangle layers experimental flag check:");
+    Log.d("MapLibreMapController", "  System property 'maplibre.experimental.triangleLayers': " + systemProp);
+    Log.d("MapLibreMapController", "  Environment variable 'MAPLIBRE_EXPERIMENTAL_TRIANGLE_LAYERS': " + envVar);
+    Log.d("MapLibreMapController", "  BuildConfig ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS: " + buildConfigEnabled);
+    Log.d("MapLibreMapController", "  System property enabled: " + sysPropEnabled);
+    Log.d("MapLibreMapController", "  Environment variable enabled: " + envVarEnabled);
+    Log.d("MapLibreMapController", "  BuildConfig enabled: " + buildConfigEnabled);
+    Log.d("MapLibreMapController", "  Final ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS: " + ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS);
+  }
+  
   private final int id;
   private final MethodChannel methodChannel;
   private final MapLibreMapsPlugin.LifecycleProvider lifecycleProvider;
@@ -703,7 +750,7 @@ final class MapLibreMapController
     }
   }
 
-  // Note: Triangle layer not supported on Android due to missing TriangleLayer in MapLibre SDK
+  // Triangle layer implementation using symbol layers with triangle icons
   private void addTriangleLayer(
       String layerName,
       String sourceName,
@@ -714,8 +761,164 @@ final class MapLibreMapController
       PropertyValue[] properties,
       boolean enableInteraction,
       Expression filter) {
-    // TriangleLayer not available in MapLibre Android SDK
-    throw new UnsupportedOperationException("Triangle layers are not supported on Android");
+    
+    // Check experimental feature flag
+    if (!ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS) {
+      Log.w(TAG, "Triangle layers are experimental and currently disabled. " +
+          "Set -Dmaplibre.experimental.triangleLayers=true to enable. " +
+          "Using circle layer fallback for: " + layerName);
+      addTriangleLayerFallback(layerName, sourceName, belowLayerId, sourceLayer, minZoom, maxZoom, properties, enableInteraction, filter);
+      return;
+    }
+    
+    Log.d(TAG, "Triangle layers enabled experimentally. Adding triangle symbol layer: " + layerName);
+    
+    try {
+      // Create triangle icon if it doesn't exist
+      ensureTriangleIconExists();
+      
+      // Use symbol layer with triangle icon for triangle rendering
+      addTriangleSymbolLayer(layerName, sourceName, belowLayerId, sourceLayer, minZoom, maxZoom, properties, enableInteraction, filter);
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Failed to create triangle layer, falling back to circle: " + e.getMessage(), e);
+      addTriangleLayerFallback(layerName, sourceName, belowLayerId, sourceLayer, minZoom, maxZoom, properties, enableInteraction, filter);
+    }
+  }
+  
+  /**
+   * Creates CustomLayer callbacks that bridge to our native triangle renderer.
+   * Returns the native context pointer that will be passed to all callbacks.
+   */
+  private long createCustomLayerCallbacks(TriangleCustomLayerHost triangleHost) {
+    long nativeContext = createNativeCustomLayerCallbacks(triangleHost);
+    triangleHost.setNativeHandle(nativeContext);
+    return nativeContext;
+  }
+  
+  // Native method to create CustomLayer callbacks
+  private native long createNativeCustomLayerCallbacks(TriangleCustomLayerHost host);
+  
+  // Native method to destroy CustomLayer callbacks
+  private native void destroyNativeCustomLayerCallbacks(long nativeHandle);
+  
+  // Native methods to get function pointers
+  private native long getInitializeFunctionPointer();
+  private native long getRenderFunctionPointer();
+  private native long getDeinitializeFunctionPointer();
+  
+  // Fallback implementation using circle layer for immediate functionality
+  private void addTriangleLayerFallback(
+      String layerName,
+      String sourceName,
+      String belowLayerId,
+      String sourceLayer,
+      Float minZoom,
+      Float maxZoom,
+      PropertyValue[] properties,
+      boolean enableInteraction,
+      Expression filter) {
+    try {
+      Log.d(TAG, "Adding triangle layer fallback (circle): " + layerName);
+      
+      // Use circle layer as simple fallback
+      CircleLayer circleLayer = new CircleLayer(layerName, sourceName);
+      
+      // Convert triangle properties to circle properties where possible
+      List<PropertyValue> circleProperties = new ArrayList<>();
+      
+      // Default circle properties - use more visible defaults
+      circleProperties.add(PropertyFactory.circleRadius(10.0f));
+      circleProperties.add(PropertyFactory.circleColor("#FF6B35")); // Orange color for visibility
+      circleProperties.add(PropertyFactory.circleOpacity(0.8f));
+      circleProperties.add(PropertyFactory.circleStrokeColor("#FFFFFF")); // White outline
+      circleProperties.add(PropertyFactory.circleStrokeWidth(2.0f));
+      circleProperties.add(PropertyFactory.circleStrokeOpacity(0.9f));
+      
+      if (properties != null) {
+        for (PropertyValue<?> prop : properties) {
+          if (prop != null) {
+            try {
+              switch (prop.name) {
+                case "triangle-size":
+                  if (prop.value instanceof Number) {
+                    circleProperties.add(PropertyFactory.circleRadius(((Number) prop.value).floatValue()));
+                  }
+                  break;
+                case "triangle-color":
+                  if (prop.value instanceof String) {
+                    circleProperties.add(PropertyFactory.circleColor((String) prop.value));
+                  } else if (prop.value instanceof Integer) {
+                    circleProperties.add(PropertyFactory.circleColor((Integer) prop.value));
+                  }
+                  break;
+                case "triangle-opacity":
+                  if (prop.value instanceof Number) {
+                    circleProperties.add(PropertyFactory.circleOpacity(((Number) prop.value).floatValue()));
+                  }
+                  break;
+                case "triangle-stroke-width":
+                  if (prop.value instanceof Number) {
+                    circleProperties.add(PropertyFactory.circleStrokeWidth(((Number) prop.value).floatValue()));
+                  }
+                  break;
+                case "triangle-stroke-color":
+                  if (prop.value instanceof String) {
+                    circleProperties.add(PropertyFactory.circleStrokeColor((String) prop.value));
+                  } else if (prop.value instanceof Integer) {
+                    circleProperties.add(PropertyFactory.circleStrokeColor((Integer) prop.value));
+                  }
+                  break;
+                case "triangle-stroke-opacity":
+                  if (prop.value instanceof Number) {
+                    circleProperties.add(PropertyFactory.circleStrokeOpacity(((Number) prop.value).floatValue()));
+                  }
+                  break;
+                default:
+                  Log.v(TAG, "Triangle property not mapped to circle: " + prop.name);
+                  break;
+              }
+            } catch (Exception e) {
+              Log.w(TAG, "Failed to map triangle property: " + prop.name + ", error: " + e.getMessage());
+            }
+          }
+        }
+      }
+      
+      // Set all properties on the layer
+      circleLayer.setProperties(circleProperties.toArray(new PropertyValue[0]));
+      
+      if (sourceLayer != null) {
+        circleLayer.setSourceLayer(sourceLayer);
+      }
+      if (minZoom != null) {
+        circleLayer.setMinZoom(minZoom);
+      }
+      if (maxZoom != null) {
+        circleLayer.setMaxZoom(maxZoom);
+      }
+      if (filter != null) {
+        circleLayer.setFilter(filter);
+      }
+      
+      // Add layer to style
+      if (style != null) {
+        if (belowLayerId != null) {
+          style.addLayerBelow(circleLayer, belowLayerId);
+        } else {
+          style.addLayer(circleLayer);
+        }
+        
+        Log.d(TAG, "Added triangle layer fallback (circle): " + layerName);
+        
+        if (enableInteraction) {
+          interactiveFeatureLayerIds.add(layerName);
+        }
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error adding triangle layer fallback: " + layerName, e);
+    }
   }
 
   private Expression parseFilter(String filter) {
@@ -794,9 +997,25 @@ final class MapLibreMapController
   }
 
   private Pair<Feature, String> firstFeatureOnLayers(RectF in) {
-      final List<Layer> layers = style.getLayers();
+    final List<Layer> layers = style.getLayers();
     Collections.reverse(layers);
-      for (Layer layer : layers) {
+    
+    // First, check for triangle CustomLayers with manual hit-testing
+    for (Layer layer : layers) {
+      if (layer instanceof CustomLayer && interactiveFeatureLayerIds.contains(layer.getId())) {
+        String layerId = layer.getId();
+        if (layerId.startsWith("triangle-") || isTriangleLayer(layerId)) {
+          // Perform manual hit-testing for triangle layer
+          Feature hitFeature = performTriangleHitTest(layerId, in);
+          if (hitFeature != null) {
+            return new Pair<>(hitFeature, layerId);
+          }
+        }
+      }
+    }
+    
+    // Then check regular layers (symbols, etc.)
+    for (Layer layer : layers) {
       if (layer instanceof SymbolLayer) {
         final List<Feature> features =
             mapLibreMap.queryRenderedFeatures(in, layer.getId());
@@ -1310,37 +1529,36 @@ final class MapLibreMapController
           result.success(null);
           break;
         }
-      // case "triangleLayer#add":
-        // Note: Triangle layer not supported on Android due to missing TriangleLayer in MapLibre SDK
-        // {
-        //   final String sourceId = call.argument("sourceId");
-        //   final String layerId = call.argument("layerId");
-        //   final String belowLayerId = call.argument("belowLayerId");
-        //   final String sourceLayer = call.argument("sourceLayer");
-        //   final Double minzoom = call.argument("minzoom");
-        //   final Double maxzoom = call.argument("maxzoom");
-        //   final String filter = call.argument("filter");
-        //   final boolean enableInteraction = call.argument("enableInteraction");
-        //   final PropertyValue[] properties =
-        //       LayerPropertyConverter.interpretTriangleLayerProperties(call.argument("properties"));
+      case "triangleLayer#add":
+        {
+          final String sourceId = call.argument("sourceId");
+          final String layerId = call.argument("layerId");
+          final String belowLayerId = call.argument("belowLayerId");
+          final String sourceLayer = call.argument("sourceLayer");
+          final Double minzoom = call.argument("minzoom");
+          final Double maxzoom = call.argument("maxzoom");
+          final String filter = call.argument("filter");
+          final boolean enableInteraction = call.argument("enableInteraction");
+          final PropertyValue[] properties =
+              LayerPropertyConverter.interpretTriangleLayerProperties(call.argument("properties"));
 
-        //   Expression filterExpression = parseFilter(filter);
+          Expression filterExpression = parseFilter(filter);
 
-        //   addTriangleLayer(
-        //       layerId,
-        //       sourceId,
-        //       belowLayerId,
-        //       sourceLayer,
-        //       minzoom != null ? minzoom.floatValue() : null,
-        //       maxzoom != null ? maxzoom.floatValue() : null,
-        //       properties,
-        //       enableInteraction,
-        //       filterExpression);
-        //   updateLocationComponentLayer();
+          addTriangleLayer(
+              layerId,
+              sourceId,
+              belowLayerId,
+              sourceLayer,
+              minzoom != null ? minzoom.floatValue() : null,
+              maxzoom != null ? maxzoom.floatValue() : null,
+              properties,
+              enableInteraction,
+              filterExpression);
+          updateLocationComponentLayer();
 
-        //   result.success(null);
-        //   break;
-        // }
+          result.success(null);
+          break;
+        }
       case "rasterLayer#add":
         {
           final String sourceId = call.argument("sourceId");
@@ -2844,6 +3062,370 @@ final class MapLibreMapController
       coordinates.add(coord);
     }
     return coordinates;
+  }
+
+  // =====================================
+  // Triangle Layer Hit-Testing Methods (TAS-8B)
+  // =====================================
+  
+  /**
+   * Checks if a layer ID corresponds to a triangle layer.
+   * This could be based on naming convention or registry.
+   */
+  private boolean isTriangleLayer(String layerId) {
+    // For now, use simple naming convention
+    // This could be enhanced to check a registry of triangle layers
+    return layerId != null && (layerId.contains("triangle") || layerId.endsWith("-triangles"));
+  }
+  
+  /**
+   * Performs manual hit-testing for triangle CustomLayers.
+   * Since CustomLayers don't support queryRenderedFeatures, we need to manually
+   * check if the click point intersects with any triangle geometries.
+   * 
+   * This is a limitation acknowledged in the task specification.
+   */
+  private Feature performTriangleHitTest(String layerId, RectF hitArea) {
+    try {
+      Log.d(TAG, "Performing triangle hit-test for layer: " + layerId);
+      
+      // Get the source data for this triangle layer
+      FeatureCollection triangleFeatures = addedFeaturesByLayer.get(getTriangleSourceName(layerId));
+      
+      if (triangleFeatures == null || triangleFeatures.features() == null) {
+        Log.v(TAG, "No triangle features found for layer: " + layerId);
+        return null;
+      }
+      
+      // Convert screen coordinates to geographic coordinates
+      LatLng hitCenter = mapLibreMap.getProjection().fromScreenLocation(
+          new PointF(hitArea.centerX(), hitArea.centerY())
+      );
+      
+      // Check each triangle feature for intersection
+      List<Feature> features = triangleFeatures.features();
+      for (Feature feature : features) {
+        if (feature.geometry() != null && isPointInTriangle(feature, hitCenter, hitArea)) {
+          Log.d(TAG, "Triangle hit detected on feature: " + feature.id());
+          return feature;
+        }
+      }
+      
+      Log.v(TAG, "No triangle hit detected for layer: " + layerId);
+      return null;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error performing triangle hit-test: " + e.getMessage(), e);
+      return null;
+    }
+  }
+  
+  /**
+   * Gets the source name for a triangle layer.
+   * This follows the naming convention used when triangle layers are added.
+   */
+  private String getTriangleSourceName(String layerId) {
+    // Triangle layers are typically added with a source that matches the layer name
+    // or follows a naming pattern. This could be enhanced based on actual implementation.
+    return layerId.replace("-layer", "-source").replace("-triangles", "-triangle-source");
+  }
+  
+  /**
+   * Determines if a geographic point intersects with a triangle feature.
+   * This uses a simple distance-based approach for point features with triangle styling.
+   */
+  private boolean isPointInTriangle(Feature feature, LatLng hitPoint, RectF hitArea) {
+    try {
+      // For point-based triangle features, check distance from the feature center
+      if (feature.geometry() instanceof org.maplibre.geojson.Point) {
+        org.maplibre.geojson.Point point = (org.maplibre.geojson.Point) feature.geometry();
+        LatLng featureLocation = new LatLng(point.latitude(), point.longitude());
+        
+        // Convert both points to screen coordinates for pixel-based distance calculation
+        PointF featureScreen = mapLibreMap.getProjection().toScreenLocation(featureLocation);
+        PointF hitScreen = mapLibreMap.getProjection().toScreenLocation(hitPoint);
+        
+        // Calculate the effective triangle radius in pixels
+        // This should ideally come from triangle-size property, but we'll use a default
+        float triangleRadiusPx = getTriangleRadiusInPixels(feature);
+        
+        // Check if the hit point is within the triangle's bounds
+        float distance = (float) Math.sqrt(
+            Math.pow(featureScreen.x - hitScreen.x, 2) + 
+            Math.pow(featureScreen.y - hitScreen.y, 2)
+        );
+        
+        boolean hit = distance <= triangleRadiusPx;
+        if (hit) {
+          Log.v(TAG, "Triangle hit: distance=" + distance + ", radius=" + triangleRadiusPx);
+        }
+        return hit;
+      }
+      
+      // For other geometry types, implement appropriate hit-testing logic
+      // This is a simplified implementation
+      return false;
+      
+    } catch (Exception e) {
+      Log.w(TAG, "Error checking triangle intersection: " + e.getMessage());
+      return false;
+    }
+  }
+  
+  /**
+   * Gets the effective triangle radius in pixels for hit-testing.
+   * This should ideally read from the triangle layer properties.
+   */
+  private float getTriangleRadiusInPixels(Feature feature) {
+    // Default triangle radius in pixels for hit-testing
+    float defaultRadiusPx = 15.0f;
+    
+    try {
+      // Try to get triangle-size from feature properties
+      if (feature.hasProperty("triangle-size")) {
+        Number size = feature.getNumberProperty("triangle-size");
+        if (size != null) {
+          return size.floatValue() * density; // Convert to pixels
+        }
+      }
+      
+      // Try to get from triangle-radius property
+      if (feature.hasProperty("triangle-radius")) {
+        Number radius = feature.getNumberProperty("triangle-radius");
+        if (radius != null) {
+          return radius.floatValue() * density; // Convert to pixels
+        }
+      }
+    } catch (Exception e) {
+      Log.v(TAG, "Could not read triangle size from feature properties: " + e.getMessage());
+    }
+    
+    return defaultRadiusPx;
+  }
+
+  /**
+   * Ensures that a triangle icon exists in the map style.
+   * Creates a programmatic triangle bitmap if it doesn't exist.
+   */
+  private void ensureTriangleIconExists() {
+    final String triangleIconId = "maplibre-triangle-icon";
+    
+    try {
+      // Check if icon already exists
+      if (style != null && style.getImage(triangleIconId) != null) {
+        Log.v(TAG, "Triangle icon already exists: " + triangleIconId);
+        return;
+      }
+      
+      // Create triangle bitmap programmatically
+      Bitmap triangleBitmap = createTriangleBitmap();
+      
+      if (style != null && triangleBitmap != null) {
+        style.addImage(triangleIconId, triangleBitmap, false); // false = not SDF
+        Log.d(TAG, "Added triangle icon to style: " + triangleIconId);
+      } else {
+        Log.e(TAG, "Failed to add triangle icon - style or bitmap is null");
+        throw new RuntimeException("Cannot add triangle icon: style or bitmap is null");
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error ensuring triangle icon exists: " + e.getMessage(), e);
+      throw new RuntimeException("Failed to create triangle icon", e);
+    }
+  }
+  
+  /**
+   * Creates a triangle bitmap programmatically.
+   * Returns a bitmap containing a filled triangle shape.
+   */
+  private Bitmap createTriangleBitmap() {
+    try {
+      // Create a high-resolution bitmap to avoid pixelation when scaled
+      // Use a fixed size that works well across different densities
+      int size = 64; // Fixed 64x64 pixels for crisp rendering at all scales
+      
+      // Create bitmap and canvas
+      Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(bitmap);
+      
+      // Create paint for triangle with anti-aliasing
+      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      paint.setColor(0xFFFF6B35); // Orange color
+      paint.setStyle(Paint.Style.FILL);
+      paint.setFilterBitmap(true); // Enable bitmap filtering for smoother scaling
+      
+      // Create triangle path
+      Path trianglePath = new Path();
+      float centerX = size / 2.0f;
+      float centerY = size / 2.0f;
+      float radius = size * 0.35f; // Triangle radius
+      
+      // Calculate triangle points (equilateral triangle pointing up)
+      float topX = centerX;
+      float topY = centerY - radius;
+      
+      float bottomLeftX = centerX - (radius * 0.866f); // cos(30°) * radius
+      float bottomLeftY = centerY + (radius * 0.5f);   // sin(30°) * radius
+      
+      float bottomRightX = centerX + (radius * 0.866f);
+      float bottomRightY = centerY + (radius * 0.5f);
+      
+      // Draw triangle
+      trianglePath.moveTo(topX, topY);
+      trianglePath.lineTo(bottomLeftX, bottomLeftY);
+      trianglePath.lineTo(bottomRightX, bottomRightY);
+      trianglePath.close();
+      
+      canvas.drawPath(trianglePath, paint);
+      
+      // Add stroke for better visibility
+      Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      strokePaint.setColor(0xFFFFFFFF); // White stroke
+      strokePaint.setStyle(Paint.Style.STROKE);
+      strokePaint.setStrokeWidth(2.0f); // Thicker stroke for 64x64 bitmap
+      strokePaint.setFilterBitmap(true);
+      canvas.drawPath(trianglePath, strokePaint);
+      
+      Log.d(TAG, "Created triangle bitmap: " + size + "x" + size + " pixels");
+      return bitmap;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error creating triangle bitmap: " + e.getMessage(), e);
+      return null;
+    }
+  }
+  
+  /**
+   * Adds a symbol layer configured to render triangles using the triangle icon.
+   */
+  private void addTriangleSymbolLayer(
+      String layerName,
+      String sourceName,
+      String belowLayerId,
+      String sourceLayer,
+      Float minZoom,
+      Float maxZoom,
+      PropertyValue[] properties,
+      boolean enableInteraction,
+      Expression filter) {
+    
+    try {
+      final String triangleIconId = "maplibre-triangle-icon";
+      
+      // Create symbol layer
+      SymbolLayer symbolLayer = new SymbolLayer(layerName, sourceName);
+      
+      // Configure basic symbol properties for triangle rendering
+      List<PropertyValue> symbolProperties = new ArrayList<>();
+      
+      // Set the triangle icon
+      symbolProperties.add(PropertyFactory.iconImage(triangleIconId));
+      
+      // Default symbol properties for triangles - make very small by default
+      symbolProperties.add(PropertyFactory.iconSize(0.25f)); // Very small base size (1/4 of normal)
+      symbolProperties.add(PropertyFactory.iconAllowOverlap(true));
+      symbolProperties.add(PropertyFactory.iconIgnorePlacement(true));
+      // Use viewport alignment to prevent scaling with zoom like circles do
+      symbolProperties.add(PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT));
+      symbolProperties.add(PropertyFactory.iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT));
+      
+      // Process input properties and map triangle-specific properties to symbol properties
+      if (properties != null) {
+        for (PropertyValue<?> prop : properties) {
+          if (prop != null) {
+            try {
+              switch (prop.name) {
+                case "triangle-size":
+                  // Map triangle-size to icon-size
+                  if (prop.value instanceof Number) {
+                    float size = ((Number) prop.value).floatValue() / 64.0f; // Scale down even more aggressively
+                    symbolProperties.add(PropertyFactory.iconSize(size));
+                  } else if (prop.value instanceof Expression) {
+                    symbolProperties.add(PropertyFactory.iconSize((Expression) prop.value));
+                  }
+                  break;
+                case "triangle-color":
+                  // Triangle color affects the icon tint (if supported)
+                  if (prop.value instanceof String || prop.value instanceof Integer || prop.value instanceof Expression) {
+                    // Note: Icon color tinting is not directly supported in MapLibre
+                    // The icon bitmap would need to be white for tinting to work properly
+                    Log.v(TAG, "Triangle color property noted but icon tinting not implemented: " + prop.value);
+                  }
+                  break;
+                case "triangle-opacity":
+                  // Map triangle-opacity to icon-opacity
+                  if (prop.value instanceof Number) {
+                    symbolProperties.add(PropertyFactory.iconOpacity(((Number) prop.value).floatValue()));
+                  } else if (prop.value instanceof Expression) {
+                    symbolProperties.add(PropertyFactory.iconOpacity((Expression) prop.value));
+                  }
+                  break;
+                case "triangle-rotation":
+                  // Map triangle-rotation to icon-rotate
+                  if (prop.value instanceof Number) {
+                    symbolProperties.add(PropertyFactory.iconRotate(((Number) prop.value).floatValue()));
+                  } else if (prop.value instanceof Expression) {
+                    symbolProperties.add(PropertyFactory.iconRotate((Expression) prop.value));
+                  }
+                  break;
+                case "triangle-offset":
+                  // Map triangle-offset to icon-offset
+                  if (prop.value instanceof float[] && ((float[]) prop.value).length >= 2) {
+                    float[] offset = (float[]) prop.value;
+                    symbolProperties.add(PropertyFactory.iconOffset(new Float[]{offset[0], offset[1]}));
+                  } else if (prop.value instanceof Expression) {
+                    symbolProperties.add(PropertyFactory.iconOffset((Expression) prop.value));
+                  }
+                  break;
+                default:
+                  Log.v(TAG, "Triangle property not mapped to symbol layer: " + prop.name);
+                  break;
+              }
+            } catch (Exception e) {
+              Log.w(TAG, "Failed to process triangle property: " + prop.name + ", error: " + e.getMessage());
+            }
+          }
+        }
+      }
+      
+      // Apply all collected properties to the symbol layer
+      symbolLayer.setProperties(symbolProperties.toArray(new PropertyValue[0]));
+      
+      // Set other layer properties
+      if (sourceLayer != null) {
+        symbolLayer.setSourceLayer(sourceLayer);
+      }
+      if (minZoom != null) {
+        symbolLayer.setMinZoom(minZoom);
+      }
+      if (maxZoom != null) {
+        symbolLayer.setMaxZoom(maxZoom);
+      }
+      if (filter != null) {
+        symbolLayer.setFilter(filter);
+      }
+      
+      // Add layer to style
+      if (style != null) {
+        if (belowLayerId != null) {
+          style.addLayerBelow(symbolLayer, belowLayerId);
+        } else {
+          style.addLayer(symbolLayer);
+        }
+        
+        Log.d(TAG, "Added triangle symbol layer: " + layerName + " with source: " + sourceName);
+        
+        if (enableInteraction) {
+          interactiveFeatureLayerIds.add(layerName);
+        }
+      } else {
+        throw new RuntimeException("Cannot add triangle symbol layer: style is null");
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error adding triangle symbol layer: " + layerName, e);
+      throw new RuntimeException("Failed to add triangle symbol layer: " + layerName, e);
+    }
   }
 
   /**

@@ -316,6 +316,28 @@ class CircleManager extends AnnotationManager<Circle> {
       ];
 }
 
+class TriangleManager extends AnnotationManager<Triangle> {
+  TriangleManager(
+    super.controller, {
+    super.onTap,
+    super.enableInteraction = true,
+  });
+
+  @override
+  List<LayerProperties> get allLayerProperties => const [
+        TriangleLayerProperties(
+          triangleSize: [Expressions.get, 'triangleSize'],
+          triangleColor: [Expressions.get, 'triangleColor'],
+          triangleBlur: [Expressions.get, 'triangleBlur'],
+          triangleOpacity: [Expressions.get, 'triangleOpacity'],
+          triangleStrokeWidth: [Expressions.get, 'triangleStrokeWidth'],
+          triangleStrokeColor: [Expressions.get, 'triangleStrokeColor'],
+          triangleStrokeOpacity: [Expressions.get, 'triangleStrokeOpacity'],
+          triangleRotation: [Expressions.get, 'triangleRotation'],
+        )
+      ];
+}
+
 class SymbolManager extends AnnotationManager<Symbol> {
   SymbolManager(
     super.controller, {

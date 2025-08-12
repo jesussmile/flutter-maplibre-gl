@@ -30,7 +30,6 @@ class MLNTriangleCustomStyleLayer: MLNCustomStyleLayer {
     // MARK: - Initialization
     init(identifier: String) {
         super.init(identifier: identifier)
-        setupMetal()
     }
     
     // MARK: - Metal Setup
@@ -80,18 +79,18 @@ class MLNTriangleCustomStyleLayer: MLNCustomStyleLayer {
         // created from the source data and styled according to the properties
         
         // Extract common properties with defaults
-        let radius = Float(triangleProperties["triangle-radius"] ?? "10") ?? 10.0
+        let radius = Float(triangleProperties["triangle-size"] ?? triangleProperties["triangle-radius"] ?? "10") ?? 10.0
         let color = parseColor(triangleProperties["triangle-color"] ?? "#3388ff")
         let opacity = Float(triangleProperties["triangle-opacity"] ?? "1.0") ?? 1.0
         let strokeWidth = Float(triangleProperties["triangle-stroke-width"] ?? "0") ?? 0.0
         let strokeColor = parseColor(triangleProperties["triangle-stroke-color"] ?? "#000000")
         let blur = Float(triangleProperties["triangle-blur"] ?? "0") ?? 0.0
-        let rotation = Float(triangleProperties["triangle-rotation"] ?? "0") ?? 0.0
+        let rotation = Float(triangleProperties["triangle-rotation"] ?? "0") ?? 0.0 * .pi / 180.0 // Convert degrees to radians
         
         // Create sample instances - in practice these would come from source features
         instances = [
             TriangleInstance(
-                position: simd_float2(0.5, 0.5), // Normalized coordinates
+                position: simd_float2(0.5, 0.5), // Normalized coordinates (center of screen)
                 radius: radius,
                 color: color,
                 rotation: rotation,
@@ -101,100 +100,6 @@ class MLNTriangleCustomStyleLayer: MLNCustomStyleLayer {
                 blur: blur
             )
         ]
-    }
-    
-    private func parseColor(_ colorString: String) -> simd_float4 {
-        // Simple hex color parser - returns RGBA
-        var hex = colorString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        if hex.count == 6 {
-            let scanner = Scanner(string: hex)
-            var hexNumber: UInt64 = 0
-            
-            if scanner.scanHexInt64(&hexNumber) {
-                let r = Float((hexNumber & 0xff0000) >> 16) / 255.0
-                let g = Float((hexNumber & 0x00ff00) >> 8) / 255.0
-                let b = Float(hexNumber & 0x0000ff) / 255.0
-                return simd_float4(r, g, b, 1.0)
-            }
-        }
-        return simd_float4(0.2, 0.53, 1.0, 1.0) // Default blue
-    }
-    
-    // MARK: - MLNCustomStyleLayer Override
-    override func drawInMapView(_ mapView: MLNMapView, withContext context: MLNStyleLayerDrawingContext) {
-        // Exit early if no render encoder available (Metal backend)
-        guard let renderEncoder = self.renderEncoder else {
-            print("No Metal render encoder available")
-            return
-        }
-        
-        // Exit early if no pipeline state created
-        guard let pipelineState = renderPipelineState else {
-            print("Pipeline state not created")
-            return
-        }
-        
-        // Exit early if no instances to draw
-        guard !instances.isEmpty else {
-            // Nothing to render
-            return
-        }
-        
-        // Set the render pipeline state
-        renderEncoder.setRenderPipelineState(pipelineState)
-        
-        // Create uniforms for this frame
-        var uniforms = createUniforms(from: context)
-        
-        // Upload instance data to a buffer if needed
-        guard let device = metalDevice else { return }
-        
-        // Create or update vertex buffer with current instances
-        let instanceDataSize = instances.count * MemoryLayout<TriangleInstance>.stride
-        if vertexBuffer == nil || vertexBuffer!.length < instanceDataSize {
-            vertexBuffer = device.makeBuffer(length: max(instanceDataSize, 1024), options: .storageModeShared)
-        }
-        
-        guard let buffer = vertexBuffer else { return }
-        
-        // Copy instance data to buffer
-        let bufferPointer = buffer.contents().bindMemory(to: TriangleInstance.self, capacity: instances.count)
-        for (index, instance) in instances.enumerated() {
-            bufferPointer[index] = instance
-        }
-        
-        // Set vertex buffers
-        renderEncoder.setVertexBuffer(buffer, offset: 0, index: 0)
-        renderEncoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.size, index: 1)
-        
-        // Draw triangles using instanced rendering
-        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3, instanceCount: instances.count)
-    }
-    
-    // MARK: - Helper Methods
-    private struct Uniforms {
-        var viewportSize: simd_float2
-        var zoomLevel: Float
-        var projectionMatrix: simd_float4x4
-    }
-    
-    private func createUniforms(from context: MLNStyleLayerDrawingContext) -> Uniforms {
-        let viewportSize = simd_float2(Float(context.size.width), Float(context.size.height))
-        let zoomLevel = Float(context.zoomLevel)
-        
-        // Create a simple orthographic projection matrix for screen space
-        let projectionMatrix = simd_float4x4(
-            simd_float4(2.0 / Float(context.size.width), 0, 0, 0),
-            simd_float4(0, -2.0 / Float(context.size.height), 0, 0),
-            simd_float4(0, 0, -1, 0),
-            simd_float4(-1, 1, 0, 1)
-        )
-        
-        return Uniforms(
-            viewportSize: viewportSize,
-            zoomLevel: zoomLevel,
-            projectionMatrix: projectionMatrix
-        )
     }
     
     private func parseColor(_ colorString: String) -> simd_float4 {
@@ -229,46 +134,90 @@ class MLNTriangleCustomStyleLayer: MLNCustomStyleLayer {
         // Default to blue if parsing fails
         return simd_float4(0.2, 0.5, 1.0, 1.0)
     }
+    
+    // MARK: - MLNCustomStyleLayer Override
+    override func drawInMapView(_ mapView: MLNMapView, withContext context: MLNStyleLayerDrawingContext) {
+        // Check if Metal is available and get the render encoder
+        guard let renderEncoder = self.renderEncoder else {
+            print("No Metal render encoder available - Metal backend may not be active")
+            return
+        }
+        
+        // Setup Metal on first draw
+        if renderPipelineState == nil {
+            setupMetal()
+        }
+        
+        // Exit early if setup failed
+        guard let pipelineState = renderPipelineState else {
+            print("Triangle custom layer not properly initialized")
+            return
+        }
+        
+        // Exit early if no instances to draw
+        guard !instances.isEmpty else {
+            return
+        }
+        
+        // Set the render pipeline state
+        renderEncoder.setRenderPipelineState(pipelineState)
+        
+        // Create uniforms for this frame
+        var uniforms = createUniforms(from: context)
+        
+        // Upload instance data to a buffer if needed
+        guard let device = metalDevice else { return }
+        
+        // Create or update vertex buffer with current instances
+        let instanceDataSize = instances.count * MemoryLayout<TriangleInstance>.stride
+        if vertexBuffer == nil || vertexBuffer!.length < instanceDataSize {
+            vertexBuffer = device.makeBuffer(length: max(instanceDataSize, 1024), options: .storageModeShared)
+        }
+        
+        guard let buffer = vertexBuffer else { return }
+        
+        // Copy instance data to buffer
+        let bufferPointer = buffer.contents().bindMemory(to: TriangleInstance.self, capacity: instances.count)
+        for (index, instance) in instances.enumerated() {
+            bufferPointer[index] = instance
+        }
+        
+        // Set vertex buffers and uniforms
+        renderEncoder.setVertexBuffer(buffer, offset: 0, index: 0)
+        renderEncoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.size, index: 1)
+        
+        // Draw triangles using instanced rendering
+        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3, instanceCount: instances.count)
+    }
+    
+    // MARK: - Helper Methods
+    private struct Uniforms {
+        var viewportSize: simd_float2
+        var zoomLevel: Float
+        var projectionMatrix: simd_float4x4
+    }
+    
+    private func createUniforms(from context: MLNStyleLayerDrawingContext) -> Uniforms {
+        let viewportSize = simd_float2(Float(context.size.width), Float(context.size.height))
+        let zoomLevel = Float(context.zoomLevel)
+        
+        // Create a simple orthographic projection matrix for screen space
+        let projectionMatrix = simd_float4x4(
+            simd_float4(2.0 / Float(context.size.width), 0, 0, 0),
+            simd_float4(0, -2.0 / Float(context.size.height), 0, 0),
+            simd_float4(0, 0, -1, 0),
+            simd_float4(-1, 1, 0, 1)
+        )
+        
+        return Uniforms(
+            viewportSize: viewportSize,
+            zoomLevel: zoomLevel,
+            projectionMatrix: projectionMatrix
+        )
+    }
+    
+    // MARK: - Cleanup
+    deinit {
+        // Metal buffers are reference counted and will be cleaned up automatically
+    }
 }
-
-// MARK: - Metal Shaders (would be in separate .metal file in full implementation)
-/*
- Metal shaders would include:
- 
- vertex VertexOut triangleVertexShader(uint vid [[vertex_id]],
-                                       uint iid [[instance_id]],
-                                       constant TriangleInstance* instances [[buffer(0)]],
-                                       constant Uniforms& uniforms [[buffer(1)]]) {
-     // Generate triangle vertices and transform to screen space
-     const float2 vertices[6] = {
-         float2(-1, -1), float2(1, -1), float2(0, 1),   // First triangle
-         float2(-1, -1), float2(1, -1), float2(1, 1)    // Second triangle (for quad if needed)
-     };
-     
-     TriangleInstance instance = instances[iid];
-     float2 vertex = vertices[vid];
-     
-     // Apply scaling and rotation
-     float c = cos(instance.rotation);
-     float s = sin(instance.rotation);
-     float2x2 rotation = float2x2(float2(c, -s), float2(s, c));
-     
-     vertex = rotation * (vertex * instance.radius);
-     vertex += instance.position * uniforms.viewportSize;
-     
-     float4 position = uniforms.projectionMatrix * float4(vertex, 0, 1);
-     
-     VertexOut out;
-     out.position = position;
-     out.color = instance.color * instance.opacity;
-     out.uv = vertices[vid];
-     return out;
- }
- 
- fragment float4 triangleFragmentShader(VertexOut in [[stage_in]]) {
-     // Render SDF triangle with fill, stroke, blur, etc.
-     float dist = /* SDF triangle distance calculation */;
-     float alpha = smoothstep(0.5, 0.5 - fwidth(dist), dist);
-     return float4(in.color.rgb, in.color.a * alpha);
- }
- */

@@ -13,6 +13,7 @@ part 'src/annotation.dart';
 part 'src/callbacks.dart';
 part 'src/camera.dart';
 part 'src/circle.dart';
+part 'src/triangle.dart';
 part 'src/line.dart';
 part 'src/location.dart';
 part 'src/method_channel_maplibre_gl.dart';

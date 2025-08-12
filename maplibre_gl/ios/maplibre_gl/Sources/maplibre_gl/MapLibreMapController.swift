@@ -4,6 +4,9 @@ import MapLibre
 class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, MapLibreMapOptionsSink,
     UIGestureRecognizerDelegate, NativeMeasurementListener
 {
+    // Feature flags for experimental features
+    private static let enableExperimentalTriangleLayers = ProcessInfo.processInfo.environment["MAPLIBRE_EXPERIMENTAL_TRIANGLE_LAYERS"] == "true"
+    
     private var registrar: FlutterPluginRegistrar
     private var channel: FlutterMethodChannel?
 
@@ -1689,37 +1692,128 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         enableInteraction: Bool,
         properties: [String: String]
     ) -> Result<Void, MethodCallError> {
-        switch validateBeforeLayerAdd(sourceId: sourceId, layerId: layerId) {
-        case .failure(let error):
-            return .failure(error)
-        case .success(let (style, _)):
-            // Note: MLNCustomStyleLayer does not bind to a data source automatically.
-            // This custom layer is private and will manage its own rendering.
-            let customLayer = MLNTriangleCustomStyleLayer(identifier: layerId)
-            
-            if let minimumZoomLevel = minimumZoomLevel {
-                customLayer.minimumZoomLevel = Float(minimumZoomLevel)
+        if Self.enableExperimentalTriangleLayers {
+            NSLog("Triangle layers are enabled experimentally - using native triangle layer implementation")
+            // Use native triangle layer implementation when flag is enabled
+            switch validateBeforeLayerAdd(sourceId: sourceId, layerId: layerId) {
+            case .failure(let error):
+                return .failure(error)
+            case .success(let (style, _)):
+                // Note: MLNCustomStyleLayer does not bind to a data source automatically.
+                // This custom layer is private and will manage its own rendering.
+                let customLayer = MLNTriangleCustomStyleLayer(identifier: layerId)
+                
+                if let minimumZoomLevel = minimumZoomLevel {
+                    customLayer.minimumZoomLevel = Float(minimumZoomLevel)
+                }
+                if let maximumZoomLevel = maximumZoomLevel {
+                    customLayer.maximumZoomLevel = Float(maximumZoomLevel)
+                }
+                
+                // Filters are not directly supported on custom layers; ignore if provided
+                _ = filter
+                
+                // Apply style properties to custom layer using the property converter
+                LayerPropertyConverter.addTriangleProperties(
+                    triangleLayer: customLayer,
+                    properties: properties
+                )
+                
+                if let id = belowLayerId, let belowLayer = style.layer(withIdentifier: id) {
+                    style.insertLayer(customLayer, below: belowLayer)
+                } else {
+                    style.addLayer(customLayer)
+                }
+                if enableInteraction {
+                    interactiveFeatureLayerIds.insert(layerId)
+                }
+                return .success(())
             }
-            if let maximumZoomLevel = maximumZoomLevel {
-                customLayer.maximumZoomLevel = Float(maximumZoomLevel)
-            }
-            
-            // Filters are not directly supported on custom layers; ignore if provided
-            _ = filter
-            
-            // Apply style properties to custom layer
-            customLayer.updateProperties(properties)
-            
-            if let id = belowLayerId, let belowLayer = style.layer(withIdentifier: id) {
-                style.insertLayer(customLayer, below: belowLayer)
-            } else {
-                style.addLayer(customLayer)
-            }
-            if enableInteraction {
-                interactiveFeatureLayerIds.insert(layerId)
-            }
-            return .success(())
+        } else {
+            NSLog("Triangle layers are disabled - using fallback circle layer")
+            // Fallback to circle layer when experimental triangle layers are disabled
+            return addTriangleLayerFallback(
+                sourceId: sourceId,
+                layerId: layerId,
+                belowLayerId: belowLayerId,
+                sourceLayerIdentifier: sourceLayerIdentifier,
+                minimumZoomLevel: minimumZoomLevel,
+                maximumZoomLevel: maximumZoomLevel,
+                filter: filter,
+                enableInteraction: enableInteraction,
+                properties: properties
+            )
         }
+    }
+    
+    // Fallback implementation using circle layer for immediate functionality when triangle layers are disabled
+    func addTriangleLayerFallback(
+        sourceId: String,
+        layerId: String,
+        belowLayerId: String?,
+        sourceLayerIdentifier: String?,
+        minimumZoomLevel: Double?,
+        maximumZoomLevel: Double?,
+        filter: String?,
+        enableInteraction: Bool,
+        properties: [String: String]
+    ) -> Result<Void, MethodCallError> {
+        NSLog("Adding triangle layer fallback (circle): \(layerId)")
+        
+        // Convert triangle properties to circle properties
+        var circleProperties: [String: String] = [:]
+        
+        // Set visible defaults for fallback
+        circleProperties["circle-radius"] = "10"
+        circleProperties["circle-color"] = "#FF6B35"  // Orange color for visibility
+        circleProperties["circle-opacity"] = "0.8"
+        circleProperties["circle-stroke-color"] = "#FFFFFF"  // White outline
+        circleProperties["circle-stroke-width"] = "2"
+        circleProperties["circle-stroke-opacity"] = "0.9"
+        
+        // Map triangle properties to circle properties
+        for (key, value) in properties {
+            switch key {
+            case "triangle-size":
+                circleProperties["circle-radius"] = value
+            case "triangle-color":
+                circleProperties["circle-color"] = value
+            case "triangle-opacity":
+                circleProperties["circle-opacity"] = value
+            case "triangle-stroke-width":
+                circleProperties["circle-stroke-width"] = value
+            case "triangle-stroke-color":
+                circleProperties["circle-stroke-color"] = value
+            case "triangle-stroke-opacity":
+                circleProperties["circle-stroke-opacity"] = value
+            case "triangle-translate":
+                circleProperties["circle-translate"] = value
+            case "triangle-translate-anchor":
+                circleProperties["circle-translate-anchor"] = value
+            case "triangle-pitch-scale":
+                circleProperties["circle-pitch-scale"] = value
+            case "triangle-pitch-alignment":
+                circleProperties["circle-pitch-alignment"] = value
+            default:
+                NSLog("Triangle property not mapped to circle: \(key)")
+                break
+            }
+        }
+        
+        NSLog("Mapped triangle properties to circle properties: \(circleProperties)")
+        
+        // Use the existing addCircleLayer method with converted properties
+        return addCircleLayer(
+            sourceId: sourceId,
+            layerId: layerId,
+            belowLayerId: belowLayerId,
+            sourceLayerIdentifier: sourceLayerIdentifier,
+            minimumZoomLevel: minimumZoomLevel,
+            maximumZoomLevel: maximumZoomLevel,
+            filter: filter,
+            enableInteraction: enableInteraction,
+            properties: circleProperties
+        )
     }
 
     func setFilter(_ layer: MLNStyleLayer, _ filter: String) -> Result<Void, MethodCallError> {

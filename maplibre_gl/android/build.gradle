@@ -37,9 +37,10 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled true
         
+        // Native build for triangle renderer
         externalNativeBuild {
             cmake {
-                cppFlags "-std=c++14"
+                cppFlags "-std=c++17"
                 arguments "-DANDROID_STL=c++_shared"
             }
         }
@@ -49,6 +50,7 @@ android {
         }
     }
     
+    // External native build for triangle renderer
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"

@@ -66,6 +66,7 @@ class BatchAddBodyState extends State<BatchAddBody> {
 
   List<Fill> _fills = [];
   List<Circle> _circles = [];
+  List<Triangle> _triangles = [];
   List<Line> _lines = [];
   List<Symbol> _symbols = [];
 

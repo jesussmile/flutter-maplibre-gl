@@ -42,9 +42,9 @@ typedef MaplibreMapController = MapLibreMapController;
 ///
 /// Some of its methods can only be called after the [onStyleLoaded] callback has been invoked.
 ///
-/// To add annotations ([Circle]s, [Line]s, [Symbol]s and [Fill]s) on the map, there are two ways:
+/// To add annotations ([Circle]s, [Line]s, [Symbol]s, [Fill]s and [Triangle]s) on the map, there are two ways:
 ///
-/// 1. *Simple way to add annotations*: Use the corresponding add* methods ([addCircle], [addLine], [addSymbol] and [addFill]) on the MapLibreMapController to add one annotation at a time to the map.
+/// 1. *Simple way to add annotations*: Use the corresponding add* methods ([addCircle], [addLine], [addSymbol], [addFill] and [addTriangle]) on the MapLibreMapController to add one annotation at a time to the map.
 /// There are also corresponding [addCircles], [addLines] etc. methods which work the same but add multiple annotations at a time.
 ///
 /// (If you are interested how this works: under the hood, this uses AnnotationManagers to manage the annotations.
@@ -81,6 +81,7 @@ class MapLibreMapController extends ChangeNotifier {
     required CameraPosition initialCameraPosition,
     required Iterable<AnnotationType> annotationOrder,
     required Iterable<AnnotationType> annotationConsumeTapEvents,
+    this.experimentalFeatures = MapLibreExperimentalFeatures.none,
     this.onStyleLoadedCallback,
     this.onMapClick,
     this.onMapLongClick,
@@ -153,6 +154,13 @@ class MapLibreMapController extends ChangeNotifier {
             symbolManager = SymbolManager(this,
                 onTap: onSymbolTapped.call,
                 enableInteraction: enableInteraction);
+          case AnnotationType.triangle:
+            // Only initialize triangle manager if experimental feature is enabled
+            if (experimentalFeatures.enableNativeTriangleLayers) {
+              triangleManager = TriangleManager(this,
+                  onTap: onTriangleTapped.call,
+                  enableInteraction: enableInteraction);
+            }
         }
       }
       onStyleLoadedCallback?.call();
@@ -232,6 +240,7 @@ class MapLibreMapController extends ChangeNotifier {
   LineManager? lineManager;
   CircleManager? circleManager;
   SymbolManager? symbolManager;
+  TriangleManager? triangleManager;
 
   final OnStyleLoadedCallback? onStyleLoadedCallback;
   final OnMapClickCallback? onMapClick;
@@ -248,6 +257,9 @@ class MapLibreMapController extends ChangeNotifier {
 
   final OnTwoFingerHoldGestureCallback? onTwoFingerHoldGesture;
 
+  /// Experimental features configuration.
+  final MapLibreExperimentalFeatures experimentalFeatures;
+
   /// Callbacks to receive tap events for symbols placed on this map.
   final ArgumentCallbacks<Symbol> onSymbolTapped = ArgumentCallbacks<Symbol>();
 
@@ -256,6 +268,9 @@ class MapLibreMapController extends ChangeNotifier {
 
   /// Callbacks to receive tap events for fills placed on this map.
   final ArgumentCallbacks<Fill> onFillTapped = ArgumentCallbacks<Fill>();
+
+  /// Callbacks to receive tap events for triangles placed on this map.
+  final ArgumentCallbacks<Triangle> onTriangleTapped = ArgumentCallbacks<Triangle>();
 
   /// Callbacks to receive tap events for features (geojson layer) placed on this map.
   final onFeatureTapped = <OnFeatureInteractionCallback>[];
@@ -289,6 +304,11 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned set will be a detached snapshot of the fills collection.
   Set<Fill> get fills => fillManager!.annotations;
+
+  /// The current set of triangles on this map added with the [addTriangle] or [addTriangles] methods.
+  ///
+  /// The returned set will be a detached snapshot of the triangles collection.
+  Set<Triangle> get triangles => triangleManager?.annotations ?? <Triangle>{};
 
   /// True if the map camera is currently moving.
   bool get isCameraMoving => _isCameraMoving;
@@ -666,6 +686,9 @@ class MapLibreMapController extends ChangeNotifier {
   /// [filter] determines which features should be rendered in the layer.
   /// Filters are written as [expressions].
   ///
+  /// **Note:** This is an experimental feature and requires enabling triangle layers
+  /// through [MapLibreExperimentalFeatures.enableNativeTriangleLayers].
+  ///
   /// [expressions]: https://maplibre.org/maplibre-style-spec/expressions/
   Future<void> addTriangleLayer(
       String sourceId, String layerId, TriangleLayerProperties properties,
@@ -675,6 +698,14 @@ class MapLibreMapController extends ChangeNotifier {
       double? maxzoom,
       dynamic filter,
       bool enableInteraction = true}) async {
+    // Check if triangle layers experimental feature is enabled
+    if (!experimentalFeatures.enableNativeTriangleLayers) {
+      throw const ExperimentalFeatureException(
+        'Native triangle layers', 
+        'Enable this feature by setting experimentalFeatures: MapLibreExperimentalFeatures.triangles when creating the MapLibreMap widget.'
+      );
+    }
+    
     await _maplibrePlatform.addTriangleLayer(
       sourceId,
       layerId,
@@ -1173,6 +1204,120 @@ class MapLibreMapController extends ChangeNotifier {
   /// The returned [Future] completes once listeners have been notified.
   Future<void> clearCircles() async {
     circleManager!.clear();
+
+    notifyListeners();
+  }
+
+  /// Adds a triangle to the map, configured using the specified custom [options].
+  ///
+  /// **Note:** Triangle annotations require enabling the experimental triangle layers feature.
+  ///
+  /// Change listeners are notified once the triangle has been added on the
+  /// platform side.
+  ///
+  /// The returned [Future] completes with the added triangle once listeners have
+  /// been notified.
+  Future<Triangle> addTriangle(TriangleOptions options, [Map? data]) async {
+    // Check if triangle layers experimental feature is enabled
+    if (!experimentalFeatures.enableNativeTriangleLayers) {
+      throw const ExperimentalFeatureException(
+        'Triangle annotations',
+        'Enable this feature by setting experimentalFeatures: MapLibreExperimentalFeatures.triangles when creating the MapLibreMap widget.',
+      );
+    }
+    
+    final effectiveOptions = TriangleOptions.defaultOptions.copyWith(options);
+    final triangle = Triangle(getRandomString(), effectiveOptions, data);
+    await triangleManager!.add(triangle);
+    notifyListeners();
+    return triangle;
+  }
+
+  /// Adds multiple triangles to the map, configured using the specified custom
+  /// [options].
+  ///
+  /// **Note:** Triangle annotations require enabling the experimental triangle layers feature.
+  ///
+  /// Change listeners are notified once the triangles have been added on the
+  /// platform side.
+  ///
+  /// The returned [Future] completes with the added triangles once listeners have
+  /// been notified.
+  Future<List<Triangle>> addTriangles(List<TriangleOptions> options,
+      [List<Map>? data]) async {
+    // Check if triangle layers experimental feature is enabled
+    if (!experimentalFeatures.enableNativeTriangleLayers) {
+      throw const ExperimentalFeatureException(
+        'Triangle annotations',
+        'Enable this feature by setting experimentalFeatures: MapLibreExperimentalFeatures.triangles when creating the MapLibreMap widget.',
+      );
+    }
+    
+    final triangles = [
+      for (var i = 0; i < options.length; i++)
+        Triangle(getRandomString(),
+            TriangleOptions.defaultOptions.copyWith(options[i]), data?[i])
+    ];
+    await triangleManager!.addAll(triangles);
+
+    notifyListeners();
+    return triangles;
+  }
+
+  /// Updates the specified [triangle] with the given [changes]. The triangle must
+  /// be a current member of the [triangles] set.
+  ///
+  /// Change listeners are notified once the triangle has been updated on the
+  /// platform side.
+  ///
+  /// The returned [Future] completes once listeners have been notified.
+  Future<void> updateTriangle(Triangle triangle, TriangleOptions changes) async {
+    triangle.options = triangle.options.copyWith(changes);
+    await triangleManager!.set(triangle);
+
+    notifyListeners();
+  }
+
+  /// Retrieves the current position of the triangle.
+  /// This may be different from the value of `triangle.options.geometry` if the triangle is draggable.
+  /// In that case this method provides the triangle's actual position, and `triangle.options.geometry` the last programmatically set position.
+  Future<LatLng> getTriangleLatLng(Triangle triangle) async {
+    return triangle.options.geometry!;
+  }
+
+  /// Removes the specified [triangle] from the map. The triangle must be a current
+  /// member of the [triangles] set.
+  ///
+  /// Change listeners are notified once the triangle has been removed on the
+  /// platform side.
+  ///
+  /// The returned [Future] completes once listeners have been notified.
+  Future<void> removeTriangle(Triangle triangle) async {
+    triangleManager!.remove(triangle);
+
+    notifyListeners();
+  }
+
+  /// Removes the specified [triangles] from the map. The triangles must be current
+  /// members of the [triangles] set.
+  ///
+  /// Change listeners are notified once the triangles have been removed on the
+  /// platform side.
+  ///
+  /// The returned [Future] completes once listeners have been notified.
+  Future<void> removeTriangles(Iterable<Triangle> triangles) async {
+    await triangleManager!.removeAll(triangles);
+    notifyListeners();
+  }
+
+  /// Removes all [triangles] from the map added with the [addTriangle] or [addTriangles] methods.
+  ///
+  /// Change listeners are notified once all triangles have been removed on the
+  /// platform side.
+  ///
+  /// The returned [Future] completes once listeners have been notified.
+  Future<void> clearTriangles() async {
+    triangleManager!.clear();
 
     notifyListeners();
   }

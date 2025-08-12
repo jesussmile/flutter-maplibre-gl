@@ -1,27 +1,22 @@
 PODS:
   - Flutter (1.0.0)
-  - LercWrapper (1.0.0)
   - location (0.0.1):
     - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
-  - LercWrapper (from `./LercWrapper`)
   - location (from `.symlinks/plugins/location/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
-  LercWrapper:
-    :path: "./LercWrapper"
   location:
     :path: ".symlinks/plugins/location/ios"
 
 SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  LercWrapper: 0d82a997d92af6fc7520c2615e9eb90319777ac3
   location: 155caecf9da4f280ab5fe4a55f94ceccfab838f8
 
-PODFILE CHECKSUM: 74a0e0667c0fdcd91ea077bd3de87b1894ec4303
+PODFILE CHECKSUM: b63d507eb7cc768afa26646638aaf07f371f6370
 
 COCOAPODS: 1.16.2

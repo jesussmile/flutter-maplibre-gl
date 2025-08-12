@@ -35,6 +35,8 @@ import 'place_circle.dart';
 import 'place_fill.dart';
 import 'place_source.dart';
 import 'place_symbol.dart';
+import 'place_triangle.dart';
+import 'native_triangle_layer.dart';
 import 'polyline_editing.dart';
 import 'scrolling_map.dart';
 import 'sources.dart';
@@ -53,6 +55,8 @@ final List<ExamplePage> _allPages = <ExamplePage>[
   const LocalStylePage(),
   const LayerPage(),
   const PlaceCirclePage(),
+  const PlaceTrianglePage(),
+  const NativeTriangleLayerPage(),
   const PlaceFillPage(),
   const ScrollingMapPage(),
   const OfflineRegionsPage(),

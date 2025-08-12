@@ -4,7 +4,7 @@
 
 part of '../maplibre_gl.dart';
 
-enum AnnotationType { fill, line, circle, symbol }
+enum AnnotationType { fill, line, circle, symbol, triangle }
 
 typedef MapCreatedCallback = void Function(MapLibreMapController controller);
 
@@ -18,6 +18,7 @@ class MapLibreMap extends StatefulWidget {
     super.key,
     required this.initialCameraPosition,
     this.styleString = MapLibreStyles.demo,
+    this.experimentalFeatures = MapLibreExperimentalFeatures.none,
     this.onMapCreated,
     this.onStyleLoadedCallback,
     this.locationEnginePlatforms = LocationEnginePlatforms.defaultPlatform,
@@ -67,7 +68,7 @@ class MapLibreMap extends StatefulWidget {
               myLocationEnabled,
           "$myLocationRenderMode requires [myLocationEnabled] set to true.",
         ),
-        assert(annotationOrder.length <= 4),
+        assert(annotationOrder.length <= 5),
         assert(annotationConsumeTapEvents.length > 0);
 
   /// The properties for the platform-specific location engine.
@@ -76,7 +77,7 @@ class MapLibreMap extends StatefulWidget {
 
   /// Defines the layer order of annotations displayed on map
   ///
-  /// Any annotation type can only be contained once, so 0 to 4 types
+  /// Any annotation type can only be contained once, so 0 to 5 types
   ///
   /// Note that setting this to be empty gives a big perfomance boost for
   /// android. However if you do so annotations will not work.
@@ -84,7 +85,7 @@ class MapLibreMap extends StatefulWidget {
 
   /// Defines the layer order of click annotations
   ///
-  /// (must contain at least 1 annotation type, 4 items max)
+  /// (must contain at least 1 annotation type, 5 items max)
   final List<AnnotationType> annotationConsumeTapEvents;
 
   /// Please note: you should only add annotations (e.g. symbols or circles) after `onStyleLoadedCallback` has been called.
@@ -129,6 +130,20 @@ class MapLibreMap extends StatefulWidget {
   /// 3. Passing the style as a local file. create an JSON file in app directory (e.g. ApplicationDocumentsDirectory). Set the style string to the absolute path of this JSON file.
   /// 4. Passing the raw JSON of the map style. This is only supported on Android.
   final String styleString;
+
+  /// Configuration for experimental features.
+  /// 
+  /// Allows enabling/disabling experimental features that may not be fully stable
+  /// or supported across all platforms. Use with caution in production.
+  /// 
+  /// Example:
+  /// ```dart
+  /// MapLibreMap(
+  ///   experimentalFeatures: MapLibreExperimentalFeatures.triangles,
+  ///   // other parameters...
+  /// )
+  /// ```
+  final MapLibreExperimentalFeatures experimentalFeatures;
 
   /// Preferred bounds for the camera zoom level.
   ///
@@ -327,6 +342,7 @@ class _MapLibreMapState extends State<MapLibreMap> {
     final controller = MapLibreMapController(
       maplibrePlatform: _maplibrePlatform,
       initialCameraPosition: widget.initialCameraPosition,
+      experimentalFeatures: widget.experimentalFeatures,
       onStyleLoadedCallback: () {
         if (_controller.isCompleted) {
           widget.onStyleLoadedCallback?.call();

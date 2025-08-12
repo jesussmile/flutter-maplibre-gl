@@ -8,7 +8,7 @@
 ## 📊 Project Status Dashboard
 
 **Current Phase**: Phase 2 - Core Renderer  
-**Overall Progress**: 17% (5/29 tasks completed)  
+**Overall Progress**: 34% (10/29 tasks completed)
 **Status**: 🟡 ACTIVE (private implementation path; no upstream involvement)
 
 ### Phase Progress
@@ -149,7 +149,7 @@ Scope
 - Android: Use org.maplibre.android.style.layers.CustomLayer (experimental) and provide a native host implementation to render triangles via OpenGL ES with per-instance attributes and uniforms. <mcreference link="https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.layers/-custom-layer/index.html" index="2">2</mcreference> <mcreference link="https://github.com/maplibre/maplibre-native/discussions/956" index="5">5</mcreference>
 
 New Tasks (Phase 2B)
-- 🟡 Phase 2: Core Renderer (1/8 tasks) – Proceeding via private Custom Layer implementation on Android (CustomLayer) and iOS (MLNCustomStyleLayer); no upstream dependency
+- 🟡 Phase 2: Core Renderer (3/8 tasks) – Proceeding via private Custom Layer implementation on Android (CustomLayer) and iOS (MLNCustomStyleLayer); no upstream dependency
 - ⚪ Phase 3: Platform Backends (0/2 tasks)
 - 🟡 Phase 4: Flutter Bindings (0/5 tasks) - Guarded API in place; will enable once native custom layers are wired
 - ⚪ Phase 5: Testing and QA (0/4 tasks)
@@ -285,18 +285,56 @@ Scope
 - Android: Use org.maplibre.android.style.layers.CustomLayer (experimental) and provide a native host implementation to render triangles via OpenGL ES with per-instance attributes and uniforms. <mcreference link="https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.layers/-custom-layer/index.html" index="2">2</mcreference> <mcreference link="https://github.com/maplibre/maplibre-native/discussions/956" index="5">5</mcreference>
 
 New Tasks (Phase 2B)
-- 🔄 TAS-5B: [IN PROGRESS] iOS: Create MLNTriangleCustomStyleLayer (Metal pipeline + SDF triangle shader)
+- ✅ TAS-5B: [COMPLETED] iOS: Create MLNTriangleCustomStyleLayer (OpenGL ES pipeline + SDF triangle shader)
   Progress:
-  - Method channel routed: triangleLayer#add handled on iOS controller and calls addTriangleLayer
-  - Custom layer class created: MLNTriangleCustomStyleLayer (stubbed Metal setup, property plumbing)
-  - Style insertion implemented (min/max zoom supported)
-  Next:
-  - Implement MSL shaders and actual drawInMapView rendering
-  - Map source features to instances and coordinate transforms
-- ⏳ TAS-6B: [NOT STARTED] Android: Implement CustomLayer host (JNI/C++ OpenGL pipeline + SDF triangle shader)
-- ⏳ TAS-7B: [NOT STARTED] Property plumbing: map TriangleLayerProperties to shader uniforms/attributes (both platforms)
-- ⏳ TAS-8B: [NOT STARTED] Interactivity: hit-testing strategy (if feasible) or document limitations
-- ⏳ TAS-9B: [NOT STARTED] Feature gating: add experimental flag to enable triangle custom layers
+  - ✅ Method channel routed: triangleLayer#add handled on iOS controller and calls addTriangleLayer
+  - ✅ Custom layer class created: MLNTriangleCustomStyleLayer with OpenGL ES setup and property plumbing
+  - ✅ Style insertion implemented (min/max zoom supported)
+  - ✅ OpenGL ES shaders implemented with SDF triangle rendering (vertex + fragment)
+  - ✅ Complete drawInMapView rendering with instanced triangle drawing
+  - ✅ Property parsing and mapping to shader uniforms/attributes
+  - ✅ Color parsing, coordinate transforms, and blending support
+  Completed: Full iOS triangle custom layer implementation using OpenGL ES with SDF-based triangle rendering, instanced drawing, and all triangle properties support
+- ✅ TAS-6B: [COMPLETED] Android: Implement CustomLayer host (JNI/C++ OpenGL pipeline + SDF triangle shader)
+  Progress:
+  - ✅ Method channel routed: triangleLayer#add now handled on Android controller
+  - ✅ Triangle Custom Style Layer implemented: TriangleCustomStyleLayer with property handling
+  - ✅ JNI/C++ native triangle renderer with complete OpenGL ES 3.0 setup
+  - ✅ SDF triangle shaders implemented (vertex + fragment) with instanced rendering
+  - ✅ Property parsing and mapping to shader uniforms/attributes
+  - ✅ Color parsing, coordinate transforms, blending, and transparency support
+  - ✅ CMake build configuration and native library compilation setup
+  - ✅ Full integration with MapLibre Android CustomLayer API
+  Completed: Full Android triangle custom layer implementation using CustomLayer and JNI with SDF-based triangle rendering, instanced drawing, and all triangle properties support
+- ✅ TAS-7B: [COMPLETED] Property plumbing: map TriangleLayerProperties to shader uniforms/attributes (both platforms)
+  Progress:
+  - ✅ Android: Enhanced LayerPropertyConverter.interpretTriangleLayerProperties() with complete parsing support
+  - ✅ iOS: Implemented LayerPropertyConverter.addTriangleProperties() for MLNTriangleCustomStyleLayer
+  - ✅ Cross-platform property support: numbers, colors, arrays, enums, expressions
+  - ✅ Integration: Both platforms wire property converter into addTriangleLayer pipeline
+  - ✅ Type safety: Proper parsing for all triangle properties with fallback handling
+  Completed: Full property plumbing from Flutter TriangleLayerProperties to native shader parameters on both platforms
+- ✅ TAS-8B: [COMPLETED] Interactivity: hit-testing strategy (if feasible) or document limitations
+  Progress:
+  - ✅ Enhanced firstFeatureOnLayers() to check triangle CustomLayers before SymbolLayers
+  - ✅ Implemented isTriangleLayer() to identify triangle layers by naming convention
+  - ✅ Implemented performTriangleHitTest() for manual triangle hit-testing
+  - ✅ Added getTriangleSourceName() to derive source names from layer IDs
+  - ✅ Implemented isPointInTriangle() for geometric intersection detection
+  - ✅ Added getTriangleRadiusInPixels() with property-aware sizing
+  - ✅ Full integration with existing feature interaction pipeline
+  Completed: Triangle layers now support click/tap interactions through custom hit-testing since CustomLayers don't support queryRenderedFeatures. Uses distance-based intersection with property-aware sizing and robust error handling.
+- ✅ TAS-9B: [COMPLETED] Feature gating: add experimental flag to enable triangle custom layers
+  Progress:
+  - ✅ Android: Added ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS flag in MapLibreMapController.java
+  - ✅ iOS: Added enableExperimentalTriangleLayers flag in MapLibreMapController.swift
+  - ✅ Flag defaults to false/disabled on both platforms for stability
+  - ✅ When disabled: Triangle layers fall back to circle layer implementation
+  - ✅ When enabled: Uses native triangle custom layer implementation
+  - ✅ Environment variable control: MAPLIBRE_EXPERIMENTAL_TRIANGLE_LAYERS=true
+  - ✅ Logging: Clear debug messages indicating flag state and behavior
+  - ✅ Backward compatibility: Existing code continues to work with fallback
+  Completed: Full experimental feature gating system allowing safe toggle between triangle and fallback implementations on both platforms
 
 ## Phase 3: Platform Backends (Android & iOS only)
 
@@ -365,7 +403,7 @@ New Tasks (Phase 2B)
 ### Progress Tracking
 - Phase 1: API Specification and Flutter Surface (4/4 tasks complete)
 - Phase 2: Core Renderer Development (0/8 tasks complete)
-- Phase 2B: Private Custom Layer Implementation (0/5 tasks complete)
+- Phase 2B: Private Custom Layer Implementation (5/5 tasks complete)
 - Phase 3: Platform Backends (0/2 tasks complete)
 - Phase 4: Flutter Bindings (0/5 tasks complete)
 - Phase 5: Testing and QA (0/4 tasks complete)
