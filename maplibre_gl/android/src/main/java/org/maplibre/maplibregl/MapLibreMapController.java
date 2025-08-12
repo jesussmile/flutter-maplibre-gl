@@ -754,16 +754,7 @@ final class MapLibreMapController
       boolean enableInteraction,
       Expression filter) {
     
-    // Check experimental feature flag
-    if (!ENABLE_EXPERIMENTAL_TRIANGLE_LAYERS) {
-      Log.w(TAG, "Triangle layers are experimental and currently disabled. " +
-          "Set -Dmaplibre.experimental.triangleLayers=true to enable. " +
-          "Using circle layer fallback for: " + layerName);
-      addTriangleLayerFallback(layerName, sourceName, belowLayerId, sourceLayer, minZoom, maxZoom, properties, enableInteraction, filter);
-      return;
-    }
-    
-    Log.d(TAG, "Triangle layers enabled experimentally. Adding triangle symbol layer: " + layerName);
+    Log.d(TAG, "Adding triangle symbol layer: " + layerName);
     
     try {
       // Create triangle icon if it doesn't exist
@@ -773,8 +764,9 @@ final class MapLibreMapController
       addTriangleSymbolLayer(layerName, sourceName, belowLayerId, sourceLayer, minZoom, maxZoom, properties, enableInteraction, filter);
       
     } catch (Exception e) {
-      Log.e(TAG, "Failed to create triangle layer, falling back to circle: " + e.getMessage(), e);
-      addTriangleLayerFallback(layerName, sourceName, belowLayerId, sourceLayer, minZoom, maxZoom, properties, enableInteraction, filter);
+      String errorMessage = "Failed to create triangle layer '" + layerName + "': " + e.getMessage();
+      Log.e(TAG, errorMessage, e);
+      throw new RuntimeException(errorMessage, e);
     }
   }
   

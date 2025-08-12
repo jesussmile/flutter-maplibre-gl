@@ -1692,13 +1692,14 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         enableInteraction: Bool,
         properties: [String: String]
     ) -> Result<Void, MethodCallError> {
-        if Self.enableExperimentalTriangleLayers {
-            NSLog("Triangle layers are enabled experimentally - using native triangle layer implementation")
-            // Use native triangle layer implementation when flag is enabled
-            switch validateBeforeLayerAdd(sourceId: sourceId, layerId: layerId) {
-            case .failure(let error):
-                return .failure(error)
-            case .success(let (style, _)):
+        NSLog("Adding triangle layer: \(layerId)")
+        
+        // Use native triangle layer implementation
+        switch validateBeforeLayerAdd(sourceId: sourceId, layerId: layerId) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let (style, _)):
+            do {
                 // Note: MLNCustomStyleLayer does not bind to a data source automatically.
                 // This custom layer is private and will manage its own rendering.
                 let customLayer = MLNTriangleCustomStyleLayer(identifier: layerId)
@@ -1728,21 +1729,12 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
                     interactiveFeatureLayerIds.insert(layerId)
                 }
                 return .success(())
+                
+            } catch {
+                let errorMessage = "Failed to create triangle layer '\(layerId)': \(error.localizedDescription)"
+                NSLog(errorMessage)
+                return .failure(MethodCallError.invalidArguments(errorMessage))
             }
-        } else {
-            NSLog("Triangle layers are disabled - using fallback circle layer")
-            // Fallback to circle layer when experimental triangle layers are disabled
-            return addTriangleLayerFallback(
-                sourceId: sourceId,
-                layerId: layerId,
-                belowLayerId: belowLayerId,
-                sourceLayerIdentifier: sourceLayerIdentifier,
-                minimumZoomLevel: minimumZoomLevel,
-                maximumZoomLevel: maximumZoomLevel,
-                filter: filter,
-                enableInteraction: enableInteraction,
-                properties: properties
-            )
         }
     }
     

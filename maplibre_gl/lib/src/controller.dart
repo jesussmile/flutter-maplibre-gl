@@ -155,12 +155,9 @@ class MapLibreMapController extends ChangeNotifier {
                 onTap: onSymbolTapped.call,
                 enableInteraction: enableInteraction);
           case AnnotationType.triangle:
-            // Only initialize triangle manager if experimental feature is enabled
-            if (experimentalFeatures.enableNativeTriangleLayers) {
-              triangleManager = TriangleManager(this,
-                  onTap: onTriangleTapped.call,
-                  enableInteraction: enableInteraction);
-            }
+            triangleManager = TriangleManager(this,
+                onTap: onTriangleTapped.call,
+                enableInteraction: enableInteraction);
         }
       }
       onStyleLoadedCallback?.call();
@@ -686,9 +683,6 @@ class MapLibreMapController extends ChangeNotifier {
   /// [filter] determines which features should be rendered in the layer.
   /// Filters are written as [expressions].
   ///
-  /// **Note:** This is an experimental feature and requires enabling triangle layers
-  /// through [MapLibreExperimentalFeatures.enableNativeTriangleLayers].
-  ///
   /// [expressions]: https://maplibre.org/maplibre-style-spec/expressions/
   Future<void> addTriangleLayer(
       String sourceId, String layerId, TriangleLayerProperties properties,
@@ -698,14 +692,6 @@ class MapLibreMapController extends ChangeNotifier {
       double? maxzoom,
       dynamic filter,
       bool enableInteraction = true}) async {
-    // Check if triangle layers experimental feature is enabled
-    if (!experimentalFeatures.enableNativeTriangleLayers) {
-      throw const ExperimentalFeatureException(
-        'Native triangle layers', 
-        'Enable this feature by setting experimentalFeatures: MapLibreExperimentalFeatures.triangles when creating the MapLibreMap widget.'
-      );
-    }
-    
     await _maplibrePlatform.addTriangleLayer(
       sourceId,
       layerId,
@@ -1210,22 +1196,12 @@ class MapLibreMapController extends ChangeNotifier {
 
   /// Adds a triangle to the map, configured using the specified custom [options].
   ///
-  /// **Note:** Triangle annotations require enabling the experimental triangle layers feature.
-  ///
   /// Change listeners are notified once the triangle has been added on the
   /// platform side.
   ///
   /// The returned [Future] completes with the added triangle once listeners have
   /// been notified.
   Future<Triangle> addTriangle(TriangleOptions options, [Map? data]) async {
-    // Check if triangle layers experimental feature is enabled
-    if (!experimentalFeatures.enableNativeTriangleLayers) {
-      throw const ExperimentalFeatureException(
-        'Triangle annotations',
-        'Enable this feature by setting experimentalFeatures: MapLibreExperimentalFeatures.triangles when creating the MapLibreMap widget.',
-      );
-    }
-    
     final effectiveOptions = TriangleOptions.defaultOptions.copyWith(options);
     final triangle = Triangle(getRandomString(), effectiveOptions, data);
     await triangleManager!.add(triangle);
@@ -1236,8 +1212,6 @@ class MapLibreMapController extends ChangeNotifier {
   /// Adds multiple triangles to the map, configured using the specified custom
   /// [options].
   ///
-  /// **Note:** Triangle annotations require enabling the experimental triangle layers feature.
-  ///
   /// Change listeners are notified once the triangles have been added on the
   /// platform side.
   ///
@@ -1245,14 +1219,6 @@ class MapLibreMapController extends ChangeNotifier {
   /// been notified.
   Future<List<Triangle>> addTriangles(List<TriangleOptions> options,
       [List<Map>? data]) async {
-    // Check if triangle layers experimental feature is enabled
-    if (!experimentalFeatures.enableNativeTriangleLayers) {
-      throw const ExperimentalFeatureException(
-        'Triangle annotations',
-        'Enable this feature by setting experimentalFeatures: MapLibreExperimentalFeatures.triangles when creating the MapLibreMap widget.',
-      );
-    }
-    
     final triangles = [
       for (var i = 0; i < options.length; i++)
         Triangle(getRandomString(),
