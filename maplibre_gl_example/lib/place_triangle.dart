@@ -58,7 +58,7 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
   void _onTriangleTapped(Triangle triangle) {
     if (_selectedTriangle != null) {
       _updateSelectedTriangle(
-        const TriangleOptions(triangleSize: 10),
+        const TriangleOptions(triangleSize: 1.0),
       );
     }
     setState(() {
@@ -66,7 +66,7 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
     });
     _updateSelectedTriangle(
       const TriangleOptions(
-        triangleSize: 20,
+        triangleSize: 1.5,
       ),
     );
     
@@ -94,7 +94,7 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
             center.longitude + cos(_triangleCount * pi / 6.0) / 20.0,
           ),
           triangleColor: colors[_triangleCount % colors.length],
-          triangleSize: 15.0,
+          triangleSize: 1.0,
           triangleOpacity: 0.8,
           triangleStrokeWidth: 2.0,
           triangleStrokeColor: "#FFFFFF",
@@ -201,12 +201,38 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
     );
   }
 
-  Future<void> _changeTriangleSize() async {
+  Future<void> _increaseTriangleSize() async {
     var current = _selectedTriangle!.options.triangleSize;
-    current ??= 5;
+    current ??= 1.0;
+    final newSize = (current + 0.5).clamp(1.0, 4.0); // Min 1, Max 4, increment by 0.5
     _updateSelectedTriangle(
-      TriangleOptions(triangleSize: current == 25.0 ? 5.0 : current + 5.0),
+      TriangleOptions(triangleSize: newSize),
     );
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Triangle size increased to ${newSize.toStringAsFixed(1)}"),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 1),
+      ));
+    }
+  }
+  
+  Future<void> _decreaseTriangleSize() async {
+    var current = _selectedTriangle!.options.triangleSize;
+    current ??= 1.0;
+    final newSize = (current - 0.5).clamp(1.0, 4.0); // Min 1, Max 4, increment by 0.5
+    _updateSelectedTriangle(
+      TriangleOptions(triangleSize: newSize),
+    );
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Triangle size decreased to ${newSize.toStringAsFixed(1)}"),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 1),
+      ));
+    }
   }
 
   Future<void> _changeTriangleColor() async {
@@ -239,6 +265,102 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text("Failed to clear triangles: $e"),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    }
+  }
+  
+  Future<void> _stressTest20k() async {
+    if (controller == null) return;
+    
+    try {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("🌍 Creating 80,000 triangles around the world... Please wait"),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 3),
+      ));
+      
+      final startTime = DateTime.now();
+      
+      // Create 80,000 triangles randomly distributed across the entire world
+      const int totalTriangles = 80000;
+      final random = Random();
+      final colors = [
+        "#FF6B35", "#F7931E", "#FFD23F", "#06FFA5", 
+        "#118AB2", "#073B4C", "#8E44AD", "#E74C3C",
+        "#FF5733", "#C70039", "#900C3F", "#581845",
+        "#3498DB", "#9B59B6", "#E67E22", "#F39C12",
+        "#27AE60", "#16A085", "#34495E", "#7F8C8D"
+      ];
+      
+      // Prepare all triangle options in batch - randomly distributed worldwide
+      final List<TriangleOptions> triangleOptionsList = [];
+      
+      for (int i = 0; i < totalTriangles; i++) {
+        // Generate random coordinates covering the entire world
+        // Latitude: -90 to +90 degrees
+        // Longitude: -180 to +180 degrees
+        final double lat = (random.nextDouble() * 180.0) - 90.0;  // -90 to +90
+        final double lng = (random.nextDouble() * 360.0) - 180.0; // -180 to +180
+        
+        // Random size variation for visual diversity
+        final double size = 0.8 + (random.nextDouble() * 0.4); // 0.8 to 1.2
+        
+        // Random opacity for visual variety
+        final double opacity = 0.6 + (random.nextDouble() * 0.3); // 0.6 to 0.9
+        
+        triangleOptionsList.add(
+          TriangleOptions(
+            geometry: LatLng(lat, lng),
+            triangleColor: colors[i % colors.length],
+            triangleSize: size,
+            triangleOpacity: opacity,
+            triangleStrokeWidth: 0.3, // Very thin stroke for performance
+            triangleStrokeColor: "#FFFFFF",
+            triangleStrokeOpacity: 0.7,
+            draggable: false, // Disable dragging for performance
+          ),
+        );
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("🌐 Prepared $totalTriangles triangles worldwide, now adding to map..."),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ));
+      }
+      
+      // Add all triangles at once using batch method - MUCH FASTER!
+      final triangles = await controller!.addTriangles(triangleOptionsList);
+      
+      final endTime = DateTime.now();
+      final duration = endTime.difference(startTime);
+      
+      setState(() {
+        _triangleCount = triangles.length;
+        _selectedTriangle = null; // Clear selection
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            "🚀 Global stress test complete!\n"
+            "Created ${triangles.length} triangles worldwide in ${duration.inMilliseconds}ms\n"
+            "Average: ${(duration.inMilliseconds / triangles.length).toStringAsFixed(3)}ms per triangle\n"
+            "Zoom out to see triangles around the world!"
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Global stress test failed: $e"),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ));
@@ -311,8 +433,10 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
                 ),
                 const SizedBox(height: 15),
                 // Main action buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                Wrap(
+                  alignment: WrapAlignment.spaceEvenly,
+                  spacing: 16.0,
+                  runSpacing: 16.0,
                   children: [
                     Column(
                       children: [
@@ -353,6 +477,19 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
                         const Text("Clear", style: TextStyle(fontSize: 12)),
                       ],
                     ),
+                    Column(
+                      children: [
+                        FloatingActionButton(
+                          onPressed: _stressTest20k,
+                          heroTag: "stress_test",
+                          tooltip: 'Global stress test: Create 80k triangles worldwide',
+                          backgroundColor: Colors.purple.shade600,
+                          child: const Icon(Icons.public, color: Colors.white),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text("Global", style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -374,9 +511,44 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
                         spacing: 8.0,
                         runSpacing: 8.0,
                         children: [
-                          ElevatedButton(
-                            onPressed: (_selectedTriangle == null) ? null : _changeTriangleSize,
-                            child: const Text('Size'),
+                          // Size controls with plus/minus buttons
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton(
+                                onPressed: (_selectedTriangle == null) ? null : _decreaseTriangleSize,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange.shade600,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(40, 36),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                ),
+                                child: const Icon(Icons.remove, size: 18),
+                              ),
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Size: ${_selectedTriangle?.options.triangleSize?.toStringAsFixed(1) ?? "1.0"}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              ElevatedButton(
+                                onPressed: (_selectedTriangle == null) ? null : _increaseTriangleSize,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade600,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(40, 36),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                ),
+                                child: const Icon(Icons.add, size: 18),
+                              ),
+                            ],
                           ),
                           ElevatedButton(
                             onPressed: (_selectedTriangle == null) ? null : _changeTriangleColor,
@@ -445,10 +617,13 @@ class PlaceTriangleBodyState extends State<PlaceTriangleBody> {
                       const SizedBox(height: 8),
                       const Text(
                         'Instructions:\n'
-                        '• Tap "Add" to create triangles in a circular pattern\n'
+                        '• Tap "Add" to create tiny triangles (size 1.0)\n'
+                        '• Tap "Global" to create 80,000 triangles worldwide for stress testing\n'
                         '• Tap triangles on the map to select them\n'
-                        '• Use property buttons to modify selected triangles\n'
-                        '• Drag triangles when draggable is enabled',
+                        '• Use +/- buttons to fine-tune size (1.0-4.0, step 0.5)\n'
+                        '• Use other property buttons to modify triangles\n'
+                        '• Zoom out after stress test to see triangles around the world\n'
+                        '• Drag triangles when draggable is enabled (not in stress test)',
                         style: TextStyle(fontSize: 12),
                       ),
                     ],
