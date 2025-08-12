@@ -540,6 +540,34 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             case let .failure(error): result(error.flutterError)
             }
 
+        case "triangleLayer#add":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let sourceId = arguments["sourceId"] as? String else { return }
+            guard let layerId = arguments["layerId"] as? String else { return }
+            guard let properties = arguments["properties"] as? [String: String] else { return }
+            guard let enableInteraction = arguments["enableInteraction"] as? Bool else { return }
+            let belowLayerId = arguments["belowLayerId"] as? String
+            let sourceLayer = arguments["sourceLayer"] as? String
+            let minzoom = arguments["minzoom"] as? Double
+            let maxzoom = arguments["maxzoom"] as? Double
+            let filter = arguments["filter"] as? String
+        
+            let addResult = addTriangleLayer(
+                sourceId: sourceId,
+                layerId: layerId,
+                belowLayerId: belowLayerId,
+                sourceLayerIdentifier: sourceLayer,
+                minimumZoomLevel: minzoom,
+                maximumZoomLevel: maxzoom,
+                filter: filter,
+                enableInteraction: enableInteraction,
+                properties: properties
+            )
+            switch addResult {
+            case .success: result(nil)
+            case let .failure(error): result(error.flutterError)
+            }
+
         case "hillshadeLayer#add":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let sourceId = arguments["sourceId"] as? String else { return }
@@ -1641,6 +1669,51 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
                 style.insertLayer(layer, below: belowLayer)
             } else {
                 style.addLayer(layer)
+            }
+            if enableInteraction {
+                interactiveFeatureLayerIds.insert(layerId)
+            }
+            return .success(())
+        }
+    }
+
+    // Private custom implementation using MLNCustomStyleLayer to render triangles via Metal
+    func addTriangleLayer(
+        sourceId: String,
+        layerId: String,
+        belowLayerId: String?,
+        sourceLayerIdentifier: String?,
+        minimumZoomLevel: Double?,
+        maximumZoomLevel: Double?,
+        filter: String?,
+        enableInteraction: Bool,
+        properties: [String: String]
+    ) -> Result<Void, MethodCallError> {
+        switch validateBeforeLayerAdd(sourceId: sourceId, layerId: layerId) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let (style, _)):
+            // Note: MLNCustomStyleLayer does not bind to a data source automatically.
+            // This custom layer is private and will manage its own rendering.
+            let customLayer = MLNTriangleCustomStyleLayer(identifier: layerId)
+            
+            if let minimumZoomLevel = minimumZoomLevel {
+                customLayer.minimumZoomLevel = Float(minimumZoomLevel)
+            }
+            if let maximumZoomLevel = maximumZoomLevel {
+                customLayer.maximumZoomLevel = Float(maximumZoomLevel)
+            }
+            
+            // Filters are not directly supported on custom layers; ignore if provided
+            _ = filter
+            
+            // Apply style properties to custom layer
+            customLayer.updateProperties(properties)
+            
+            if let id = belowLayerId, let belowLayer = style.layer(withIdentifier: id) {
+                style.insertLayer(customLayer, below: belowLayer)
+            } else {
+                style.addLayer(customLayer)
             }
             if enableInteraction {
                 interactiveFeatureLayerIds.insert(layerId)

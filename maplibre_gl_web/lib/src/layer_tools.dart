@@ -45,6 +45,7 @@ const _layoutProperties = {
   "text-optional",
   "visibility",
   "circle-sort-key",
+  "triangle-sort-key",
   "line-cap",
   "line-join",
   "line-miter-limit",

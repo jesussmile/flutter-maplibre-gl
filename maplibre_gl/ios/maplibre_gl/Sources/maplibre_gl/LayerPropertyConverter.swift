@@ -166,8 +166,48 @@ class LayerPropertyConverter {
         }
     }
 
-    // Triangle layer properties are handled by creating triangular polygons with fill layers
-    // This is a placeholder - actual triangle rendering is done via custom polygon generation
+    // TODO: Triangle layer property converter stub - MLNTriangleStyleLayer not available yet
+    // class func addTriangleProperties(triangleLayer: MLNTriangleStyleLayer, properties: [String: String]) {
+    //     for (propertyName, propertyValue) in properties {
+    //         let expression = interpretExpression(propertyName: propertyName, expression: propertyValue)
+    //         switch propertyName {
+    //             case "triangle-size":
+    //                 triangleLayer.triangleSize = expression
+    //             case "triangle-color":
+    //                 triangleLayer.triangleColor = expression
+    //             case "triangle-opacity":
+    //                 triangleLayer.triangleOpacity = expression
+    //             case "triangle-translate":
+    //                 triangleLayer.triangleTranslate = expression
+    //             case "triangle-translate-anchor":
+    //                 triangleLayer.triangleTranslateAnchor = expression
+    //             case "triangle-pitch-scale":
+    //                 triangleLayer.trianglePitchScale = expression
+    //             case "triangle-pitch-alignment":
+    //                 triangleLayer.trianglePitchAlignment = expression
+    //             case "triangle-stroke-width":
+    //                 triangleLayer.triangleStrokeWidth = expression
+    //             case "triangle-stroke-color":
+    //                 triangleLayer.triangleStrokeColor = expression
+    //             case "triangle-stroke-opacity":
+    //                 triangleLayer.triangleStrokeOpacity = expression
+    //             case "triangle-blur":
+    //                 triangleLayer.triangleBlur = expression
+    //             case "triangle-rotation":
+    //                 triangleLayer.triangleRotation = expression
+    //             case "triangle-rotation-alignment":
+    //                 triangleLayer.triangleRotationAlignment = expression
+    //             case "triangle-sort-key":
+    //                 triangleLayer.triangleSortKey = expression
+    //             case "visibility":
+    //                 let trimmedPropertyValue = propertyValue.trimmingCharacters(in: .init(charactersIn: "\""))
+    //                 triangleLayer.isVisible = trimmedPropertyValue == "visible"
+    //          
+    //             default:
+    //                 break
+    //         }
+    //     }
+    // }
 
     class func addLineProperties(lineLayer: MLNLineStyleLayer, properties: [String: String]) {
         for (propertyName, propertyValue) in properties {

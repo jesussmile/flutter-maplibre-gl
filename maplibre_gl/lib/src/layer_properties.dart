@@ -1270,6 +1270,275 @@ class CircleLayerProperties implements LayerProperties {
 
 }
 
+class TriangleLayerProperties implements LayerProperties {
+  // Paint Properties
+  /// Triangle size.
+  /// 
+  /// Type: number
+  ///   default: 5
+  ///   minimum: 0
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  ///   data-driven styling with js, android, ios, macos
+  final dynamic triangleSize;
+  
+  /// The fill color of the triangle.
+  /// 
+  /// Type: color
+  ///   default: #000000
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  ///   data-driven styling with js, android, ios, macos
+  final dynamic triangleColor;
+  
+  /// The opacity at which the triangle will be drawn.
+  /// 
+  /// Type: number
+  ///   default: 1
+  ///   minimum: 0
+  ///   maximum: 1
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  ///   data-driven styling with js, android, ios, macos
+  final dynamic triangleOpacity;
+  
+  /// The geometry's offset. Values are [x, y] where negatives indicate left
+  /// and up, respectively.
+  /// 
+  /// Type: array
+  ///   default: [0, 0]
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  final dynamic triangleTranslate;
+  
+  /// Controls the frame of reference for `triangle-translate`.
+  /// 
+  /// Type: enum
+  ///   default: map
+  /// Options:
+  ///   "map"
+  ///      The triangle is translated relative to the map.
+  ///   "viewport"
+  ///      The triangle is translated relative to the viewport.
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  final dynamic triangleTranslateAnchor;
+  
+  /// Controls the scaling behavior of the triangle when the map is pitched.
+  /// 
+  /// Type: enum
+  ///   default: map
+  /// Options:
+  ///   "map"
+  ///      Triangles are scaled according to their apparent distance to the
+  ///      camera.
+  ///   "viewport"
+  ///      Triangles are not scaled.
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  final dynamic trianglePitchScale;
+  
+  /// Orientation of triangle when map is pitched.
+  /// 
+  /// Type: enum
+  ///   default: viewport
+  /// Options:
+  ///   "map"
+  ///      The triangle is aligned to the plane of the map.
+  ///   "viewport"
+  ///      The triangle is aligned to the plane of the viewport.
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  final dynamic trianglePitchAlignment;
+  
+  /// The width of the triangle's stroke. Strokes are placed outside of the
+  /// `triangle-size`.
+  /// 
+  /// Type: number
+  ///   default: 0
+  ///   minimum: 0
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  ///   data-driven styling with js, android, ios, macos
+  final dynamic triangleStrokeWidth;
+  
+  /// The stroke color of the triangle.
+  /// 
+  /// Type: color
+  ///   default: #000000
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  ///   data-driven styling with js, android, ios, macos
+  final dynamic triangleStrokeColor;
+  
+  /// The opacity of the triangle's stroke.
+  /// 
+  /// Type: number
+  ///   default: 1
+  ///   minimum: 0
+  ///   maximum: 1
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  ///   data-driven styling with js, android, ios, macos
+  final dynamic triangleStrokeOpacity;
+  
+  /// Amount to blur the triangle. 1 blurs the triangle such that only the
+  /// centerpoint is full opacity.
+  /// 
+  /// Type: number
+  ///   default: 0
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  ///   data-driven styling with js, android, ios, macos
+  final dynamic triangleBlur;
+  
+  /// Rotation of the triangle in degrees, applied around its center.
+  /// 
+  /// Type: number
+  ///   default: 0
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  final dynamic triangleRotation;
+  
+  /// Specifies the frame of reference for `triangle-rotation`.
+  /// 
+  /// Type: enum
+  ///   default: viewport
+  /// Options:
+  ///   "map"
+  ///      The triangle rotates relative to the map orientation.
+  ///   "viewport"
+  ///      The triangle rotates relative to the viewport orientation.
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  final dynamic triangleRotationAlignment;
+  
+  // Layout Properties
+  /// Sorts features in ascending order based on this value. Features with a
+  /// higher sort key will appear above features with a lower sort key.
+  /// 
+  /// Type: number
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js
+  ///   data-driven styling with js
+  final dynamic triangleSortKey;
+
+  /// Whether this layer is displayed.
+  /// 
+  /// Type: enum
+  ///   default: visible
+  /// Options:
+  ///   "visible"
+  ///      The layer is shown.
+  ///   "none"
+  ///      The layer is not shown.
+  /// 
+  /// Sdk Support:
+  ///   basic functionality with js, android, ios, macos
+  final dynamic visibility;
+
+  const TriangleLayerProperties({
+    this.triangleSize,
+    this.triangleColor,
+    this.triangleOpacity,
+    this.triangleTranslate,
+    this.triangleTranslateAnchor,
+    this.trianglePitchScale,
+    this.trianglePitchAlignment,
+    this.triangleStrokeWidth,
+    this.triangleStrokeColor,
+    this.triangleStrokeOpacity,
+    this.triangleBlur,
+    this.triangleRotation,
+    this.triangleRotationAlignment,
+    this.triangleSortKey,
+    this.visibility,
+  });
+
+  TriangleLayerProperties copyWith(TriangleLayerProperties changes) {
+    return TriangleLayerProperties(
+      triangleSize: changes.triangleSize ?? triangleSize,
+      triangleColor: changes.triangleColor ?? triangleColor,
+      triangleOpacity: changes.triangleOpacity ?? triangleOpacity,
+      triangleTranslate: changes.triangleTranslate ?? triangleTranslate,
+      triangleTranslateAnchor: changes.triangleTranslateAnchor ?? triangleTranslateAnchor,
+      trianglePitchScale: changes.trianglePitchScale ?? trianglePitchScale,
+      trianglePitchAlignment: changes.trianglePitchAlignment ?? trianglePitchAlignment,
+      triangleStrokeWidth: changes.triangleStrokeWidth ?? triangleStrokeWidth,
+      triangleStrokeColor: changes.triangleStrokeColor ?? triangleStrokeColor,
+      triangleStrokeOpacity: changes.triangleStrokeOpacity ?? triangleStrokeOpacity,
+      triangleBlur: changes.triangleBlur ?? triangleBlur,
+      triangleRotation: changes.triangleRotation ?? triangleRotation,
+      triangleRotationAlignment: changes.triangleRotationAlignment ?? triangleRotationAlignment,
+      triangleSortKey: changes.triangleSortKey ?? triangleSortKey,
+      visibility: changes.visibility ?? visibility,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{};
+
+    void addIfPresent(String fieldName, dynamic value) {
+      if (value != null) {
+        json[fieldName] = value;
+      }
+    }
+
+    addIfPresent('triangle-size', triangleSize);
+    addIfPresent('triangle-color', triangleColor);
+    addIfPresent('triangle-opacity', triangleOpacity);
+    addIfPresent('triangle-translate', triangleTranslate);
+    addIfPresent('triangle-translate-anchor', triangleTranslateAnchor);
+    addIfPresent('triangle-pitch-scale', trianglePitchScale);
+    addIfPresent('triangle-pitch-alignment', trianglePitchAlignment);
+    addIfPresent('triangle-stroke-width', triangleStrokeWidth);
+    addIfPresent('triangle-stroke-color', triangleStrokeColor);
+    addIfPresent('triangle-stroke-opacity', triangleStrokeOpacity);
+    addIfPresent('triangle-blur', triangleBlur);
+    addIfPresent('triangle-rotation', triangleRotation);
+    addIfPresent('triangle-rotation-alignment', triangleRotationAlignment);
+    addIfPresent('triangle-sort-key', triangleSortKey);
+    addIfPresent('visibility', visibility);
+    return json;
+  }
+
+  factory TriangleLayerProperties.fromJson(Map<String, dynamic> json) {
+    return TriangleLayerProperties(
+      triangleSize: json['triangle-size'],
+      triangleColor: json['triangle-color'],
+      triangleOpacity: json['triangle-opacity'],
+      triangleTranslate: json['triangle-translate'],
+      triangleTranslateAnchor: json['triangle-translate-anchor'],
+      trianglePitchScale: json['triangle-pitch-scale'],
+      trianglePitchAlignment: json['triangle-pitch-alignment'],
+      triangleStrokeWidth: json['triangle-stroke-width'],
+      triangleStrokeColor: json['triangle-stroke-color'],
+      triangleStrokeOpacity: json['triangle-stroke-opacity'],
+      triangleBlur: json['triangle-blur'],
+      triangleRotation: json['triangle-rotation'],
+      triangleRotationAlignment: json['triangle-rotation-alignment'],
+      triangleSortKey: json['triangle-sort-key'],
+      visibility: json['visibility'],
+    );
+  }
+
+}
+
 class LineLayerProperties implements LayerProperties {
   // Paint Properties
   /// The opacity at which the line will be drawn.
@@ -2371,215 +2640,6 @@ class HeatmapLayerProperties implements LayerProperties {
       heatmapIntensity: json['heatmap-intensity'],
       heatmapColor: json['heatmap-color'],
       heatmapOpacity: json['heatmap-opacity'],
-      visibility: json['visibility'],
-    );
-  }
-
-}
-
-class TriangleLayerProperties implements LayerProperties {
-  // Paint Properties
-  /// Triangle size.
-  /// 
-  /// Type: number
-  ///   default: 5
-  ///   minimum: 0
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  ///   data-driven styling with js, android, ios, macos
-  final dynamic triangleSize;
-  
-  /// The fill color of the triangle.
-  /// 
-  /// Type: color
-  ///   default: #000000
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  ///   data-driven styling with js, android, ios, macos
-  final dynamic triangleColor;
-  
-  /// The opacity at which the triangle will be drawn.
-  /// 
-  /// Type: number
-  ///   default: 1
-  ///   minimum: 0
-  ///   maximum: 1
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  ///   data-driven styling with js, android, ios, macos
-  final dynamic triangleOpacity;
-  
-  /// The geometry's offset. Values are [x, y] where negatives indicate left
-  /// and up, respectively.
-  /// 
-  /// Type: array
-  ///   default: [0, 0]
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  final dynamic triangleTranslate;
-  
-  /// Controls the frame of reference for `triangle-translate`.
-  /// 
-  /// Type: enum
-  ///   default: map
-  /// Options:
-  ///   "map"
-  ///      The triangle is translated relative to the map.
-  ///   "viewport"
-  ///      The triangle is translated relative to the viewport.
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  final dynamic triangleTranslateAnchor;
-  
-  /// Controls the scaling behavior of the triangle when the map is pitched.
-  /// 
-  /// Type: enum
-  ///   default: map
-  /// Options:
-  ///   "map"
-  ///      Triangles are scaled according to their apparent distance to the
-  ///      camera.
-  ///   "viewport"
-  ///      Triangles are not scaled.
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  final dynamic trianglePitchScale;
-  
-  /// Orientation of triangle when map is pitched.
-  /// 
-  /// Type: enum
-  ///   default: viewport
-  /// Options:
-  ///   "map"
-  ///      The triangle is aligned to the plane of the map.
-  ///   "viewport"
-  ///      The triangle is aligned to the plane of the viewport.
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  final dynamic trianglePitchAlignment;
-  
-  /// The width of the triangle's stroke. Strokes are placed outside of the
-  /// `triangle-size`.
-  /// 
-  /// Type: number
-  ///   default: 0
-  ///   minimum: 0
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  ///   data-driven styling with js, android, ios, macos
-  final dynamic triangleStrokeWidth;
-  
-  /// The stroke color of the triangle.
-  /// 
-  /// Type: color
-  ///   default: #000000
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  ///   data-driven styling with js, android, ios, macos
-  final dynamic triangleStrokeColor;
-  
-  /// The opacity of the triangle's stroke.
-  /// 
-  /// Type: number
-  ///   default: 1
-  ///   minimum: 0
-  ///   maximum: 1
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  ///   data-driven styling with js, android, ios, macos
-  final dynamic triangleStrokeOpacity;
-  
-  // Layout Properties
-  /// Whether this layer is displayed.
-  /// 
-  /// Type: enum
-  ///   default: visible
-  /// Options:
-  ///   "visible"
-  ///      The layer is shown.
-  ///   "none"
-  ///      The layer is not shown.
-  /// 
-  /// Sdk Support:
-  ///   basic functionality with js, android, ios, macos
-  final dynamic visibility;
-
-  const TriangleLayerProperties({
-    this.triangleSize,
-    this.triangleColor,
-    this.triangleOpacity,
-    this.triangleTranslate,
-    this.triangleTranslateAnchor,
-    this.trianglePitchScale,
-    this.trianglePitchAlignment,
-    this.triangleStrokeWidth,
-    this.triangleStrokeColor,
-    this.triangleStrokeOpacity,
-    this.visibility,
-  });
-
-  TriangleLayerProperties copyWith(TriangleLayerProperties changes) {
-    return TriangleLayerProperties(
-      triangleSize: changes.triangleSize ?? triangleSize,
-      triangleColor: changes.triangleColor ?? triangleColor,
-      triangleOpacity: changes.triangleOpacity ?? triangleOpacity,
-      triangleTranslate: changes.triangleTranslate ?? triangleTranslate,
-      triangleTranslateAnchor: changes.triangleTranslateAnchor ?? triangleTranslateAnchor,
-      trianglePitchScale: changes.trianglePitchScale ?? trianglePitchScale,
-      trianglePitchAlignment: changes.trianglePitchAlignment ?? trianglePitchAlignment,
-      triangleStrokeWidth: changes.triangleStrokeWidth ?? triangleStrokeWidth,
-      triangleStrokeColor: changes.triangleStrokeColor ?? triangleStrokeColor,
-      triangleStrokeOpacity: changes.triangleStrokeOpacity ?? triangleStrokeOpacity,
-      visibility: changes.visibility ?? visibility,
-    );
-  }
-
-  @override
-  Map<String, dynamic> toJson() {
-    final json = <String, dynamic>{};
-
-    void addIfPresent(String fieldName, dynamic value) {
-      if (value != null) {
-        json[fieldName] = value;
-      }
-    }
-
-    addIfPresent('triangle-size', triangleSize);
-    addIfPresent('triangle-color', triangleColor);
-    addIfPresent('triangle-opacity', triangleOpacity);
-    addIfPresent('triangle-translate', triangleTranslate);
-    addIfPresent('triangle-translate-anchor', triangleTranslateAnchor);
-    addIfPresent('triangle-pitch-scale', trianglePitchScale);
-    addIfPresent('triangle-pitch-alignment', trianglePitchAlignment);
-    addIfPresent('triangle-stroke-width', triangleStrokeWidth);
-    addIfPresent('triangle-stroke-color', triangleStrokeColor);
-    addIfPresent('triangle-stroke-opacity', triangleStrokeOpacity);
-    addIfPresent('visibility', visibility);
-    return json;
-  }
-
-  factory TriangleLayerProperties.fromJson(Map<String, dynamic> json) {
-    return TriangleLayerProperties(
-      triangleSize: json['triangle-size'],
-      triangleColor: json['triangle-color'],
-      triangleOpacity: json['triangle-opacity'],
-      triangleTranslate: json['triangle-translate'],
-      triangleTranslateAnchor: json['triangle-translate-anchor'],
-      trianglePitchScale: json['triangle-pitch-scale'],
-      trianglePitchAlignment: json['triangle-pitch-alignment'],
-      triangleStrokeWidth: json['triangle-stroke-width'],
-      triangleStrokeColor: json['triangle-stroke-color'],
-      triangleStrokeOpacity: json['triangle-stroke-opacity'],
       visibility: json['visibility'],
     );
   }

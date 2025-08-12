@@ -63,7 +63,7 @@ typedef MaplibreMapController = MapLibreMapController;
 /// The same of course applies for fills, lines and symbols.
 ///
 /// 2. *Advanced way to add annotations*: Modify the underlying MapLibre Style of the map to add a new data source (e.g. with the [addSource] method or the more specific methods like [addGeoJsonSource])
-/// and add a new layer to display the data of that source on the map (either with the [addLayer] method or with the more specific methods like [addCircleLayer], [addLineLayer] etc.).
+/// and add a new layer to display the data of that source on the map (either with the [addLayer] method or with the more specific methods like [addCircleLayer], [addTriangleLayer], [addLineLayer] etc.).
 /// For more information about MapLibre Styles, see the documentation of [maplibre_gl] as well as the specification at [https://maplibre.org/maplibre-style-spec/].
 ///
 /// A MapLibreMapController is also a [ChangeNotifier]. Subscribers (change listeners) are notified upon changes to any of
@@ -636,6 +636,46 @@ class MapLibreMapController extends ChangeNotifier {
       dynamic filter,
       bool enableInteraction = true}) async {
     await _maplibrePlatform.addCircleLayer(
+      sourceId,
+      layerId,
+      properties.toJson(),
+      belowLayerId: belowLayerId,
+      sourceLayer: sourceLayer,
+      minzoom: minzoom,
+      maxzoom: maxzoom,
+      filter: filter,
+      enableInteraction: enableInteraction,
+    );
+  }
+
+  /// Add a triangle layer to the map with the given properties
+  ///
+  /// Consider using [addLayer] for an unified layer api.
+  ///
+  /// The returned [Future] completes after the change has been made on the
+  /// platform side.
+  ///
+  /// Setting [belowLayerId] adds the new layer below the given id.
+  /// If [enableInteraction] is set the layer is considered for touch or drag
+  /// events. [sourceLayer] is used to selected a specific source layer from
+  /// Vector source.
+  /// [minzoom] is the minimum (inclusive) zoom level at which the layer is
+  /// visible.
+  /// [maxzoom] is the maximum (exclusive) zoom level at which the layer is
+  /// visible.
+  /// [filter] determines which features should be rendered in the layer.
+  /// Filters are written as [expressions].
+  ///
+  /// [expressions]: https://maplibre.org/maplibre-style-spec/expressions/
+  Future<void> addTriangleLayer(
+      String sourceId, String layerId, TriangleLayerProperties properties,
+      {String? belowLayerId,
+      String? sourceLayer,
+      double? minzoom,
+      double? maxzoom,
+      dynamic filter,
+      bool enableInteraction = true}) async {
+    await _maplibrePlatform.addTriangleLayer(
       sourceId,
       layerId,
       properties.toJson(),
@@ -1499,6 +1539,14 @@ class MapLibreMapController extends ChangeNotifier {
           filter: filter);
     } else if (properties is CircleLayerProperties) {
       await addCircleLayer(sourceId, layerId, properties,
+          belowLayerId: belowLayerId,
+          enableInteraction: enableInteraction,
+          sourceLayer: sourceLayer,
+          minzoom: minzoom,
+          maxzoom: maxzoom,
+          filter: filter);
+    } else if (properties is TriangleLayerProperties) {
+      await addTriangleLayer(sourceId, layerId, properties,
           belowLayerId: belowLayerId,
           enableInteraction: enableInteraction,
           sourceLayer: sourceLayer,

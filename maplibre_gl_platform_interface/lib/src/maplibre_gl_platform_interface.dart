@@ -173,6 +173,15 @@ abstract class MapLibrePlatform {
       dynamic filter,
       required bool enableInteraction});
 
+  Future<void> addTriangleLayer(
+      String sourceId, String layerId, Map<String, dynamic> properties,
+      {String? belowLayerId,
+      String? sourceLayer,
+      double? minzoom,
+      double? maxzoom,
+      dynamic filter,
+      required bool enableInteraction});
+
   Future<void> addFillLayer(
       String sourceId, String layerId, Map<String, dynamic> properties,
       {String? belowLayerId,

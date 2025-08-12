@@ -318,8 +318,76 @@ class LayerPropertyConverter {
     return properties.toArray(new PropertyValue[properties.size()]);
   }
 
-  // Triangle layer properties are handled by creating triangular polygons with fill layers
-  // This is a placeholder - actual triangle rendering is done via custom polygon generation
+  // static PropertyValue[] interpretTriangleLayerProperties(Object o) {
+  //   final Map<String, String> data = (Map<String, String>) toMap(o);
+  //   final List<PropertyValue> properties = new LinkedList();
+  //   final JsonParser parser = new JsonParser();
+  //
+  //   for (Map.Entry<String, String> entry : data.entrySet()) {
+  //     final JsonElement jsonElement = parser.parse(entry.getValue());
+  //     Expression expression = Expression.Converter.convert(jsonElement);
+  //     switch (entry.getKey()) {
+  //       case "triangle-size":
+  //         properties.add(PropertyFactory.triangleSize(expression));
+  //         break;
+  //       case "triangle-color":
+  //         properties.add(PropertyFactory.triangleColor(expression));
+  //         break;
+  //       case "triangle-opacity":
+  //         properties.add(PropertyFactory.triangleOpacity(expression));
+  //         break;
+  //       case "triangle-translate":
+  //         if (jsonElement.isJsonArray()) {
+  //           final Float[] floatArray = convertJsonToFloatArray(jsonElement);
+  //           if (floatArray != null) {
+  //             properties.add(PropertyFactory.triangleTranslate(floatArray));
+  //           } else {
+  //             properties.add(PropertyFactory.triangleTranslate(expression));
+  //           }
+  //         } else {
+  //           properties.add(PropertyFactory.triangleTranslate(expression));
+  //         }
+  //         break;
+  //       case "triangle-translate-anchor":
+  //         properties.add(PropertyFactory.triangleTranslateAnchor(expression));
+  //         break;
+  //       case "triangle-pitch-scale":
+  //         properties.add(PropertyFactory.trianglePitchScale(expression));
+  //         break;
+  //       case "triangle-pitch-alignment":
+  //         properties.add(PropertyFactory.trianglePitchAlignment(expression));
+  //         break;
+  //       case "triangle-stroke-width":
+  //         properties.add(PropertyFactory.triangleStrokeWidth(expression));
+  //         break;
+  //       case "triangle-stroke-color":
+  //         properties.add(PropertyFactory.triangleStrokeColor(expression));
+  //         break;
+  //       case "triangle-stroke-opacity":
+  //         properties.add(PropertyFactory.triangleStrokeOpacity(expression));
+  //         break;
+  //       case "triangle-blur":
+  //         properties.add(PropertyFactory.triangleBlur(expression));
+  //         break;
+  //       case "triangle-rotation":
+  //         properties.add(PropertyFactory.triangleRotation(expression));
+  //         break;
+  //       case "triangle-rotation-alignment":
+  //         properties.add(PropertyFactory.triangleRotationAlignment(expression));
+  //         break;
+  //       case "triangle-sort-key":
+  //         properties.add(PropertyFactory.triangleSortKey(expression));
+  //         break;
+  //       case "visibility":
+  //         properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+  //         break;
+  //       default:
+  //         break;
+  //     }
+  //   }
+  //
+  //   return properties.toArray(new PropertyValue[properties.size()]);
+  // }
 
   static PropertyValue[] interpretLineLayerProperties(Object o) {
     final Map<String, String> data = (Map<String, String>) toMap(o);

@@ -75,6 +75,7 @@ import org.maplibre.android.style.layers.Property;
 import org.maplibre.android.style.layers.PropertyValue;
 import org.maplibre.android.style.layers.RasterLayer;
 import org.maplibre.android.style.layers.SymbolLayer;
+// import org.maplibre.android.style.layers.TriangleLayer; // Not available in MapLibre Android SDK
 import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.sources.CustomGeometrySource;
 import org.maplibre.android.style.sources.GeoJsonSource;
@@ -702,6 +703,21 @@ final class MapLibreMapController
     }
   }
 
+  // Note: Triangle layer not supported on Android due to missing TriangleLayer in MapLibre SDK
+  private void addTriangleLayer(
+      String layerName,
+      String sourceName,
+      String belowLayerId,
+      String sourceLayer,
+      Float minZoom,
+      Float maxZoom,
+      PropertyValue[] properties,
+      boolean enableInteraction,
+      Expression filter) {
+    // TriangleLayer not available in MapLibre Android SDK
+    throw new UnsupportedOperationException("Triangle layers are not supported on Android");
+  }
+
   private Expression parseFilter(String filter) {
     JsonParser parser = new JsonParser();
     JsonElement filterJsonElement = parser.parse(filter);
@@ -1303,6 +1319,37 @@ final class MapLibreMapController
           result.success(null);
           break;
         }
+      // case "triangleLayer#add":
+        // Note: Triangle layer not supported on Android due to missing TriangleLayer in MapLibre SDK
+        // {
+        //   final String sourceId = call.argument("sourceId");
+        //   final String layerId = call.argument("layerId");
+        //   final String belowLayerId = call.argument("belowLayerId");
+        //   final String sourceLayer = call.argument("sourceLayer");
+        //   final Double minzoom = call.argument("minzoom");
+        //   final Double maxzoom = call.argument("maxzoom");
+        //   final String filter = call.argument("filter");
+        //   final boolean enableInteraction = call.argument("enableInteraction");
+        //   final PropertyValue[] properties =
+        //       LayerPropertyConverter.interpretTriangleLayerProperties(call.argument("properties"));
+
+        //   Expression filterExpression = parseFilter(filter);
+
+        //   addTriangleLayer(
+        //       layerId,
+        //       sourceId,
+        //       belowLayerId,
+        //       sourceLayer,
+        //       minzoom != null ? minzoom.floatValue() : null,
+        //       maxzoom != null ? maxzoom.floatValue() : null,
+        //       properties,
+        //       enableInteraction,
+        //       filterExpression);
+        //   updateLocationComponentLayer();
+
+        //   result.success(null);
+        //   break;
+        // }
       case "rasterLayer#add":
         {
           final String sourceId = call.argument("sourceId");

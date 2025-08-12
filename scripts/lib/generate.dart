@@ -14,6 +14,7 @@ main() async {
   final layerTypes = [
     "symbol",
     "circle",
+    "triangle",
     "line",
     "fill",
     "fill-extrusion",
