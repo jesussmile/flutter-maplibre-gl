@@ -125,14 +125,6 @@ final class MapLibreMapController
         OnCameraTrackingChangedListener,
         PlatformView {
   
-  static {
-    try {
-      System.loadLibrary("triangle_renderer");
-      Log.d("MapLibreMapController", "Native triangle renderer library loaded successfully");
-    } catch (UnsatisfiedLinkError e) {
-      Log.w("MapLibreMapController", "Failed to load native triangle renderer library: " + e.getMessage());
-    }
-  }
   
   private static final String TAG = "MapLibreMapController";
   
@@ -786,26 +778,6 @@ final class MapLibreMapController
     }
   }
   
-  /**
-   * Creates CustomLayer callbacks that bridge to our native triangle renderer.
-   * Returns the native context pointer that will be passed to all callbacks.
-   */
-  private long createCustomLayerCallbacks(TriangleCustomLayerHost triangleHost) {
-    long nativeContext = createNativeCustomLayerCallbacks(triangleHost);
-    triangleHost.setNativeHandle(nativeContext);
-    return nativeContext;
-  }
-  
-  // Native method to create CustomLayer callbacks
-  private native long createNativeCustomLayerCallbacks(TriangleCustomLayerHost host);
-  
-  // Native method to destroy CustomLayer callbacks
-  private native void destroyNativeCustomLayerCallbacks(long nativeHandle);
-  
-  // Native methods to get function pointers
-  private native long getInitializeFunctionPointer();
-  private native long getRenderFunctionPointer();
-  private native long getDeinitializeFunctionPointer();
   
   // Fallback implementation using circle layer for immediate functionality
   private void addTriangleLayerFallback(
