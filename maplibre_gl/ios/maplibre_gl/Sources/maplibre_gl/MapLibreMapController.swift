@@ -571,6 +571,26 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             case let .failure(error): result(error.flutterError)
             }
 
+        case "rotatableSymbolLayers#add":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let sourceId = arguments["sourceId"] as? String else { return }
+            guard let baseLayerId = arguments["baseLayerId"] as? String else { return }
+            guard let enableInteraction = arguments["enableInteraction"] as? Bool else { return }
+            guard let properties = arguments["properties"] as? [String: Any] else { return }
+            let belowLayerId = arguments["belowLayerId"] as? String
+            
+            let addResult = addRotatableSymbolLayers(
+                sourceId: sourceId,
+                baseLayerId: baseLayerId,
+                belowLayerId: belowLayerId,
+                properties: properties,
+                enableInteraction: enableInteraction
+            )
+            switch addResult {
+            case .success: result(nil)
+            case let .failure(error): result(error.flutterError)
+            }
+
         case "hillshadeLayer#add":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let sourceId = arguments["sourceId"] as? String else { return }
@@ -2209,6 +2229,332 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
 
     func setAttributionButtonPosition(position: MLNOrnamentPosition) {
         mapView.attributionButtonPosition = position
+    }
+    
+    // MARK: - Rotatable Symbol Layers Implementation
+    
+    /**
+     * Ensures that triangle and arrow icons exist in the map style.
+     * Creates programmatic icon images if they don't exist.
+     */
+    private func ensureRotatableSymbolIconsExist() {
+        guard let style = mapView.style else { return }
+        
+        let triangleIconId = "maplibre-triangle-icon"
+        let upArrowIconId = "maplibre-arrow-up-icon"
+        let downArrowIconId = "maplibre-arrow-down-icon"
+        
+        // Check if icons already exist
+        if style.image(forName: triangleIconId) != nil &&
+           style.image(forName: upArrowIconId) != nil &&
+           style.image(forName: downArrowIconId) != nil {
+            return
+        }
+        
+        // Create triangle icon
+        if style.image(forName: triangleIconId) == nil {
+            if let triangleImage = createTriangleImage() {
+                style.setImage(triangleImage, forName: triangleIconId)
+                NSLog("Added triangle icon to style: \(triangleIconId)")
+            }
+        }
+        
+        // Create arrow icons
+        if style.image(forName: upArrowIconId) == nil {
+            if let upArrowImage = createArrowImage(pointingUp: true) {
+                style.setImage(upArrowImage, forName: upArrowIconId)
+                NSLog("Added up arrow icon to style: \(upArrowIconId)")
+            }
+        }
+        
+        if style.image(forName: downArrowIconId) == nil {
+            if let downArrowImage = createArrowImage(pointingUp: false) {
+                style.setImage(downArrowImage, forName: downArrowIconId)
+                NSLog("Added down arrow icon to style: \(downArrowIconId)")
+            }
+        }
+    }
+    
+    /**
+     * Creates a triangle image programmatically using Core Graphics.
+     */
+    private func createTriangleImage() -> UIImage? {
+        let size = CGSize(width: 64, height: 64)
+        
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        guard let context = UIGraphicsGetCurrentContext() else {
+            UIGraphicsEndImageContext()
+            return nil
+        }
+        
+        // Clear background
+        context.clear(CGRect(origin: .zero, size: size))
+        
+        // Setup drawing properties
+        context.setLineWidth(2.0)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        
+        // Calculate triangle points
+        let centerX = size.width / 2
+        let centerY = size.height / 2
+        let radius: CGFloat = size.width * 0.35
+        
+        // Equilateral triangle pointing up
+        let topX = centerX
+        let topY = centerY - radius
+        let bottomLeftX = centerX - (radius * 0.866) // cos(30°)
+        let bottomLeftY = centerY + (radius * 0.5)   // sin(30°)
+        let bottomRightX = centerX + (radius * 0.866)
+        let bottomRightY = centerY + (radius * 0.5)
+        
+        // Create triangle path
+        context.beginPath()
+        context.move(to: CGPoint(x: topX, y: topY))
+        context.addLine(to: CGPoint(x: bottomLeftX, y: bottomLeftY))
+        context.addLine(to: CGPoint(x: bottomRightX, y: bottomRightY))
+        context.closePath()
+        
+        // Fill triangle with orange color
+        context.setFillColor(UIColor(red: 1.0, green: 0.42, blue: 0.21, alpha: 1.0).cgColor) // #FF6B35
+        context.fillPath()
+        
+        // Stroke triangle with white border
+        context.beginPath()
+        context.move(to: CGPoint(x: topX, y: topY))
+        context.addLine(to: CGPoint(x: bottomLeftX, y: bottomLeftY))
+        context.addLine(to: CGPoint(x: bottomRightX, y: bottomRightY))
+        context.closePath()
+        context.setStrokeColor(UIColor.white.cgColor)
+        context.strokePath()
+        
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return image
+    }
+    
+    /**
+     * Creates an arrow image programmatically using Core Graphics.
+     * @param pointingUp: true for up arrow, false for down arrow
+     */
+    private func createArrowImage(pointingUp: Bool) -> UIImage? {
+        let size = CGSize(width: 32, height: 32)
+        
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        guard let context = UIGraphicsGetCurrentContext() else {
+            UIGraphicsEndImageContext()
+            return nil
+        }
+        
+        // Clear background
+        context.clear(CGRect(origin: .zero, size: size))
+        
+        // Setup drawing properties
+        context.setLineWidth(1.5)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        
+        // Calculate arrow dimensions
+        let centerX = size.width / 2
+        let centerY = size.height / 2
+        let arrowHeight = size.height * 0.6
+        let arrowWidth = size.width * 0.4
+        
+        // Create arrow path
+        context.beginPath()
+        
+        if pointingUp {
+            // Up arrow: ▲
+            let topX = centerX
+            let topY = centerY - arrowHeight / 2
+            let bottomLeftX = centerX - arrowWidth / 2
+            let bottomLeftY = centerY + arrowHeight / 2
+            let bottomRightX = centerX + arrowWidth / 2
+            let bottomRightY = centerY + arrowHeight / 2
+            
+            context.move(to: CGPoint(x: topX, y: topY))
+            context.addLine(to: CGPoint(x: bottomLeftX, y: bottomLeftY))
+            context.addLine(to: CGPoint(x: bottomRightX, y: bottomRightY))
+        } else {
+            // Down arrow: ▼
+            let topLeftX = centerX - arrowWidth / 2
+            let topLeftY = centerY - arrowHeight / 2
+            let topRightX = centerX + arrowWidth / 2
+            let topRightY = centerY - arrowHeight / 2
+            let bottomX = centerX
+            let bottomY = centerY + arrowHeight / 2
+            
+            context.move(to: CGPoint(x: topLeftX, y: topLeftY))
+            context.addLine(to: CGPoint(x: topRightX, y: topRightY))
+            context.addLine(to: CGPoint(x: bottomX, y: bottomY))
+        }
+        
+        context.closePath()
+        
+        // Fill arrow with black color
+        context.setFillColor(UIColor.black.cgColor)
+        context.fillPath()
+        
+        // Stroke arrow with white border
+        context.beginPath()
+        if pointingUp {
+            let topX = centerX
+            let topY = centerY - arrowHeight / 2
+            let bottomLeftX = centerX - arrowWidth / 2
+            let bottomLeftY = centerY + arrowHeight / 2
+            let bottomRightX = centerX + arrowWidth / 2
+            let bottomRightY = centerY + arrowHeight / 2
+            
+            context.move(to: CGPoint(x: topX, y: topY))
+            context.addLine(to: CGPoint(x: bottomLeftX, y: bottomLeftY))
+            context.addLine(to: CGPoint(x: bottomRightX, y: bottomRightY))
+        } else {
+            let topLeftX = centerX - arrowWidth / 2
+            let topLeftY = centerY - arrowHeight / 2
+            let topRightX = centerX + arrowWidth / 2
+            let topRightY = centerY - arrowHeight / 2
+            let bottomX = centerX
+            let bottomY = centerY + arrowHeight / 2
+            
+            context.move(to: CGPoint(x: topLeftX, y: topLeftY))
+            context.addLine(to: CGPoint(x: topRightX, y: topRightY))
+            context.addLine(to: CGPoint(x: bottomX, y: bottomY))
+        }
+        context.closePath()
+        context.setStrokeColor(UIColor.white.cgColor)
+        context.strokePath()
+        
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return image
+    }
+    
+    /**
+     * Adds a multi-layer rotatable symbol to the map.
+     * Creates 4 synchronized layers: triangle, top label, bottom label, and side arrow.
+     */
+    private func addRotatableSymbolLayers(
+        sourceId: String,
+        baseLayerId: String,
+        belowLayerId: String?,
+        properties: [String: Any],
+        enableInteraction: Bool
+    ) -> Result<Void, LayerError> {
+        
+        guard let style = mapView.style else {
+            return .failure(.styleNotLoaded)
+        }
+        
+        guard style.source(withIdentifier: sourceId) != nil else {
+            return .failure(.sourceNotFound)
+        }
+        
+        do {
+            NSLog("Adding rotatable symbol layers with base ID: \(baseLayerId)")
+            
+            // Ensure required icons exist
+            ensureRotatableSymbolIconsExist()
+            
+            // Extract configuration from properties
+            let config = properties["config"] as? [String: Any] ?? [:]
+            let topLabelOffset = config["topLabelOffset"] as? Double ?? -2.5
+            let bottomLabelOffset = config["bottomLabelOffset"] as? Double ?? 2.5
+            let arrowOffsetX = config["arrowOffsetX"] as? Double ?? 20.0
+            
+            // 1. Add triangle layer (rotatable with map)
+            let triangleLayerId = "\(baseLayerId)-triangle"
+            let triangleLayer = MLNSymbolStyleLayer(identifier: triangleLayerId, source: style.source(withIdentifier: sourceId)!)
+            
+            triangleLayer.iconImageName = NSExpression(forConstantValue: "maplibre-triangle-icon")
+            triangleLayer.iconScale = NSExpression(forKeyPath: "triangleSize")
+            triangleLayer.iconRotation = NSExpression(forKeyPath: "rotation")
+            triangleLayer.iconRotationAlignment = NSExpression(forConstantValue: "map") // Rotates with map
+            triangleLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+            triangleLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
+            triangleLayer.iconOpacity = NSExpression(forKeyPath: "triangleOpacity")
+            
+            // 2. Add top label layer (viewport aligned, stays horizontal)
+            let topLabelLayerId = "\(baseLayerId)-top-label"
+            let topLabelLayer = MLNSymbolStyleLayer(identifier: topLabelLayerId, source: style.source(withIdentifier: sourceId)!)
+            
+            topLabelLayer.text = NSExpression(forKeyPath: "topLabel")
+            topLabelLayer.textFontNames = NSExpression(forConstantValue: ["Arial-Bold"])
+            topLabelLayer.textFontSize = NSExpression(forKeyPath: "labelSize")
+            topLabelLayer.textColor = NSExpression(forKeyPath: "labelColor")
+            topLabelLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
+            topLabelLayer.textHaloWidth = NSExpression(forConstantValue: 2.0)
+            topLabelLayer.textOffset = NSExpression(forConstantValue: CGVector(dx: 0.0, dy: topLabelOffset))
+            topLabelLayer.textRotationAlignment = NSExpression(forConstantValue: "viewport") // Always horizontal
+            topLabelLayer.textAllowsOverlap = NSExpression(forConstantValue: true)
+            topLabelLayer.textIgnoresPlacement = NSExpression(forConstantValue: true)
+            
+            // 3. Add bottom label layer (viewport aligned, stays horizontal)
+            let bottomLabelLayerId = "\(baseLayerId)-bottom-label"
+            let bottomLabelLayer = MLNSymbolStyleLayer(identifier: bottomLabelLayerId, source: style.source(withIdentifier: sourceId)!)
+            
+            bottomLabelLayer.text = NSExpression(forKeyPath: "bottomLabel")
+            bottomLabelLayer.textFontNames = NSExpression(forConstantValue: ["Arial-Bold"])
+            bottomLabelLayer.textFontSize = NSExpression(forKeyPath: "labelSize")
+            bottomLabelLayer.textColor = NSExpression(forKeyPath: "labelColor")
+            bottomLabelLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
+            bottomLabelLayer.textHaloWidth = NSExpression(forConstantValue: 2.0)
+            bottomLabelLayer.textOffset = NSExpression(forConstantValue: CGVector(dx: 0.0, dy: bottomLabelOffset))
+            bottomLabelLayer.textRotationAlignment = NSExpression(forConstantValue: "viewport") // Always horizontal
+            bottomLabelLayer.textAllowsOverlap = NSExpression(forConstantValue: true)
+            bottomLabelLayer.textIgnoresPlacement = NSExpression(forConstantValue: true)
+            
+            // 4. Add arrow layer (viewport aligned, fixed to right side)
+            let arrowLayerId = "\(baseLayerId)-arrow"
+            let arrowLayer = MLNSymbolStyleLayer(identifier: arrowLayerId, source: style.source(withIdentifier: sourceId)!)
+            
+            // Create conditional expression for arrow direction
+            let isClimbingExpression = NSExpression(forKeyPath: "isClimbing")
+            let upArrowExpression = NSExpression(forConstantValue: "maplibre-arrow-up-icon")
+            let downArrowExpression = NSExpression(forConstantValue: "maplibre-arrow-down-icon")
+            let arrowImageExpression = NSExpression(
+                forConditional: isClimbingExpression,
+                trueExpression: upArrowExpression,
+                falseExpression: downArrowExpression
+            )
+            
+            arrowLayer.iconImageName = arrowImageExpression
+            arrowLayer.iconScale = NSExpression(forKeyPath: "arrowSize")
+            arrowLayer.iconRotationAlignment = NSExpression(forConstantValue: "viewport") // Always upright
+            arrowLayer.iconOffset = NSExpression(forConstantValue: CGVector(dx: arrowOffsetX, dy: 0.0)) // Fixed to right side
+            arrowLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+            arrowLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
+            arrowLayer.iconOpacity = NSExpression(forKeyPath: "arrowOpacity")
+            
+            // Add layers to style in proper order
+            if let belowLayerId = belowLayerId {
+                style.insertLayer(triangleLayer, below: style.layer(withIdentifier: belowLayerId)!)
+                style.insertLayer(topLabelLayer, above: triangleLayer)
+                style.insertLayer(bottomLabelLayer, above: topLabelLayer)
+                style.insertLayer(arrowLayer, above: bottomLabelLayer)
+            } else {
+                style.addLayer(triangleLayer)
+                style.addLayer(topLabelLayer)
+                style.addLayer(bottomLabelLayer)
+                style.addLayer(arrowLayer)
+            }
+            
+            // Enable interaction if requested
+            if enableInteraction {
+                interactiveFeatureLayerIds.insert(triangleLayerId)
+                interactiveFeatureLayerIds.insert(topLabelLayerId)
+                interactiveFeatureLayerIds.insert(bottomLabelLayerId)
+                interactiveFeatureLayerIds.insert(arrowLayerId)
+            }
+            
+            NSLog("Successfully added rotatable symbol layers: \(triangleLayerId), \(topLabelLayerId), \(bottomLabelLayerId), \(arrowLayerId)")
+            return .success(())
+            
+        } catch {
+            NSLog("Failed to add rotatable symbol layers '\(baseLayerId)': \(error.localizedDescription)")
+            return .failure(.unknown(error.localizedDescription))
+        }
     }
     
     deinit {

@@ -1553,6 +1553,38 @@ final class MapLibreMapController
           result.success(null);
           break;
         }
+      case "rotatableSymbolLayers#add":
+        {
+          final String sourceId = call.argument("sourceId");
+          final String baseLayerId = call.argument("baseLayerId");
+          final String belowLayerId = call.argument("belowLayerId");
+          final boolean enableInteraction = call.argument("enableInteraction");
+          final Map<String, Object> properties = call.argument("properties");
+
+          if (style == null) {
+            result.error(
+                "STYLE IS NULL",
+                "The style is null. Has onStyleLoaded() already been invoked?",
+                null);
+            break;
+          }
+          
+          try {
+            addRotatableSymbolLayers(
+                sourceId,
+                baseLayerId,
+                belowLayerId,
+                properties,
+                enableInteraction);
+            result.success(null);
+          } catch (Exception e) {
+            result.error(
+                "ROTATABLE_SYMBOL_LAYER_ERROR",
+                "Failed to add rotatable symbol layers: " + e.getMessage(),
+                null);
+          }
+          break;
+        }
       case "rasterLayer#add":
         {
           final String sourceId = call.argument("sourceId");
@@ -3458,8 +3490,115 @@ final class MapLibreMapController
   }
 
   /**
-   * Ensures that a triangle icon exists in the map style.
-   * Creates a programmatic triangle bitmap if it doesn't exist.
+   * Ensures that arrow icons exist in the map style.
+   * Creates up and down arrow bitmaps if they don't exist.
+   */
+  private void ensureArrowIconsExist() {
+    final String upArrowIconId = "maplibre-arrow-up-icon";
+    final String downArrowIconId = "maplibre-arrow-down-icon";
+    
+    try {
+      // Check if icons already exist
+      if (style != null && style.getImage(upArrowIconId) != null && style.getImage(downArrowIconId) != null) {
+        Log.v(TAG, "Arrow icons already exist");
+        return;
+      }
+      
+      // Create arrow bitmaps programmatically
+      Bitmap upArrowBitmap = createArrowBitmap(true);   // pointing up
+      Bitmap downArrowBitmap = createArrowBitmap(false); // pointing down
+      
+      if (style != null && upArrowBitmap != null && downArrowBitmap != null) {
+        style.addImage(upArrowIconId, upArrowBitmap, false);
+        style.addImage(downArrowIconId, downArrowBitmap, false);
+        Log.d(TAG, "Added arrow icons to style: " + upArrowIconId + ", " + downArrowIconId);
+      } else {
+        Log.e(TAG, "Failed to add arrow icons - style or bitmaps are null");
+        throw new RuntimeException("Cannot add arrow icons: style or bitmaps are null");
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error ensuring arrow icons exist: " + e.getMessage(), e);
+      throw new RuntimeException("Failed to create arrow icons", e);
+    }
+  }
+  
+  /**
+   * Creates an arrow bitmap programmatically.
+   * @param pointingUp true for up arrow, false for down arrow
+   * @return bitmap containing arrow shape
+   */
+  private Bitmap createArrowBitmap(boolean pointingUp) {
+    try {
+      int size = 32; // Smaller size for arrows compared to triangle
+      
+      // Create bitmap and canvas
+      Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(bitmap);
+      
+      // Create paint for arrow with anti-aliasing
+      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      paint.setColor(0xFF000000); // Black arrow
+      paint.setStyle(Paint.Style.FILL);
+      paint.setFilterBitmap(true);
+      
+      // Create arrow path
+      Path arrowPath = new Path();
+      float centerX = size / 2.0f;
+      float centerY = size / 2.0f;
+      float arrowHeight = size * 0.6f; // Arrow height
+      float arrowWidth = size * 0.4f;  // Arrow width
+      
+      if (pointingUp) {
+        // Up arrow: ▲
+        float topX = centerX;
+        float topY = centerY - arrowHeight / 2;
+        float bottomLeftX = centerX - arrowWidth / 2;
+        float bottomLeftY = centerY + arrowHeight / 2;
+        float bottomRightX = centerX + arrowWidth / 2;
+        float bottomRightY = centerY + arrowHeight / 2;
+        
+        arrowPath.moveTo(topX, topY);
+        arrowPath.lineTo(bottomLeftX, bottomLeftY);
+        arrowPath.lineTo(bottomRightX, bottomRightY);
+        arrowPath.close();
+      } else {
+        // Down arrow: ▼
+        float topLeftX = centerX - arrowWidth / 2;
+        float topLeftY = centerY - arrowHeight / 2;
+        float topRightX = centerX + arrowWidth / 2;
+        float topRightY = centerY - arrowHeight / 2;
+        float bottomX = centerX;
+        float bottomY = centerY + arrowHeight / 2;
+        
+        arrowPath.moveTo(topLeftX, topLeftY);
+        arrowPath.lineTo(topRightX, topRightY);
+        arrowPath.lineTo(bottomX, bottomY);
+        arrowPath.close();
+      }
+      
+      canvas.drawPath(arrowPath, paint);
+      
+      // Add white stroke for better visibility
+      Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      strokePaint.setColor(0xFFFFFFFF); // White stroke
+      strokePaint.setStyle(Paint.Style.STROKE);
+      strokePaint.setStrokeWidth(1.5f);
+      strokePaint.setFilterBitmap(true);
+      canvas.drawPath(arrowPath, strokePaint);
+      
+      Log.d(TAG, "Created arrow bitmap (pointing " + (pointingUp ? "up" : "down") + "): " + size + "x" + size + " pixels");
+      return bitmap;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error creating arrow bitmap: " + e.getMessage(), e);
+      return null;
+    }
+  }
+  
+  /**
+   * Ensures the triangle icon exists in the map style.
+   * Creates and adds the triangle icon if it doesn't exist.
    */
   private void ensureTriangleIconExists() {
     final String triangleIconId = "maplibre-triangle-icon";
@@ -3679,6 +3818,135 @@ final class MapLibreMapController
     } catch (Exception e) {
       Log.e(TAG, "Error adding triangle symbol layer: " + layerName, e);
       throw new RuntimeException("Failed to add triangle symbol layer: " + layerName, e);
+    }
+  }
+  
+  /**
+   * Adds a multi-layer rotatable symbol to the map.
+   * Creates 4 synchronized layers: triangle, top label, bottom label, and side arrow.
+   * 
+   * @param sourceId GeoJSON source containing the symbol data
+   * @param baseLayerId Base layer ID (will append suffixes for each layer)
+   * @param belowLayerId Optional layer to place below
+   * @param properties Symbol properties including rotation, labels, etc.
+   * @param enableInteraction Whether to enable tap interaction
+   */
+  public void addRotatableSymbolLayers(
+      String sourceId,
+      String baseLayerId,
+      String belowLayerId,
+      Map<String, Object> properties,
+      boolean enableInteraction) {
+    
+    try {
+      Log.d(TAG, "Adding rotatable symbol layers with base ID: " + baseLayerId);
+      
+      // Ensure required icons exist
+      ensureTriangleIconExists();
+      ensureArrowIconsExist();
+      
+      // Extract configuration from properties
+      Map<String, Object> config = (Map<String, Object>) properties.get("config");
+      if (config == null) {
+        config = new HashMap<>();
+      }
+      
+      // Layer positioning configuration
+      double topLabelOffset = ((Number) config.getOrDefault("topLabelOffset", -2.5)).doubleValue();
+      double bottomLabelOffset = ((Number) config.getOrDefault("bottomLabelOffset", 2.5)).doubleValue();
+      double arrowOffsetX = ((Number) config.getOrDefault("arrowOffsetX", 20.0)).doubleValue();
+      
+      // 1. Add triangle layer (rotatable with map)
+      String triangleLayerId = baseLayerId + "-triangle";
+      SymbolLayer triangleLayer = new SymbolLayer(triangleLayerId, sourceId);
+      triangleLayer.setProperties(
+          PropertyFactory.iconImage("maplibre-triangle-icon"),
+          PropertyFactory.iconSize(Expression.get("triangleSize")),
+          PropertyFactory.iconRotate(Expression.get("rotation")),
+          PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP), // Rotates with map
+          PropertyFactory.iconAllowOverlap(true),
+          PropertyFactory.iconIgnorePlacement(true),
+          PropertyFactory.iconOpacity(Expression.get("triangleOpacity"))
+      );
+      
+      // 2. Add top label layer (viewport aligned, stays horizontal)
+      String topLabelLayerId = baseLayerId + "-top-label";
+      SymbolLayer topLabelLayer = new SymbolLayer(topLabelLayerId, sourceId);
+      topLabelLayer.setProperties(
+          PropertyFactory.textField(Expression.get("topLabel")),
+          PropertyFactory.textFont(new String[]{"Open Sans Regular", "Arial Unicode MS Regular"}), // Changed to more basic fonts
+          PropertyFactory.textSize(Expression.get("labelSize")),
+          PropertyFactory.textColor(Expression.get("labelColor")),
+          PropertyFactory.textHaloColor("#FFFFFF"),
+          PropertyFactory.textHaloWidth(2.0f),
+          PropertyFactory.textOffset(new Float[]{0.0f, (float) topLabelOffset}),
+          PropertyFactory.textRotationAlignment(Property.TEXT_ROTATION_ALIGNMENT_VIEWPORT), // Always horizontal
+          PropertyFactory.textAllowOverlap(true),
+          PropertyFactory.textIgnorePlacement(true)
+      );
+      
+      // 3. Add bottom label layer (viewport aligned, stays horizontal)
+      String bottomLabelLayerId = baseLayerId + "-bottom-label";
+      SymbolLayer bottomLabelLayer = new SymbolLayer(bottomLabelLayerId, sourceId);
+      bottomLabelLayer.setProperties(
+          PropertyFactory.textField(Expression.get("bottomLabel")),
+          PropertyFactory.textFont(new String[]{"Open Sans Regular", "Arial Unicode MS Regular"}), // Changed to more basic fonts
+          PropertyFactory.textSize(Expression.get("labelSize")),
+          PropertyFactory.textColor(Expression.get("labelColor")),
+          PropertyFactory.textHaloColor("#FFFFFF"),
+          PropertyFactory.textHaloWidth(2.0f),
+          PropertyFactory.textOffset(new Float[]{0.0f, (float) bottomLabelOffset}),
+          PropertyFactory.textRotationAlignment(Property.TEXT_ROTATION_ALIGNMENT_VIEWPORT), // Always horizontal
+          PropertyFactory.textAllowOverlap(true),
+          PropertyFactory.textIgnorePlacement(true)
+      );
+      
+      // 4. Add arrow layer (viewport aligned, fixed to right side)
+      String arrowLayerId = baseLayerId + "-arrow";
+      SymbolLayer arrowLayer = new SymbolLayer(arrowLayerId, sourceId);
+      arrowLayer.setProperties(
+          PropertyFactory.iconImage(
+              Expression.switchCase(
+                  Expression.get("isClimbing"),
+                  Expression.literal("maplibre-arrow-up-icon"),
+                  Expression.literal("maplibre-arrow-down-icon")
+              )
+          ),
+          PropertyFactory.iconSize(Expression.get("arrowSize")),
+          PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT), // Always upright
+          PropertyFactory.iconOffset(new Float[]{(float) arrowOffsetX, 0.0f}), // Fixed to right side
+          PropertyFactory.iconAllowOverlap(true),
+          PropertyFactory.iconIgnorePlacement(true),
+          PropertyFactory.iconOpacity(Expression.get("arrowOpacity"))
+      );
+      
+      // Add layers to style in proper order (triangle first, then text on top, arrow last)
+      if (belowLayerId != null) {
+        style.addLayerBelow(triangleLayer, belowLayerId);
+        style.addLayerAbove(topLabelLayer, triangleLayerId);
+        style.addLayerAbove(bottomLabelLayer, topLabelLayerId);
+        style.addLayerAbove(arrowLayer, bottomLabelLayerId);
+      } else {
+        style.addLayer(triangleLayer);
+        style.addLayer(topLabelLayer);
+        style.addLayer(bottomLabelLayer);
+        style.addLayer(arrowLayer);
+      }
+      
+      // Enable interaction if requested
+      if (enableInteraction) {
+        interactiveFeatureLayerIds.add(triangleLayerId);
+        interactiveFeatureLayerIds.add(topLabelLayerId);
+        interactiveFeatureLayerIds.add(bottomLabelLayerId);
+        interactiveFeatureLayerIds.add(arrowLayerId);
+      }
+      
+      Log.d(TAG, "Successfully added rotatable symbol layers: " + triangleLayerId + ", " + topLabelLayerId + ", " + bottomLabelLayerId + ", " + arrowLayerId);
+      
+    } catch (Exception e) {
+      String errorMessage = "Failed to add rotatable symbol layers '" + baseLayerId + "': " + e.getMessage();
+      Log.e(TAG, errorMessage, e);
+      throw new RuntimeException(errorMessage, e);
     }
   }
 

@@ -182,6 +182,13 @@ abstract class MapLibrePlatform {
       dynamic filter,
       required bool enableInteraction});
 
+  /// Adds multi-layer rotatable symbol to the map.
+  /// Creates 4 synchronized layers: triangle, top label, bottom label, and side arrow.
+  /// The triangle rotates with the map while labels and arrow remain viewport-aligned.
+  Future<void> addRotatableSymbolLayers(
+      String sourceId, String baseLayerId, Map<String, dynamic> properties,
+      {String? belowLayerId, required bool enableInteraction});
+
   Future<void> addFillLayer(
       String sourceId, String layerId, Map<String, dynamic> properties,
       {String? belowLayerId,

@@ -806,6 +806,19 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
+  Future<void> addRotatableSymbolLayers(
+      String sourceId, String baseLayerId, Map<String, dynamic> properties,
+      {String? belowLayerId, required bool enableInteraction}) async {
+    await _channel.invokeMethod('rotatableSymbolLayers#add', <String, dynamic>{
+      'sourceId': sourceId,
+      'baseLayerId': baseLayerId,
+      'belowLayerId': belowLayerId,
+      'enableInteraction': enableInteraction,
+      'properties': properties,
+    });
+  }
+
+  @override
   Future<void> addFillLayer(
       String sourceId, String layerId, Map<String, dynamic> properties,
       {String? belowLayerId,

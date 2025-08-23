@@ -798,6 +798,85 @@ class MapLibreMapController extends ChangeNotifier {
     );
   }
 
+  /// Adds a multi-layer rotatable symbol to the map.
+  /// Creates 4 synchronized layers: triangle, top label, bottom label, and side arrow.
+  /// The triangle rotates with the map while labels and arrow remain viewport-aligned.
+  ///
+  /// This creates a composite symbol where:
+  /// - Triangle: Rotates according to the 'rotation' property in the source data
+  /// - Top/Bottom Labels: Always remain horizontal (viewport-aligned)
+  /// - Side Arrow: Fixed to the right side, shows up/down based on 'isClimbing' property
+  ///
+  /// The [sourceId] must contain GeoJSON features with properties:
+  /// - `rotation`: Rotation angle in degrees for the triangle
+  /// - `topLabel`: Text for the top label
+  /// - `bottomLabel`: Text for the bottom label
+  /// - `isClimbing`: Boolean for arrow direction (true = up, false = down)
+  /// - `triangleSize`: Size multiplier for the triangle (e.g., 0.5)
+  /// - `labelSize`: Font size for labels (e.g., 12.0)
+  /// - `arrowSize`: Size multiplier for the arrow (e.g., 0.8)
+  /// - `labelColor`: Color for labels (e.g., "#000000")
+  /// - `triangleOpacity`: Opacity for triangle (0.0 to 1.0)
+  /// - `arrowOpacity`: Opacity for arrow (0.0 to 1.0)
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // First add a GeoJSON source
+  /// await controller.addGeoJsonSource('traffic-source', {
+  ///   'type': 'FeatureCollection',
+  ///   'features': [{
+  ///     'type': 'Feature',
+  ///     'geometry': {'type': 'Point', 'coordinates': [-122.4194, 37.7749]},
+  ///     'properties': {
+  ///       'rotation': 45.0,
+  ///       'topLabel': '35K',
+  ///       'bottomLabel': 'UAL123',
+  ///       'isClimbing': true,
+  ///       'triangleSize': 0.5,
+  ///       'labelSize': 12.0,
+  ///       'arrowSize': 0.8,
+  ///       'labelColor': '#000000',
+  ///       'triangleOpacity': 1.0,
+  ///       'arrowOpacity': 1.0
+  ///     }
+  ///   }]
+  /// });
+  ///
+  /// // Then add the rotatable symbol layers
+  /// await controller.addRotatableSymbolLayers(
+  ///   sourceId: 'traffic-source',
+  ///   baseLayerId: 'aircraft-symbol',
+  ///   enableInteraction: true,
+  /// );
+  /// ```
+  ///
+  /// The returned [Future] completes after the change has been made on the
+  /// platform side.
+  Future<void> addRotatableSymbolLayers({
+    required String sourceId,
+    required String baseLayerId,
+    String? belowLayerId,
+    bool enableInteraction = true,
+    Map<String, dynamic> config = const {},
+  }) async {
+    final properties = {
+      'config': {
+        'topLabelOffset': config['topLabelOffset'] ?? -2.5,
+        'bottomLabelOffset': config['bottomLabelOffset'] ?? 2.5,
+        'arrowOffsetX': config['arrowOffsetX'] ?? 20.0,
+        ...config,
+      },
+    };
+    
+    await _maplibrePlatform.addRotatableSymbolLayers(
+      sourceId,
+      baseLayerId,
+      properties,
+      belowLayerId: belowLayerId,
+      enableInteraction: enableInteraction,
+    );
+  }
+
   /// Updates user location tracking mode.
   ///
   /// The returned [Future] completes after the change has been made on the
