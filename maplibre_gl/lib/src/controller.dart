@@ -879,23 +879,16 @@ class MapLibreMapController extends ChangeNotifier {
   }
 
   /// Adds a multi-layer rotatable symbol to the map using PNG assets.
-  /// Creates 4 synchronized layers: aircraft PNG, top label, bottom label, and side arrow PNG.
+  /// Creates 2 synchronized layers: aircraft PNG and side arrow PNG.
   /// Similar to [addRotatableSymbolLayers] but uses PNG assets instead of programmatically created icons.
   ///
   /// This creates a composite symbol where:
   /// - Aircraft PNG: Rotates according to the 'rotation' property in the source data
-  /// - Top/Bottom Labels: Always remain horizontal (viewport-aligned)
-  /// - Side Arrow PNG: Fixed to the right side, shows up/down based on 'isClimbing' property
+  /// - Side Arrow PNG: Fixed to the right side, shows direction based on 'isClimbing' property
   ///
   /// The [sourceId] must contain GeoJSON features with properties:
   /// - `rotation`: Rotation angle in degrees for the aircraft
-  /// - `topLabel`: Text for the top label
-  /// - `bottomLabel`: Text for the bottom label
-  /// - `isClimbing`: Boolean for arrow direction (true = up, false = down)
-  /// - `labelSize`: Font size for labels (e.g., 12.0)
-  /// - `labelColor`: Color for labels (e.g., "#000000")
-  /// - `triangleOpacity`: Opacity for aircraft icon (0.0 to 1.0) - reuses this property name for consistency
-  /// - `arrowOpacity`: Opacity for arrow (0.0 to 1.0)
+  /// - `proximityDistance`: Distance in nautical miles for color coding (optional)
   ///
   /// The [aircraftIconPath] specifies the path to the aircraft PNG asset.
   /// The [arrowIconPath] specifies the path to the arrow PNG asset.
@@ -912,13 +905,7 @@ class MapLibreMapController extends ChangeNotifier {
   ///     'geometry': {'type': 'Point', 'coordinates': [-122.4194, 37.7749]},
   ///     'properties': {
   ///       'rotation': 45.0,
-  ///       'topLabel': '35K',
-  ///       'bottomLabel': 'UAL123',
-  ///       'isClimbing': true,
-  ///       'labelSize': 12.0,
-  ///       'labelColor': '#000000',
-  ///       'triangleOpacity': 1.0,
-  ///       'arrowOpacity': 1.0
+  ///       'proximityDistance': 5.0,
   ///     }
   ///   }]
   /// });
@@ -927,8 +914,8 @@ class MapLibreMapController extends ChangeNotifier {
   /// await controller.addRotatableSymbolPngLayers(
   ///   sourceId: 'traffic-source',
   ///   baseLayerId: 'aircraft-symbol',
-  ///   aircraftIconPath: 'assets/traffic.png',
-  ///   arrowIconPath: 'assets/arrow.png',
+  ///   aircraftIconPath: 'traffic.png',
+  ///   arrowIconPath: 'arrow.png',
   ///   aircraftIconSize: 0.1,
   ///   arrowIconSize: 0.2,
   ///   enableInteraction: true,
@@ -948,25 +935,16 @@ class MapLibreMapController extends ChangeNotifier {
     double arrowIconSize = 0.3,
     Map<String, dynamic> config = const {},
   }) async {
-    final properties = {
-      'config': {
-        'aircraftIconPath': aircraftIconPath,
-        'arrowIconPath': arrowIconPath,
-        'aircraftIconSize': aircraftIconSize,
-        'arrowIconSize': arrowIconSize,
-        'topLabelOffset': config['topLabelOffset'] ?? -2.5,
-        'bottomLabelOffset': config['bottomLabelOffset'] ?? 2.5,
-        'arrowOffsetX': config['arrowOffsetX'] ?? 20.0,
-        ...config,
-      },
-    };
-
-    await _maplibrePlatform.addRotatableSymbolPngLayers(
-      sourceId,
-      baseLayerId,
-      properties,
+    return _maplibrePlatform.addRotatableSymbolPngLayers(
+      sourceId: sourceId,
+      baseLayerId: baseLayerId,
       belowLayerId: belowLayerId,
+      aircraftIconPath: aircraftIconPath,
+      arrowIconPath: arrowIconPath,
+      aircraftIconSize: aircraftIconSize,
+      arrowIconSize: arrowIconSize,
       enableInteraction: enableInteraction,
+      config: config,
     );
   }
 

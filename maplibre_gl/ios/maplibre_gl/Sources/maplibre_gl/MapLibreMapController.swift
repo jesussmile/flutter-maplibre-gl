@@ -611,6 +611,43 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             case let .failure(error): result(error.flutterError)
             }
 
+        case "map#addRotatableSymbolPngLayers":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let sourceId = arguments["sourceId"] as? String else { return }
+            guard let baseLayerId = arguments["baseLayerId"] as? String else { return }
+            guard let aircraftIconPath = arguments["aircraftIconPath"] as? String else { return }
+            guard let arrowIconPath = arguments["arrowIconPath"] as? String else { return }
+            guard let aircraftIconSize = arguments["aircraftIconSize"] as? Double else { return }
+            guard let arrowIconSize = arguments["arrowIconSize"] as? Double else { return }
+            guard let enableInteraction = arguments["enableInteraction"] as? Bool else { return }
+            guard let config = arguments["config"] as? [String: Any] else { return }
+            let belowLayerId = arguments["belowLayerId"] as? String
+            
+            // Build properties dictionary to match the existing implementation
+            var properties: [String: Any] = [
+                "config": [
+                    "aircraftIconPath": aircraftIconPath,
+                    "arrowIconPath": arrowIconPath,
+                    "aircraftIconSize": aircraftIconSize,
+                    "arrowIconSize": arrowIconSize,
+                    "topLabelOffset": config["topLabelOffset"] ?? -2.5,
+                    "bottomLabelOffset": config["bottomLabelOffset"] ?? 2.5,
+                    "arrowOffsetX": config["arrowOffsetX"] ?? 20.0
+                ]
+            ]
+            
+            let addResult = addRotatableSymbolPngLayers(
+                sourceId: sourceId,
+                baseLayerId: baseLayerId,
+                belowLayerId: belowLayerId,
+                properties: properties,
+                enableInteraction: enableInteraction
+            )
+            switch addResult {
+            case .success: result(nil)
+            case let .failure(error): result(error.flutterError)
+            }
+
         case "hillshadeLayer#add":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let sourceId = arguments["sourceId"] as? String else { return }

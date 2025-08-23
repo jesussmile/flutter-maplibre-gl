@@ -2215,6 +2215,31 @@ final class MapLibreMapController
           }
           break;
         }
+      case "map#addRotatableSymbolPngLayers":
+        {
+          try {
+            final String sourceId = call.argument("sourceId");
+            final String baseLayerId = call.argument("baseLayerId");
+            final String belowLayerId = call.argument("belowLayerId");
+            final String aircraftIconPath = call.argument("aircraftIconPath");
+            final String arrowIconPath = call.argument("arrowIconPath");
+            final Object aircraftIconSizeObj = call.argument("aircraftIconSize");
+            final Object arrowIconSizeObj = call.argument("arrowIconSize");
+            final boolean enableInteraction = call.argument("enableInteraction");
+            final Map<String, Object> config = call.argument("config");
+            
+            // Convert size parameters
+            double aircraftIconSize = aircraftIconSizeObj instanceof Number ? ((Number) aircraftIconSizeObj).doubleValue() : 0.8;
+            double arrowIconSize = arrowIconSizeObj instanceof Number ? ((Number) arrowIconSizeObj).doubleValue() : 0.5;
+            
+            addRotatableSymbolPngLayers(sourceId, baseLayerId, belowLayerId, aircraftIconPath, arrowIconPath, aircraftIconSize, arrowIconSize, enableInteraction, config);
+            result.success(null);
+          } catch (Exception e) {
+            Log.e(TAG, "Error in addRotatableSymbolPngLayers: " + e.getMessage(), e);
+            result.error("NATIVE_ERROR", "Failed to add rotatable symbol PNG layers: " + e.getMessage(), null);
+          }
+          break;
+        }
       default:
         result.notImplemented();
     }
@@ -4290,6 +4315,323 @@ final class MapLibreMapController
     }
   }
   
+  /**
+   * Helper method to load a single PNG asset from Flutter assets.
+   */
+  private Bitmap loadPngAsset(String assetPath) {
+    Log.d(TAG, "loadPngAsset: Loading PNG asset: " + assetPath);
+    
+    try {
+      // Try different asset resolution strategies
+      Bitmap bitmap = loadAssetDirectly(assetPath);
+      
+      if (bitmap != null) {
+        Log.d(TAG, "loadPngAsset: Successfully loaded PNG asset: " + assetPath + " (" + bitmap.getWidth() + "x" + bitmap.getHeight() + ")");
+        return bitmap;
+      } else {
+        Log.e(TAG, "loadPngAsset: Failed to load PNG asset: " + assetPath);
+        // Try fallback: use single color bitmap for testing
+        return createFallbackColorBitmap(assetPath);
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "loadPngAsset: Error loading PNG asset " + assetPath + ": " + e.getMessage(), e);
+      // Try fallback: use single color bitmap for testing
+      return createFallbackColorBitmap(assetPath);
+    }
+  }
+  
+  /**
+   * Creates a fallback colored bitmap for testing when PNG assets fail to load
+   */
+  private Bitmap createFallbackColorBitmap(String assetPath) {
+    try {
+      int size = 32;
+      Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(bitmap);
+      
+      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      
+      // Choose color based on asset path
+      if (assetPath.contains("red")) {
+        paint.setColor(0xFFFF0000); // Red
+      } else if (assetPath.contains("yellow")) {
+        paint.setColor(0xFFFFFF00); // Yellow
+      } else if (assetPath.contains("blue")) {
+        paint.setColor(0xFF0000FF); // Blue
+      } else if (assetPath.contains("green")) {
+        paint.setColor(0xFF00FF00); // Green
+      } else if (assetPath.contains("arrow")) {
+        paint.setColor(0xFF808080); // Gray for arrow
+      } else {
+        paint.setColor(0xFFFF00FF); // Magenta for unknown
+      }
+      
+      canvas.drawCircle(size/2f, size/2f, size/2f - 2, paint);
+      
+      Log.w(TAG, "createFallbackColorBitmap: Created fallback colored bitmap for: " + assetPath);
+      return bitmap;
+    } catch (Exception e) {
+      Log.e(TAG, "createFallbackColorBitmap: Error creating fallback bitmap: " + e.getMessage(), e);
+      return null;
+    }
+  }
+
+  /**
+   * Helper method to load arrow PNG assets and create rotated variants.
+   * Creates both up and down arrow versions from a single arrow asset.
+   */
+  private void loadArrowPngAssets(String arrowAssetPath) {
+    Log.d(TAG, "Loading arrow PNG assets from: " + arrowAssetPath);
+    
+    try {
+      // Load the base arrow bitmap
+      Bitmap baseBitmap = loadPngAsset(arrowAssetPath);
+      
+      if (baseBitmap != null) {
+        // Create up arrow (use bitmap as-is)
+        String upArrowId = "aircraft-arrow-up";
+        if (style != null && style.getImage(upArrowId) == null) {
+          style.addImage(upArrowId, baseBitmap, false); // false = not SDF to preserve arrow appearance
+          Log.d(TAG, "Added up arrow icon: " + upArrowId);
+        }
+        
+        // Create down arrow (rotate 180 degrees)
+        String downArrowId = "aircraft-arrow-down";
+        if (style != null && style.getImage(downArrowId) == null) {
+          Bitmap downBitmap = rotateBitmap(baseBitmap, 180);
+          style.addImage(downArrowId, downBitmap, false); // false = not SDF to preserve arrow appearance
+          Log.d(TAG, "Added down arrow icon: " + downArrowId);
+        }
+        
+        Log.d(TAG, "Successfully loaded arrow PNG assets with rotation");
+      } else {
+        throw new RuntimeException("Failed to load arrow PNG asset: " + arrowAssetPath);
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "Error loading arrow PNG assets: " + e.getMessage(), e);
+      throw new RuntimeException("Failed to load arrow PNG assets: " + arrowAssetPath, e);
+    }
+  }
+
+  /**
+   * Helper method to load multiple PNG assets and register them with MapLibre style.
+   */
+  private void loadMultiplePngAssets(String[] assetPaths, String[] iconIds) {
+    Log.d(TAG, "Loading multiple PNG assets: " + java.util.Arrays.toString(assetPaths));
+    
+    if (assetPaths.length != iconIds.length) {
+      throw new IllegalArgumentException("Asset paths and icon IDs arrays must have the same length");
+    }
+    
+    for (int i = 0; i < assetPaths.length; i++) {
+      String assetPath = assetPaths[i];
+      String iconId = iconIds[i];
+      
+      try {
+        // Check if icon already exists
+        if (style != null && style.getImage(iconId) != null) {
+          Log.v(TAG, "PNG icon already exists: " + iconId);
+          continue;
+        }
+        
+        // Load PNG asset
+        Bitmap bitmap = loadPngAsset(assetPath);
+        
+        if (bitmap != null && style != null) {
+          // Register with MapLibre style (false = not SDF mode to preserve colors)
+          style.addImage(iconId, bitmap, false);
+          Log.d(TAG, "loadMultiplePngAssets: Successfully registered PNG icon: " + iconId + " from " + assetPath + " (" + bitmap.getWidth() + "x" + bitmap.getHeight() + ", SDF=false)");
+          
+          // Verify the icon was actually added
+          android.graphics.Bitmap testImage = style.getImage(iconId);
+          if (testImage != null) {
+            Log.d(TAG, "loadMultiplePngAssets: Verified icon " + iconId + " is registered in style");
+          } else {
+            Log.e(TAG, "loadMultiplePngAssets: Failed to verify icon " + iconId + " in style!");
+          }
+        } else {
+          Log.e(TAG, "Failed to register PNG icon: " + iconId + " from " + assetPath);
+          throw new RuntimeException("Failed to load PNG asset: " + assetPath);
+        }
+      } catch (Exception e) {
+        Log.e(TAG, "Error loading PNG asset " + assetPath + ": " + e.getMessage(), e);
+        throw new RuntimeException("Failed to load PNG asset: " + assetPath, e);
+      }
+    }
+    
+    Log.d(TAG, "Successfully loaded all PNG assets");
+  }
+
+  /**
+   * Adds rotatable symbol layers using PNG assets with dynamic swapping.
+   * This method creates aviation symbols with:
+   * - Dynamic PNG swapping based on proximity distance (for traffic icons)
+   * - Center aircraft symbol that can rotate freely
+   * - Right-side arrow symbol for altitude indication
+   * 
+   * Aviation TCAS color coding:
+   * - Red: Critical (<2nm)
+   * - Yellow: Warning (2-5nm) 
+   * - Blue: Caution (5-10nm)
+   * - Green: Safe (>10nm)
+   */
+  public void addRotatableSymbolPngLayers(
+      String sourceId,
+      String baseLayerId,
+      String belowLayerId,
+      String aircraftIconPath,
+      String arrowIconPath,
+      double aircraftIconSize,
+      double arrowIconSize,
+      boolean enableInteraction,
+      Map<String, Object> config) {
+    
+    try {
+      Log.d(TAG, "Adding rotatable symbol PNG layers with base ID: " + baseLayerId);
+      Log.d(TAG, "Aircraft icon: " + aircraftIconPath + ", Arrow icon: " + arrowIconPath);
+      
+      // Extract configuration
+      if (config == null) {
+        config = new HashMap<>();
+      }
+      
+      // Layer positioning configuration
+      double topLabelOffset = ((Number) config.getOrDefault("topLabelOffset", -2.5)).doubleValue();
+      double bottomLabelOffset = ((Number) config.getOrDefault("bottomLabelOffset", 2.5)).doubleValue();
+      double arrowOffsetX = ((Number) config.getOrDefault("arrowOffsetX", 25.0)).doubleValue();
+      
+      // Define PNG assets for traffic icons (4 colored variants)
+      String[] trafficAssetPaths = {
+          "traffic_red.png",
+          "traffic_yellow.png", 
+          "traffic_blue.png",
+          "traffic_green.png"
+      };
+      
+      String[] trafficIconIds = {
+          "aircraft-red",
+          "aircraft-yellow",
+          "aircraft-blue", 
+          "aircraft-green"
+      };
+      
+      // Load PNG assets for traffic icons
+      loadMultiplePngAssets(trafficAssetPaths, trafficIconIds);
+      
+      // Load arrow PNG assets (both up and down variants)
+      loadArrowPngAssets(arrowIconPath);
+      
+      // Load the primary aircraft icon (for fallback)
+      String[] primaryAssetPaths = { aircraftIconPath };
+      String[] primaryIconIds = { "aircraft-primary" };
+      loadMultiplePngAssets(primaryAssetPaths, primaryIconIds);
+      
+      // 1. Add aircraft layer (center, rotatable) with dynamic PNG swapping
+      String aircraftLayerId = baseLayerId + "-aircraft";
+      SymbolLayer aircraftLayer = new SymbolLayer(aircraftLayerId, sourceId);
+      aircraftLayer.setProperties(
+          // Dynamic icon selection based on proximity distance
+          PropertyFactory.iconImage(
+              Expression.switchCase(
+                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(2.0)),
+                  Expression.literal("aircraft-red"),
+                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(5.0)),
+                  Expression.literal("aircraft-yellow"),
+                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(10.0)),
+                  Expression.literal("aircraft-blue"),
+                  Expression.literal("aircraft-green")
+              )
+          ),
+          PropertyFactory.iconSize(((Number) aircraftIconSize).floatValue()),
+          PropertyFactory.iconRotate(Expression.get("rotation")),
+          PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP), // Rotates with map
+          PropertyFactory.iconAllowOverlap(true),
+          PropertyFactory.iconIgnorePlacement(true)
+      );
+      
+      // 2. Add top label layer (viewport aligned, stays horizontal)
+      String topLabelLayerId = baseLayerId + "-top-label";
+      SymbolLayer topLabelLayer = new SymbolLayer(topLabelLayerId, sourceId);
+      topLabelLayer.setProperties(
+          PropertyFactory.textField(Expression.get("topLabel")),
+          PropertyFactory.textFont(new String[]{"Open Sans Regular", "Arial Unicode MS Regular"}),
+          PropertyFactory.textSize(Expression.get("labelSize")),
+          PropertyFactory.textColor(Expression.get("labelColor")),
+          PropertyFactory.textHaloColor("#FFFFFF"),
+          PropertyFactory.textHaloWidth(2.0f),
+          PropertyFactory.textOffset(new Float[]{0.0f, (float) topLabelOffset}),
+          PropertyFactory.textRotationAlignment(Property.TEXT_ROTATION_ALIGNMENT_VIEWPORT), // Always horizontal
+          PropertyFactory.textAllowOverlap(true),
+          PropertyFactory.textIgnorePlacement(true)
+      );
+      
+      // 3. Add bottom label layer (viewport aligned, stays horizontal)
+      String bottomLabelLayerId = baseLayerId + "-bottom-label";
+      SymbolLayer bottomLabelLayer = new SymbolLayer(bottomLabelLayerId, sourceId);
+      bottomLabelLayer.setProperties(
+          PropertyFactory.textField(Expression.get("bottomLabel")),
+          PropertyFactory.textFont(new String[]{"Open Sans Regular", "Arial Unicode MS Regular"}),
+          PropertyFactory.textSize(Expression.get("labelSize")),
+          PropertyFactory.textColor(Expression.get("labelColor")),
+          PropertyFactory.textHaloColor("#FFFFFF"),
+          PropertyFactory.textHaloWidth(2.0f),
+          PropertyFactory.textOffset(new Float[]{0.0f, (float) bottomLabelOffset}),
+          PropertyFactory.textRotationAlignment(Property.TEXT_ROTATION_ALIGNMENT_VIEWPORT), // Always horizontal
+          PropertyFactory.textAllowOverlap(true),
+          PropertyFactory.textIgnorePlacement(true)
+      );
+      
+      // 4. Add arrow layer (right side, viewport aligned) with dynamic direction
+      String arrowLayerId = baseLayerId + "-arrow";
+      SymbolLayer arrowLayer = new SymbolLayer(arrowLayerId, sourceId);
+      arrowLayer.setProperties(
+          // Use conditional arrow direction based on isClimbing property
+          PropertyFactory.iconImage(
+              Expression.switchCase(
+                  Expression.get("isClimbing"),
+                  Expression.literal("aircraft-arrow-up"),    // Up arrow when climbing
+                  Expression.literal("aircraft-arrow-down")   // Down arrow when descending
+              )
+          ),
+          PropertyFactory.iconSize(((Number) arrowIconSize).floatValue()),
+          PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT), // Always upright
+          PropertyFactory.iconOffset(new Float[]{(float) arrowOffsetX, 0.0f}), // Fixed to right side
+          PropertyFactory.iconAllowOverlap(true),
+          PropertyFactory.iconIgnorePlacement(true)
+      );
+      
+      // Add layers to style in proper order (aircraft first, then text on top, arrow last)
+      if (belowLayerId != null) {
+        style.addLayerBelow(aircraftLayer, belowLayerId);
+        style.addLayerAbove(topLabelLayer, aircraftLayerId);
+        style.addLayerAbove(bottomLabelLayer, topLabelLayerId);
+        style.addLayerAbove(arrowLayer, bottomLabelLayerId);
+      } else {
+        style.addLayer(aircraftLayer);
+        style.addLayer(topLabelLayer);
+        style.addLayer(bottomLabelLayer);
+        style.addLayer(arrowLayer);
+      }
+      
+      // Enable interaction if requested
+      if (enableInteraction) {
+        interactiveFeatureLayerIds.add(aircraftLayerId);
+        interactiveFeatureLayerIds.add(topLabelLayerId);
+        interactiveFeatureLayerIds.add(bottomLabelLayerId);
+        interactiveFeatureLayerIds.add(arrowLayerId);
+      }
+      
+      Log.d(TAG, "Successfully added rotatable symbol PNG layers: " + aircraftLayerId + ", " + topLabelLayerId + ", " + bottomLabelLayerId + ", " + arrowLayerId);
+      Log.d(TAG, "Aircraft icon size: " + aircraftIconSize + ", Arrow icon size: " + arrowIconSize);
+      Log.d(TAG, "Arrow offset X: " + arrowOffsetX);
+      
+    } catch (Exception e) {
+      String errorMessage = "Failed to add rotatable symbol PNG layers '" + baseLayerId + "': " + e.getMessage();
+      Log.e(TAG, errorMessage, e);
+      throw new RuntimeException(errorMessage, e);
+    }
+  }
+
   /**
    * Adds a multi-layer rotatable symbol to the map.
    * Creates 4 synchronized layers: triangle, top label, bottom label, and side arrow.

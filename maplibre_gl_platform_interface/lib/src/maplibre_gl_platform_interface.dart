@@ -190,12 +190,20 @@ abstract class MapLibrePlatform {
       {String? belowLayerId, required bool enableInteraction});
 
   /// Adds multi-layer rotatable symbol to the map using PNG assets.
-  /// Creates 4 synchronized layers: aircraft PNG, top label, bottom label, and side arrow PNG.
+  /// Creates 2 synchronized layers: aircraft PNG and side arrow PNG.
   /// Similar to addRotatableSymbolLayers but uses PNG assets instead of programmatically created icons.
-  /// The aircraft PNG rotates with the map while labels and arrow remain viewport-aligned.
-  Future<void> addRotatableSymbolPngLayers(
-      String sourceId, String baseLayerId, Map<String, dynamic> properties,
-      {String? belowLayerId, required bool enableInteraction});
+  /// The aircraft PNG rotates with the map while the arrow remains viewport-aligned.
+  Future<void> addRotatableSymbolPngLayers({
+    required String sourceId,
+    required String baseLayerId,
+    String? belowLayerId,
+    required String aircraftIconPath,
+    required String arrowIconPath,
+    required double aircraftIconSize,
+    required double arrowIconSize,
+    required bool enableInteraction,
+    required Map<String, dynamic> config,
+  });
 
   Future<void> addFillLayer(
       String sourceId, String layerId, Map<String, dynamic> properties,

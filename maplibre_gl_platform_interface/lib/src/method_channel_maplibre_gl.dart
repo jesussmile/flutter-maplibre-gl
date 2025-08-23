@@ -819,20 +819,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
-  Future<void> addRotatableSymbolPngLayers(
-      String sourceId, String baseLayerId, Map<String, dynamic> properties,
-      {String? belowLayerId, required bool enableInteraction}) async {
-    await _channel
-        .invokeMethod('rotatableSymbolPngLayers#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'baseLayerId': baseLayerId,
-      'belowLayerId': belowLayerId,
-      'enableInteraction': enableInteraction,
-      'properties': properties,
-    });
-  }
-
-  @override
   Future<void> addFillLayer(
       String sourceId, String layerId, Map<String, dynamic> properties,
       {String? belowLayerId,
@@ -1109,6 +1095,31 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<void> setLineEditingStyle(Map<String, dynamic> style) async {
     await _channel.invokeMethod('line#setEditingStyle', style);
+  }
+
+  @override
+  Future<void> addRotatableSymbolPngLayers({
+    required String sourceId,
+    required String baseLayerId,
+    String? belowLayerId,
+    required String aircraftIconPath,
+    required String arrowIconPath,
+    required double aircraftIconSize,
+    required double arrowIconSize,
+    required bool enableInteraction,
+    required Map<String, dynamic> config,
+  }) async {
+    await _channel.invokeMethod('map#addRotatableSymbolPngLayers', <String, dynamic>{
+      'sourceId': sourceId,
+      'baseLayerId': baseLayerId,
+      'belowLayerId': belowLayerId,
+      'aircraftIconPath': aircraftIconPath,
+      'arrowIconPath': arrowIconPath,
+      'aircraftIconSize': aircraftIconSize,
+      'arrowIconSize': arrowIconSize,
+      'enableInteraction': enableInteraction,
+      'config': config,
+    });
   }
 
   @override

@@ -43,3 +43,7 @@ flutter:
     - assets/plane2.png
     - assets/traffic.png
     - assets/arrow.png
+    - assets/traffic_red.png
+    - assets/traffic_yellow.png
+    - assets/traffic_blue.png
+    - assets/traffic_green.png
