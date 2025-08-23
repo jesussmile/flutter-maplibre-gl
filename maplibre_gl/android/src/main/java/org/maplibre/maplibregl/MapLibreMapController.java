@@ -4092,8 +4092,11 @@ final class MapLibreMapController
           PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP), // Rotates with map
           PropertyFactory.iconAllowOverlap(true),
           PropertyFactory.iconIgnorePlacement(true),
-          PropertyFactory.iconOpacity(Expression.get("triangleOpacity")) // Reuse triangleOpacity property
+          PropertyFactory.iconOpacity(Expression.get("triangleOpacity")), // Reuse triangleOpacity property
+          PropertyFactory.iconColor(Expression.get("aircraftIconColor")) // Dynamic color based on proximity
       );
+      
+      Log.d(TAG, "Aircraft layer configured with color property: aircraftIconColor");
       
       // 2. Add top label layer (viewport aligned, stays horizontal)
       String topLabelLayerId = baseLayerId + "-top-label";
@@ -4143,8 +4146,11 @@ final class MapLibreMapController
           PropertyFactory.iconOffset(new Float[]{(float) arrowOffsetX, 0.0f}), // Fixed to right side
           PropertyFactory.iconAllowOverlap(true),
           PropertyFactory.iconIgnorePlacement(true),
-          PropertyFactory.iconOpacity(Expression.get("arrowOpacity"))
+          PropertyFactory.iconOpacity(Expression.get("arrowOpacity")),
+          PropertyFactory.iconColor(Expression.get("arrowIconColor")) // Dynamic arrow color
       );
+      
+      Log.d(TAG, "Arrow layer configured with color property: arrowIconColor");
       
       // Add layers to style in proper order (aircraft first, then text on top, arrow last)
       if (belowLayerId != null) {
@@ -4186,6 +4192,11 @@ final class MapLibreMapController
    */
   private String ensurePngAssetExists(String assetPath, String iconType) {
     try {
+      // Handle test color icon specially
+      if ("test-color-icon".equals(assetPath)) {
+        return createTestColorIcon();
+      }
+      
       // Create unique icon ID based on asset path and type
       String iconId = "maplibre-png-" + iconType + "-" + assetPath.replaceAll("[^a-zA-Z0-9]", "-");
       
@@ -4215,10 +4226,10 @@ final class MapLibreMapController
         }
       }
       
-      // Register the PNG icon
+      // Register the PNG icon as SDF for color tinting support
       if (style != null) {
-        style.addImage(iconId, bitmap, false); // false = not SDF
-        Log.d(TAG, "Added PNG icon to style: " + iconId + " from " + assetPath);
+        style.addImage(iconId, bitmap, true); // true = SDF for color tinting
+        Log.d(TAG, "Added PNG icon to style as SDF: " + iconId + " from " + assetPath);
       } else {
         throw new RuntimeException("Cannot add PNG icon: style is null");
       }
@@ -4228,6 +4239,36 @@ final class MapLibreMapController
     } catch (Exception e) {
       Log.e(TAG, "Error ensuring PNG asset exists: " + assetPath + ", error: " + e.getMessage(), e);
       throw new RuntimeException("Failed to load PNG asset: " + assetPath, e);
+    }
+  }
+  
+  /**
+   * Creates a simple colored test icon for debugging color tinting
+   */
+  private String createTestColorIcon() {
+    try {
+      String iconId = "test-color-icon";
+      
+      // Create a simple white square bitmap for testing color tinting
+      Bitmap bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(bitmap);
+      
+      // Fill with white color (best for tinting)
+      Paint paint = new Paint();
+      paint.setColor(0xFFFFFFFF); // White
+      paint.setAntiAlias(true);
+      canvas.drawRect(8, 8, 56, 56, paint);
+      
+      // Add to style as SDF for color tinting
+      if (style != null) {
+        style.addImage(iconId, bitmap, true); // true = SDF for color tinting
+        Log.d(TAG, "Created test color icon: " + iconId);
+      }
+      
+      return iconId;
+    } catch (Exception e) {
+      Log.e(TAG, "Error creating test color icon: " + e.getMessage(), e);
+      return null;
     }
   }
   
