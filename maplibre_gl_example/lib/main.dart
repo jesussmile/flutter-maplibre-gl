@@ -40,6 +40,7 @@ import 'place_symbol.dart';
 import 'place_triangle.dart';
 import 'polyline_editing.dart';
 import 'rotatable_symbol_page.dart';
+import 'rotatable_symbol_png_test.dart';
 import 'scrolling_map.dart';
 import 'sources.dart';
 
@@ -59,6 +60,7 @@ final List<ExamplePage> _allPages = <ExamplePage>[
   const PlaceCirclePage(),
   const PlaceTrianglePage(),
   const RotatableSymbolPage(),
+  const RotatableSymbolPngTest(),
   const PlaceFillPage(),
   const ScrollingMapPage(),
   const OfflineRegionsPage(),

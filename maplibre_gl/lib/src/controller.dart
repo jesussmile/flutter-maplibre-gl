@@ -267,7 +267,8 @@ class MapLibreMapController extends ChangeNotifier {
   final ArgumentCallbacks<Fill> onFillTapped = ArgumentCallbacks<Fill>();
 
   /// Callbacks to receive tap events for triangles placed on this map.
-  final ArgumentCallbacks<Triangle> onTriangleTapped = ArgumentCallbacks<Triangle>();
+  final ArgumentCallbacks<Triangle> onTriangleTapped =
+      ArgumentCallbacks<Triangle>();
 
   /// Callbacks to receive tap events for features (geojson layer) placed on this map.
   final onFeatureTapped = <OnFeatureInteractionCallback>[];
@@ -867,8 +868,100 @@ class MapLibreMapController extends ChangeNotifier {
         ...config,
       },
     };
-    
+
     await _maplibrePlatform.addRotatableSymbolLayers(
+      sourceId,
+      baseLayerId,
+      properties,
+      belowLayerId: belowLayerId,
+      enableInteraction: enableInteraction,
+    );
+  }
+
+  /// Adds a multi-layer rotatable symbol to the map using PNG assets.
+  /// Creates 4 synchronized layers: aircraft PNG, top label, bottom label, and side arrow PNG.
+  /// Similar to [addRotatableSymbolLayers] but uses PNG assets instead of programmatically created icons.
+  ///
+  /// This creates a composite symbol where:
+  /// - Aircraft PNG: Rotates according to the 'rotation' property in the source data
+  /// - Top/Bottom Labels: Always remain horizontal (viewport-aligned)
+  /// - Side Arrow PNG: Fixed to the right side, shows up/down based on 'isClimbing' property
+  ///
+  /// The [sourceId] must contain GeoJSON features with properties:
+  /// - `rotation`: Rotation angle in degrees for the aircraft
+  /// - `topLabel`: Text for the top label
+  /// - `bottomLabel`: Text for the bottom label
+  /// - `isClimbing`: Boolean for arrow direction (true = up, false = down)
+  /// - `labelSize`: Font size for labels (e.g., 12.0)
+  /// - `labelColor`: Color for labels (e.g., "#000000")
+  /// - `triangleOpacity`: Opacity for aircraft icon (0.0 to 1.0) - reuses this property name for consistency
+  /// - `arrowOpacity`: Opacity for arrow (0.0 to 1.0)
+  ///
+  /// The [aircraftIconPath] specifies the path to the aircraft PNG asset.
+  /// The [arrowIconPath] specifies the path to the arrow PNG asset.
+  /// The [aircraftIconSize] controls the size of the aircraft icon (default: 0.4).
+  /// The [arrowIconSize] controls the size of the arrow icon (default: 0.3).
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // First add a GeoJSON source
+  /// await controller.addGeoJsonSource('traffic-source', {
+  ///   'type': 'FeatureCollection',
+  ///   'features': [{
+  ///     'type': 'Feature',
+  ///     'geometry': {'type': 'Point', 'coordinates': [-122.4194, 37.7749]},
+  ///     'properties': {
+  ///       'rotation': 45.0,
+  ///       'topLabel': '35K',
+  ///       'bottomLabel': 'UAL123',
+  ///       'isClimbing': true,
+  ///       'labelSize': 12.0,
+  ///       'labelColor': '#000000',
+  ///       'triangleOpacity': 1.0,
+  ///       'arrowOpacity': 1.0
+  ///     }
+  ///   }]
+  /// });
+  ///
+  /// // Then add the rotatable symbol PNG layers
+  /// await controller.addRotatableSymbolPngLayers(
+  ///   sourceId: 'traffic-source',
+  ///   baseLayerId: 'aircraft-symbol',
+  ///   aircraftIconPath: 'assets/traffic.png',
+  ///   arrowIconPath: 'assets/arrow.png',
+  ///   aircraftIconSize: 0.1,
+  ///   arrowIconSize: 0.2,
+  ///   enableInteraction: true,
+  /// );
+  /// ```
+  ///
+  /// The returned [Future] completes after the change has been made on the
+  /// platform side.
+  Future<void> addRotatableSymbolPngLayers({
+    required String sourceId,
+    required String baseLayerId,
+    required String aircraftIconPath,
+    required String arrowIconPath,
+    String? belowLayerId,
+    bool enableInteraction = true,
+    double aircraftIconSize = 0.4,
+    double arrowIconSize = 0.3,
+    Map<String, dynamic> config = const {},
+  }) async {
+    final properties = {
+      'config': {
+        'aircraftIconPath': aircraftIconPath,
+        'arrowIconPath': arrowIconPath,
+        'aircraftIconSize': aircraftIconSize,
+        'arrowIconSize': arrowIconSize,
+        'topLabelOffset': config['topLabelOffset'] ?? -2.5,
+        'bottomLabelOffset': config['bottomLabelOffset'] ?? 2.5,
+        'arrowOffsetX': config['arrowOffsetX'] ?? 20.0,
+        ...config,
+      },
+    };
+
+    await _maplibrePlatform.addRotatableSymbolPngLayers(
       sourceId,
       baseLayerId,
       properties,
@@ -1139,7 +1232,8 @@ class MapLibreMapController extends ChangeNotifier {
   /// on the platform side.
   Future<void> enablePolylineEditing(Line line, bool enabled) async {
     // Pass the line's coordinates when enabling editing
-    await _maplibrePlatform.enableLineEditing(line.id, enabled, line.options.geometry);
+    await _maplibrePlatform.enableLineEditing(
+        line.id, enabled, line.options.geometry);
   }
 
   /// Enables or disables interactive editing for a polyline by its ID.
@@ -1316,7 +1410,8 @@ class MapLibreMapController extends ChangeNotifier {
   /// platform side.
   ///
   /// The returned [Future] completes once listeners have been notified.
-  Future<void> updateTriangle(Triangle triangle, TriangleOptions changes) async {
+  Future<void> updateTriangle(
+      Triangle triangle, TriangleOptions changes) async {
     triangle.options = triangle.options.copyWith(changes);
     await triangleManager!.set(triangle);
 

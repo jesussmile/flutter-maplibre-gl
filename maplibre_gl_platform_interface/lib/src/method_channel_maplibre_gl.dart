@@ -819,6 +819,20 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
+  Future<void> addRotatableSymbolPngLayers(
+      String sourceId, String baseLayerId, Map<String, dynamic> properties,
+      {String? belowLayerId, required bool enableInteraction}) async {
+    await _channel
+        .invokeMethod('rotatableSymbolPngLayers#add', <String, dynamic>{
+      'sourceId': sourceId,
+      'baseLayerId': baseLayerId,
+      'belowLayerId': belowLayerId,
+      'enableInteraction': enableInteraction,
+      'properties': properties,
+    });
+  }
+
+  @override
   Future<void> addFillLayer(
       String sourceId, String layerId, Map<String, dynamic> properties,
       {String? belowLayerId,
@@ -1075,17 +1089,20 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
-  Future<void> enableLineEditing(String lineId, bool enabled, [List<LatLng>? coordinates]) async {
+  Future<void> enableLineEditing(String lineId, bool enabled,
+      [List<LatLng>? coordinates]) async {
     final args = <String, dynamic>{
       'lineId': lineId,
       'enabled': enabled,
     };
-    
+
     // Include coordinates when enabling editing
     if (enabled && coordinates != null && coordinates.isNotEmpty) {
-      args['coordinates'] = coordinates.map((coord) => [coord.latitude, coord.longitude]).toList();
+      args['coordinates'] = coordinates
+          .map((coord) => [coord.latitude, coord.longitude])
+          .toList();
     }
-    
+
     await _channel.invokeMethod('line#enableEditing', args);
   }
 

@@ -1585,6 +1585,38 @@ final class MapLibreMapController
           }
           break;
         }
+      case "rotatableSymbolPngLayers#add":
+        {
+          final String sourceId = call.argument("sourceId");
+          final String baseLayerId = call.argument("baseLayerId");
+          final String belowLayerId = call.argument("belowLayerId");
+          final boolean enableInteraction = call.argument("enableInteraction");
+          final Map<String, Object> properties = call.argument("properties");
+
+          if (style == null) {
+            result.error(
+                "STYLE IS NULL",
+                "The style is null. Has onStyleLoaded() already been invoked?",
+                null);
+            break;
+          }
+          
+          try {
+            addRotatableSymbolPngLayers(
+                sourceId,
+                baseLayerId,
+                belowLayerId,
+                properties,
+                enableInteraction);
+            result.success(null);
+          } catch (Exception e) {
+            result.error(
+                "ROTATABLE_SYMBOL_PNG_LAYER_ERROR",
+                "Failed to add rotatable symbol PNG layers: " + e.getMessage(),
+                null);
+          }
+          break;
+        }
       case "rasterLayer#add":
         {
           final String sourceId = call.argument("sourceId");
@@ -2725,6 +2757,184 @@ final class MapLibreMapController
   }
 
   /**
+   * Load asset directly using multiple strategies to ensure compatibility
+   */
+  private Bitmap loadAssetDirectly(String assetPath) {
+    Log.d(TAG, "loadAssetDirectly called for: " + assetPath);
+    
+    // Strategy 1: Try Flutter asset resolution
+    if (MapLibreMapsPlugin.flutterAssets != null) {
+      try {
+        String flutterAssetPath = MapLibreMapsPlugin.flutterAssets.getAssetFilePathByName(assetPath);
+        Log.d(TAG, "Flutter resolved path: " + flutterAssetPath);
+        InputStream inputStream = mapView.getContext().getAssets().open(flutterAssetPath);
+        Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+        inputStream.close();
+        if (bitmap != null) {
+          Log.d(TAG, "Successfully loaded via Flutter asset resolution: " + flutterAssetPath);
+          return bitmap;
+        }
+      } catch (Exception e) {
+        Log.d(TAG, "Flutter asset resolution failed: " + e.getMessage());
+      }
+    }
+    
+    // Strategy 2: Try looking in flutter_assets directory explicitly
+    try {
+      String flutterAssetPath = "flutter_assets/" + assetPath;
+      Log.d(TAG, "Trying flutter_assets path: " + flutterAssetPath);
+      InputStream inputStream = mapView.getContext().getAssets().open(flutterAssetPath);
+      Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+      inputStream.close();
+      if (bitmap != null) {
+        Log.d(TAG, "Successfully loaded via flutter_assets path: " + flutterAssetPath);
+        return bitmap;
+      }
+    } catch (Exception e) {
+      Log.d(TAG, "Flutter_assets path loading failed: " + e.getMessage());
+    }
+    
+    // Strategy 3: Try direct asset path
+    try {
+      InputStream inputStream = mapView.getContext().getAssets().open(assetPath);
+      Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+      inputStream.close();
+      if (bitmap != null) {
+        Log.d(TAG, "Successfully loaded via direct path: " + assetPath);
+        return bitmap;
+      }
+    } catch (Exception e) {
+      Log.d(TAG, "Direct asset loading failed: " + e.getMessage());
+    }
+    
+    // Strategy 4: Try with assets/ prefix
+    try {
+      String prefixedPath = "assets/" + assetPath;
+      InputStream inputStream = mapView.getContext().getAssets().open(prefixedPath);
+      Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+      inputStream.close();
+      if (bitmap != null) {
+        Log.d(TAG, "Successfully loaded via prefixed path: " + prefixedPath);
+        return bitmap;
+      }
+    } catch (Exception e) {
+      Log.d(TAG, "Prefixed asset loading failed: " + e.getMessage());
+    }
+    
+    // Strategy 5: List flutter_assets directory and search for the file
+    try {
+      String[] flutterAssets = mapView.getContext().getAssets().list("flutter_assets");
+      Log.d(TAG, "Flutter assets directory contents: " + java.util.Arrays.toString(flutterAssets));
+      
+      // Look for the asset in flutter_assets directory
+      for (String asset : flutterAssets) {
+        if (asset.equals(assetPath)) {
+          String fullPath = "flutter_assets/" + asset;
+          InputStream inputStream = mapView.getContext().getAssets().open(fullPath);
+          Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+          inputStream.close();
+          if (bitmap != null) {
+            Log.d(TAG, "Successfully loaded via flutter_assets listing: " + fullPath);
+            return bitmap;
+          }
+        }
+      }
+    } catch (Exception e) {
+      Log.d(TAG, "Flutter_assets listing strategy failed: " + e.getMessage());
+    }
+    
+    // Strategy 6: Try flutter_assets/assets/ path (where Flutter puts assets)
+    try {
+      String flutterAssetsPath = "flutter_assets/assets/" + assetPath;
+      Log.d(TAG, "Trying flutter_assets/assets path: " + flutterAssetsPath);
+      InputStream inputStream = mapView.getContext().getAssets().open(flutterAssetsPath);
+      Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+      inputStream.close();
+      if (bitmap != null) {
+        Log.d(TAG, "Successfully loaded via flutter_assets/assets path: " + flutterAssetsPath);
+        return bitmap;
+      }
+    } catch (Exception e) {
+      Log.d(TAG, "Flutter_assets/assets path loading failed: " + e.getMessage());
+    }
+    
+    Log.e(TAG, "All asset loading strategies failed for: " + assetPath);
+    return null;
+  }
+
+  /**
+   * Debug version of getScaledImage with detailed logging
+   */
+  private Bitmap getScaledImageWithDebug(String imageId, float density) {
+    AssetFileDescriptor assetFileDescriptor;
+    Log.d(TAG, "getScaledImageWithDebug called with imageId: " + imageId + ", density: " + density);
+
+    // Split image path into parts.
+    List<String> imagePathList = Arrays.asList(imageId.split("/"));
+    List<String> assetPathList = new ArrayList<>();
+    Log.d(TAG, "Image path parts: " + imagePathList);
+
+    // "On devices with a device pixel ratio of 1.8, the asset .../2.0x/my_icon.png would be chosen.
+    // For a device pixel ratio of 2.7, the asset .../3.0x/my_icon.png would be chosen."
+    // Source: https://flutter.dev/docs/development/ui/assets-and-images#resolution-aware
+    for (int i = (int) Math.ceil(density); i > 0; i--) {
+      String assetPath;
+      if (i == 1) {
+        // If density is 1.0x then simply take the default asset path
+        assetPath = MapLibreMapsPlugin.flutterAssets.getAssetFilePathByName(imageId);
+        Log.d(TAG, "Default (1x) asset path for '" + imageId + "': " + assetPath);
+      } else {
+        // Build a resolution aware asset path as follows:
+        // <directory asset>/<ratio>/<image name>
+        // where ratio is 1.0x, 2.0x or 3.0x.
+        StringBuilder stringBuilder = new StringBuilder();
+        for (int j = 0; j < imagePathList.size() - 1; j++) {
+          stringBuilder.append(imagePathList.get(j));
+          stringBuilder.append("/");
+        }
+        stringBuilder.append(((float) i) + "x");
+        stringBuilder.append("/");
+        stringBuilder.append(imagePathList.get(imagePathList.size() - 1));
+        String scaledImageId = stringBuilder.toString();
+        assetPath = MapLibreMapsPlugin.flutterAssets.getAssetFilePathByName(scaledImageId);
+        Log.d(TAG, "Scaled (" + i + "x) asset path for '" + scaledImageId + "': " + assetPath);
+      }
+      // Build up a list of resolution aware asset paths.
+      assetPathList.add(assetPath);
+    }
+
+    Log.d(TAG, "All asset paths to try: " + assetPathList);
+
+    // Iterate over asset paths and get the highest scaled asset (as a bitmap).
+    Bitmap bitmap = null;
+    for (String assetPath : assetPathList) {
+      try {
+        Log.d(TAG, "Trying to load asset: " + assetPath);
+        // Read path (throws exception if doesn't exist).
+        assetFileDescriptor = mapView.getContext().getAssets().openFd(assetPath);
+        InputStream assetStream = assetFileDescriptor.createInputStream();
+        bitmap = BitmapFactory.decodeStream(assetStream);
+        assetFileDescriptor.close(); // Close for memory
+        if (bitmap != null) {
+          Log.d(TAG, "Successfully loaded asset: " + assetPath + " (" + bitmap.getWidth() + "x" + bitmap.getHeight() + ")");
+        } else {
+          Log.w(TAG, "Bitmap decode returned null for: " + assetPath);
+        }
+        break; // If exists, break
+      } catch (IOException e) {
+        Log.d(TAG, "Failed to load asset: " + assetPath + " - " + e.getMessage());
+        // Skip
+      }
+    }
+    
+    if (bitmap == null) {
+      Log.e(TAG, "All asset loading attempts failed for: " + imageId);
+    }
+    
+    return bitmap;
+  }
+
+  /**
    * Tries to find highest scale image for display type
    *
    * @param imageId
@@ -3818,6 +4028,224 @@ final class MapLibreMapController
     } catch (Exception e) {
       Log.e(TAG, "Error adding triangle symbol layer: " + layerName, e);
       throw new RuntimeException("Failed to add triangle symbol layer: " + layerName, e);
+    }
+  }
+  
+  /**
+   * Adds a multi-layer rotatable symbol to the map using PNG assets.
+   * Creates 4 synchronized layers: aircraft PNG, top label, bottom label, and side arrow PNG.
+   * Similar to addRotatableSymbolLayers but uses PNG assets instead of programmatically created icons.
+   * 
+   * @param sourceId GeoJSON source containing the symbol data
+   * @param baseLayerId Base layer ID (will append suffixes for each layer)
+   * @param belowLayerId Optional layer to place below
+   * @param properties Symbol properties including PNG paths, rotation, labels, etc.
+   * @param enableInteraction Whether to enable tap interaction
+   */
+  public void addRotatableSymbolPngLayers(
+      String sourceId,
+      String baseLayerId,
+      String belowLayerId,
+      Map<String, Object> properties,
+      boolean enableInteraction) {
+    
+    try {
+      Log.d(TAG, "Adding rotatable symbol PNG layers with base ID: " + baseLayerId);
+      
+      // Extract PNG asset configuration from properties
+      Map<String, Object> config = (Map<String, Object>) properties.get("config");
+      if (config == null) {
+        config = new HashMap<>();
+      }
+      
+      // Extract PNG asset paths and sizes
+      String aircraftIconPath = (String) config.get("aircraftIconPath");
+      String arrowIconPath = (String) config.get("arrowIconPath");
+      double aircraftIconSize = ((Number) config.getOrDefault("aircraftIconSize", 0.4)).doubleValue();
+      double arrowIconSize = ((Number) config.getOrDefault("arrowIconSize", 0.3)).doubleValue();
+      
+      // Validate required PNG paths
+      if (aircraftIconPath == null || aircraftIconPath.isEmpty()) {
+        throw new RuntimeException("aircraftIconPath is required in config for PNG layers");
+      }
+      if (arrowIconPath == null || arrowIconPath.isEmpty()) {
+        throw new RuntimeException("arrowIconPath is required in config for PNG layers");
+      }
+      
+      // Load and register PNG assets
+      String aircraftIconId = ensurePngAssetExists(aircraftIconPath, "aircraft");
+      String upArrowIconId = ensurePngAssetExists(arrowIconPath, "arrow-up");
+      String downArrowIconId = ensurePngAssetExists(arrowIconPath, "arrow-down");
+      
+      // Layer positioning configuration
+      double topLabelOffset = ((Number) config.getOrDefault("topLabelOffset", -2.5)).doubleValue();
+      double bottomLabelOffset = ((Number) config.getOrDefault("bottomLabelOffset", 2.5)).doubleValue();
+      double arrowOffsetX = ((Number) config.getOrDefault("arrowOffsetX", 20.0)).doubleValue();
+      
+      // 1. Add aircraft PNG layer (rotatable with map)
+      String aircraftLayerId = baseLayerId + "-aircraft";
+      SymbolLayer aircraftLayer = new SymbolLayer(aircraftLayerId, sourceId);
+      aircraftLayer.setProperties(
+          PropertyFactory.iconImage(aircraftIconId),
+          PropertyFactory.iconSize((float) aircraftIconSize),
+          PropertyFactory.iconRotate(Expression.get("rotation")),
+          PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP), // Rotates with map
+          PropertyFactory.iconAllowOverlap(true),
+          PropertyFactory.iconIgnorePlacement(true),
+          PropertyFactory.iconOpacity(Expression.get("triangleOpacity")) // Reuse triangleOpacity property
+      );
+      
+      // 2. Add top label layer (viewport aligned, stays horizontal)
+      String topLabelLayerId = baseLayerId + "-top-label";
+      SymbolLayer topLabelLayer = new SymbolLayer(topLabelLayerId, sourceId);
+      topLabelLayer.setProperties(
+          PropertyFactory.textField(Expression.get("topLabel")),
+          PropertyFactory.textFont(new String[]{"Open Sans Regular", "Arial Unicode MS Regular"}),
+          PropertyFactory.textSize(Expression.get("labelSize")),
+          PropertyFactory.textColor(Expression.get("labelColor")),
+          PropertyFactory.textHaloColor("#FFFFFF"),
+          PropertyFactory.textHaloWidth(2.0f),
+          PropertyFactory.textOffset(new Float[]{0.0f, (float) topLabelOffset}),
+          PropertyFactory.textRotationAlignment(Property.TEXT_ROTATION_ALIGNMENT_VIEWPORT), // Always horizontal
+          PropertyFactory.textAllowOverlap(true),
+          PropertyFactory.textIgnorePlacement(true)
+      );
+      
+      // 3. Add bottom label layer (viewport aligned, stays horizontal)
+      String bottomLabelLayerId = baseLayerId + "-bottom-label";
+      SymbolLayer bottomLabelLayer = new SymbolLayer(bottomLabelLayerId, sourceId);
+      bottomLabelLayer.setProperties(
+          PropertyFactory.textField(Expression.get("bottomLabel")),
+          PropertyFactory.textFont(new String[]{"Open Sans Regular", "Arial Unicode MS Regular"}),
+          PropertyFactory.textSize(Expression.get("labelSize")),
+          PropertyFactory.textColor(Expression.get("labelColor")),
+          PropertyFactory.textHaloColor("#FFFFFF"),
+          PropertyFactory.textHaloWidth(2.0f),
+          PropertyFactory.textOffset(new Float[]{0.0f, (float) bottomLabelOffset}),
+          PropertyFactory.textRotationAlignment(Property.TEXT_ROTATION_ALIGNMENT_VIEWPORT), // Always horizontal
+          PropertyFactory.textAllowOverlap(true),
+          PropertyFactory.textIgnorePlacement(true)
+      );
+      
+      // 4. Add arrow PNG layer (viewport aligned, fixed to right side)
+      String arrowLayerId = baseLayerId + "-arrow";
+      SymbolLayer arrowLayer = new SymbolLayer(arrowLayerId, sourceId);
+      arrowLayer.setProperties(
+          PropertyFactory.iconImage(
+              Expression.switchCase(
+                  Expression.get("isClimbing"),
+                  Expression.literal(upArrowIconId),
+                  Expression.literal(downArrowIconId)
+              )
+          ),
+          PropertyFactory.iconSize((float) arrowIconSize),
+          PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT), // Always upright
+          PropertyFactory.iconOffset(new Float[]{(float) arrowOffsetX, 0.0f}), // Fixed to right side
+          PropertyFactory.iconAllowOverlap(true),
+          PropertyFactory.iconIgnorePlacement(true),
+          PropertyFactory.iconOpacity(Expression.get("arrowOpacity"))
+      );
+      
+      // Add layers to style in proper order (aircraft first, then text on top, arrow last)
+      if (belowLayerId != null) {
+        style.addLayerBelow(aircraftLayer, belowLayerId);
+        style.addLayerAbove(topLabelLayer, aircraftLayerId);
+        style.addLayerAbove(bottomLabelLayer, topLabelLayerId);
+        style.addLayerAbove(arrowLayer, bottomLabelLayerId);
+      } else {
+        style.addLayer(aircraftLayer);
+        style.addLayer(topLabelLayer);
+        style.addLayer(bottomLabelLayer);
+        style.addLayer(arrowLayer);
+      }
+      
+      // Enable interaction if requested
+      if (enableInteraction) {
+        interactiveFeatureLayerIds.add(aircraftLayerId);
+        interactiveFeatureLayerIds.add(topLabelLayerId);
+        interactiveFeatureLayerIds.add(bottomLabelLayerId);
+        interactiveFeatureLayerIds.add(arrowLayerId);
+      }
+      
+      Log.d(TAG, "Successfully added rotatable symbol PNG layers: " + aircraftLayerId + ", " + topLabelLayerId + ", " + bottomLabelLayerId + ", " + arrowLayerId);
+      
+    } catch (Exception e) {
+      String errorMessage = "Failed to add rotatable symbol PNG layers '" + baseLayerId + "': " + e.getMessage();
+      Log.e(TAG, errorMessage, e);
+      throw new RuntimeException(errorMessage, e);
+    }
+  }
+  
+  /**
+   * Ensures a PNG asset exists in the map style.
+   * Loads the PNG from assets and registers it with a unique name.
+   * 
+   * @param assetPath Path to the PNG asset
+   * @param iconType Type identifier (e.g., "aircraft", "arrow-up", "arrow-down")
+   * @return The registered icon identifier
+   */
+  private String ensurePngAssetExists(String assetPath, String iconType) {
+    try {
+      // Create unique icon ID based on asset path and type
+      String iconId = "maplibre-png-" + iconType + "-" + assetPath.replaceAll("[^a-zA-Z0-9]", "-");
+      
+      // Check if icon already exists
+      if (style != null && style.getImage(iconId) != null) {
+        Log.v(TAG, "PNG icon already exists: " + iconId);
+        return iconId;
+      }
+      
+      Log.d(TAG, "Loading PNG asset: " + assetPath + " for icon type: " + iconType);
+      
+      // Try to load PNG directly from assets using Flutter asset resolution
+      Bitmap bitmap = loadAssetDirectly(assetPath);
+      if (bitmap == null) {
+        throw new RuntimeException("Failed to load PNG asset: " + assetPath);
+      }
+      
+      Log.d(TAG, "Successfully loaded bitmap: " + bitmap.getWidth() + "x" + bitmap.getHeight() + " pixels");
+      
+      // For arrow icons, we might want to create rotated versions
+      if (iconType.startsWith("arrow")) {
+        if (iconType.equals("arrow-up")) {
+          // Use bitmap as-is for up arrow
+        } else if (iconType.equals("arrow-down")) {
+          // Rotate bitmap 180 degrees for down arrow
+          bitmap = rotateBitmap(bitmap, 180);
+        }
+      }
+      
+      // Register the PNG icon
+      if (style != null) {
+        style.addImage(iconId, bitmap, false); // false = not SDF
+        Log.d(TAG, "Added PNG icon to style: " + iconId + " from " + assetPath);
+      } else {
+        throw new RuntimeException("Cannot add PNG icon: style is null");
+      }
+      
+      return iconId;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error ensuring PNG asset exists: " + assetPath + ", error: " + e.getMessage(), e);
+      throw new RuntimeException("Failed to load PNG asset: " + assetPath, e);
+    }
+  }
+  
+  /**
+   * Rotates a bitmap by the specified angle.
+   * 
+   * @param bitmap The bitmap to rotate
+   * @param angle The rotation angle in degrees
+   * @return The rotated bitmap
+   */
+  private Bitmap rotateBitmap(Bitmap bitmap, float angle) {
+    try {
+      android.graphics.Matrix matrix = new android.graphics.Matrix();
+      matrix.postRotate(angle);
+      return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+    } catch (Exception e) {
+      Log.e(TAG, "Error rotating bitmap: " + e.getMessage(), e);
+      return bitmap; // Return original if rotation fails
     }
   }
   

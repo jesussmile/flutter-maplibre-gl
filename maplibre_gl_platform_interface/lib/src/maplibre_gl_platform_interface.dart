@@ -189,6 +189,14 @@ abstract class MapLibrePlatform {
       String sourceId, String baseLayerId, Map<String, dynamic> properties,
       {String? belowLayerId, required bool enableInteraction});
 
+  /// Adds multi-layer rotatable symbol to the map using PNG assets.
+  /// Creates 4 synchronized layers: aircraft PNG, top label, bottom label, and side arrow PNG.
+  /// Similar to addRotatableSymbolLayers but uses PNG assets instead of programmatically created icons.
+  /// The aircraft PNG rotates with the map while labels and arrow remain viewport-aligned.
+  Future<void> addRotatableSymbolPngLayers(
+      String sourceId, String baseLayerId, Map<String, dynamic> properties,
+      {String? belowLayerId, required bool enableInteraction});
+
   Future<void> addFillLayer(
       String sourceId, String layerId, Map<String, dynamic> properties,
       {String? belowLayerId,
@@ -258,7 +266,8 @@ abstract class MapLibrePlatform {
   Future<void> ensureMeasurementLayersOnTop();
 
   // Polyline editing methods
-  Future<void> enableLineEditing(String lineId, bool enabled, [List<LatLng>? coordinates]);
+  Future<void> enableLineEditing(String lineId, bool enabled,
+      [List<LatLng>? coordinates]);
   Future<void> setLineEditingStyle(Map<String, dynamic> style);
   Future<bool> isLineEditable(String lineId);
 

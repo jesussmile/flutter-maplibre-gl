@@ -591,6 +591,26 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             case let .failure(error): result(error.flutterError)
             }
 
+        case "rotatableSymbolPngLayers#add":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let sourceId = arguments["sourceId"] as? String else { return }
+            guard let baseLayerId = arguments["baseLayerId"] as? String else { return }
+            guard let enableInteraction = arguments["enableInteraction"] as? Bool else { return }
+            guard let properties = arguments["properties"] as? [String: Any] else { return }
+            let belowLayerId = arguments["belowLayerId"] as? String
+            
+            let addResult = addRotatableSymbolPngLayers(
+                sourceId: sourceId,
+                baseLayerId: baseLayerId,
+                belowLayerId: belowLayerId,
+                properties: properties,
+                enableInteraction: enableInteraction
+            )
+            switch addResult {
+            case .success: result(nil)
+            case let .failure(error): result(error.flutterError)
+            }
+
         case "hillshadeLayer#add":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let sourceId = arguments["sourceId"] as? String else { return }
@@ -2229,6 +2249,233 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
 
     func setAttributionButtonPosition(position: MLNOrnamentPosition) {
         mapView.attributionButtonPosition = position
+    }
+    
+    // MARK: - Rotatable Symbol PNG Layers Implementation
+    
+    /**
+     * Adds a multi-layer rotatable symbol to the map using PNG assets.
+     * Creates 4 synchronized layers: aircraft PNG, top label, bottom label, and side arrow PNG.
+     * Similar to addRotatableSymbolLayers but uses PNG assets instead of programmatically created icons.
+     */
+    private func addRotatableSymbolPngLayers(
+        sourceId: String,
+        baseLayerId: String,
+        belowLayerId: String?,
+        properties: [String: Any],
+        enableInteraction: Bool
+    ) -> Result<Void, LayerError> {
+        
+        guard let style = mapView.style else {
+            return .failure(.styleNotLoaded)
+        }
+        
+        guard style.source(withIdentifier: sourceId) != nil else {
+            return .failure(.sourceNotFound)
+        }
+        
+        do {
+            NSLog("Adding rotatable symbol PNG layers with base ID: \(baseLayerId)")
+            
+            // Extract PNG asset configuration from properties
+            let config = properties["config"] as? [String: Any] ?? [:]
+            
+            // Extract PNG asset paths and sizes
+            guard let aircraftIconPath = config["aircraftIconPath"] as? String,
+                  !aircraftIconPath.isEmpty else {
+                return .failure(.invalidArguments(message: "aircraftIconPath is required in config for PNG layers"))
+            }
+            
+            guard let arrowIconPath = config["arrowIconPath"] as? String,
+                  !arrowIconPath.isEmpty else {
+                return .failure(.invalidArguments(message: "arrowIconPath is required in config for PNG layers"))
+            }
+            
+            let aircraftIconSize = config["aircraftIconSize"] as? Double ?? 0.4
+            let arrowIconSize = config["arrowIconSize"] as? Double ?? 0.3
+            
+            // Load and register PNG assets
+            let aircraftIconId = try ensurePngAssetExists(assetPath: aircraftIconPath, iconType: "aircraft")
+            let upArrowIconId = try ensurePngAssetExists(assetPath: arrowIconPath, iconType: "arrow-up")
+            let downArrowIconId = try ensurePngAssetExists(assetPath: arrowIconPath, iconType: "arrow-down")
+            
+            // Extract configuration from properties
+            let topLabelOffset = config["topLabelOffset"] as? Double ?? -2.5
+            let bottomLabelOffset = config["bottomLabelOffset"] as? Double ?? 2.5
+            let arrowOffsetX = config["arrowOffsetX"] as? Double ?? 20.0
+            
+            // 1. Add aircraft PNG layer (rotatable with map)
+            let aircraftLayerId = "\(baseLayerId)-aircraft"
+            let aircraftLayer = MLNSymbolStyleLayer(identifier: aircraftLayerId, source: style.source(withIdentifier: sourceId)!)
+            
+            aircraftLayer.iconImageName = NSExpression(forConstantValue: aircraftIconId)
+            aircraftLayer.iconScale = NSExpression(forConstantValue: aircraftIconSize)
+            aircraftLayer.iconRotation = NSExpression(forKeyPath: "rotation")
+            aircraftLayer.iconRotationAlignment = NSExpression(forConstantValue: "map") // Rotates with map
+            aircraftLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+            aircraftLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
+            aircraftLayer.iconOpacity = NSExpression(forKeyPath: "triangleOpacity") // Reuse triangleOpacity property
+            
+            // 2. Add top label layer (viewport aligned, stays horizontal)
+            let topLabelLayerId = "\(baseLayerId)-top-label"
+            let topLabelLayer = MLNSymbolStyleLayer(identifier: topLabelLayerId, source: style.source(withIdentifier: sourceId)!)
+            
+            topLabelLayer.text = NSExpression(forKeyPath: "topLabel")
+            topLabelLayer.textFontNames = NSExpression(forConstantValue: ["Arial-Bold"])
+            topLabelLayer.textFontSize = NSExpression(forKeyPath: "labelSize")
+            topLabelLayer.textColor = NSExpression(forKeyPath: "labelColor")
+            topLabelLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
+            topLabelLayer.textHaloWidth = NSExpression(forConstantValue: 2.0)
+            topLabelLayer.textOffset = NSExpression(forConstantValue: CGVector(dx: 0.0, dy: topLabelOffset))
+            topLabelLayer.textRotationAlignment = NSExpression(forConstantValue: "viewport") // Always horizontal
+            topLabelLayer.textAllowsOverlap = NSExpression(forConstantValue: true)
+            topLabelLayer.textIgnoresPlacement = NSExpression(forConstantValue: true)
+            
+            // 3. Add bottom label layer (viewport aligned, stays horizontal)
+            let bottomLabelLayerId = "\(baseLayerId)-bottom-label"
+            let bottomLabelLayer = MLNSymbolStyleLayer(identifier: bottomLabelLayerId, source: style.source(withIdentifier: sourceId)!)
+            
+            bottomLabelLayer.text = NSExpression(forKeyPath: "bottomLabel")
+            bottomLabelLayer.textFontNames = NSExpression(forConstantValue: ["Arial-Bold"])
+            bottomLabelLayer.textFontSize = NSExpression(forKeyPath: "labelSize")
+            bottomLabelLayer.textColor = NSExpression(forKeyPath: "labelColor")
+            bottomLabelLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
+            bottomLabelLayer.textHaloWidth = NSExpression(forConstantValue: 2.0)
+            bottomLabelLayer.textOffset = NSExpression(forConstantValue: CGVector(dx: 0.0, dy: bottomLabelOffset))
+            bottomLabelLayer.textRotationAlignment = NSExpression(forConstantValue: "viewport") // Always horizontal
+            bottomLabelLayer.textAllowsOverlap = NSExpression(forConstantValue: true)
+            bottomLabelLayer.textIgnoresPlacement = NSExpression(forConstantValue: true)
+            
+            // 4. Add arrow PNG layer (viewport aligned, fixed to right side)
+            let arrowLayerId = "\(baseLayerId)-arrow"
+            let arrowLayer = MLNSymbolStyleLayer(identifier: arrowLayerId, source: style.source(withIdentifier: sourceId)!)
+            
+            // Create conditional expression for arrow icon selection
+            let arrowIconExpression = NSExpression(
+                forConditional: NSExpression(forKeyPath: "isClimbing"),
+                trueExpression: NSExpression(forConstantValue: upArrowIconId),
+                falseExpression: NSExpression(forConstantValue: downArrowIconId)
+            )
+            
+            arrowLayer.iconImageName = arrowIconExpression
+            arrowLayer.iconScale = NSExpression(forConstantValue: arrowIconSize)
+            arrowLayer.iconRotationAlignment = NSExpression(forConstantValue: "viewport") // Always upright
+            arrowLayer.iconOffset = NSExpression(forConstantValue: CGVector(dx: arrowOffsetX, dy: 0.0)) // Fixed to right side
+            arrowLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+            arrowLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
+            arrowLayer.iconOpacity = NSExpression(forKeyPath: "arrowOpacity")
+            
+            // Add layers to style in proper order (aircraft first, then text on top, arrow last)
+            if let belowLayerId = belowLayerId,
+               let belowLayer = style.layer(withIdentifier: belowLayerId) {
+                style.insertLayer(aircraftLayer, below: belowLayer)
+                style.insertLayer(topLabelLayer, above: aircraftLayer)
+                style.insertLayer(bottomLabelLayer, above: topLabelLayer)
+                style.insertLayer(arrowLayer, above: bottomLabelLayer)
+            } else {
+                style.addLayer(aircraftLayer)
+                style.addLayer(topLabelLayer)
+                style.addLayer(bottomLabelLayer)
+                style.addLayer(arrowLayer)
+            }
+            
+            // Enable interaction if requested
+            if enableInteraction {
+                interactiveFeatureLayerIds.insert(aircraftLayerId)
+                interactiveFeatureLayerIds.insert(topLabelLayerId)
+                interactiveFeatureLayerIds.insert(bottomLabelLayerId)
+                interactiveFeatureLayerIds.insert(arrowLayerId)
+            }
+            
+            NSLog("Successfully added rotatable symbol PNG layers: \(aircraftLayerId), \(topLabelLayerId), \(bottomLabelLayerId), \(arrowLayerId)")
+            return .success(())
+            
+        } catch {
+            let errorMessage = "Failed to add rotatable symbol PNG layers '\(baseLayerId)': \(error.localizedDescription)"
+            NSLog(errorMessage)
+            return .failure(.genericError(details: errorMessage))
+        }
+    }
+    
+    /**
+     * Ensures a PNG asset exists in the map style.
+     * Loads the PNG from assets and registers it with a unique name.
+     */
+    private func ensurePngAssetExists(assetPath: String, iconType: String) throws -> String {
+        // Create unique icon ID based on asset path and type
+        let iconId = "maplibre-png-\(iconType)-\(assetPath.replacingOccurrences(of: "[^a-zA-Z0-9]", with: "-", options: .regularExpression))"
+        
+        // Check if icon already exists
+        if let style = mapView.style, style.image(forName: iconId) != nil {
+            NSLog("PNG icon already exists: \(iconId)")
+            return iconId
+        }
+        
+        // Load PNG from assets
+        guard let image = loadImageFromAssets(assetPath: assetPath) else {
+            throw LayerError.genericError(details: "Failed to load PNG asset: \(assetPath)")
+        }
+        
+        var finalImage = image
+        
+        // For arrow icons, we might want to create rotated versions
+        if iconType.hasPrefix("arrow") {
+            if iconType == "arrow-up" {
+                // Use image as-is for up arrow
+            } else if iconType == "arrow-down" {
+                // Rotate image 180 degrees for down arrow
+                finalImage = rotateImage(image: image, angle: .pi) // 180 degrees in radians
+            }
+        }
+        
+        // Register the PNG icon
+        guard let style = mapView.style else {
+            throw LayerError.styleNotLoaded
+        }
+        
+        style.setImage(finalImage, forName: iconId)
+        NSLog("Added PNG icon to style: \(iconId) from \(assetPath)")
+        
+        return iconId
+    }
+    
+    /**
+     * Loads an image from Flutter assets.
+     */
+    private func loadImageFromAssets(assetPath: String) -> UIImage? {
+        let assetKey = registrar.lookupKey(forAsset: assetPath)
+        
+        guard let path = Bundle.main.path(forResource: assetKey, ofType: nil),
+              let image = UIImage(contentsOfFile: path) else {
+            NSLog("Failed to load image from assets: \(assetPath)")
+            return nil
+        }
+        
+        return image
+    }
+    
+    /**
+     * Rotates an image by the specified angle.
+     */
+    private func rotateImage(image: UIImage, angle: CGFloat) -> UIImage {
+        let size = image.size
+        
+        UIGraphicsBeginImageContextWithOptions(size, false, image.scale)
+        defer { UIGraphicsEndImageContext() }
+        
+        guard let context = UIGraphicsGetCurrentContext() else {
+            return image // Return original if rotation fails
+        }
+        
+        // Move to center, rotate, then move back
+        context.translateBy(x: size.width / 2, y: size.height / 2)
+        context.rotate(by: angle)
+        context.translateBy(x: -size.width / 2, y: -size.height / 2)
+        
+        // Draw the image
+        image.draw(in: CGRect(origin: .zero, size: size))
+        
+        return UIGraphicsGetImageFromCurrentImageContext() ?? image
     }
     
     // MARK: - Rotatable Symbol Layers Implementation
