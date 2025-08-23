@@ -4377,39 +4377,53 @@ final class MapLibreMapController
   }
 
   /**
-   * Helper method to load arrow PNG assets and create rotated variants.
-   * Creates both up and down arrow versions from a single arrow asset.
+   * Helper method to load all colored arrow PNG assets and create rotated variants.
+   * Creates both up and down arrow versions for all proximity colors (red, yellow, blue, green).
    */
-  private void loadArrowPngAssets(String arrowAssetPath) {
-    Log.d(TAG, "Loading arrow PNG assets from: " + arrowAssetPath);
+  private void loadColoredArrowPngAssets() {
+    Log.d(TAG, "Loading colored arrow PNG assets for all proximity colors");
+    
+    // Define all arrow color variants
+    String[] arrowColors = {"red", "yellow", "blue", "green"};
+    String[] arrowAssetPaths = {
+        "arrow_red.png",
+        "arrow_yellow.png", 
+        "arrow_blue.png",
+        "arrow_green.png"
+    };
     
     try {
-      // Load the base arrow bitmap
-      Bitmap baseBitmap = loadPngAsset(arrowAssetPath);
-      
-      if (baseBitmap != null) {
-        // Create up arrow (use bitmap as-is)
-        String upArrowId = "aircraft-arrow-up";
-        if (style != null && style.getImage(upArrowId) == null) {
-          style.addImage(upArrowId, baseBitmap, false); // false = not SDF to preserve arrow appearance
-          Log.d(TAG, "Added up arrow icon: " + upArrowId);
-        }
+      for (int i = 0; i < arrowColors.length; i++) {
+        String color = arrowColors[i];
+        String assetPath = arrowAssetPaths[i];
         
-        // Create down arrow (rotate 180 degrees)
-        String downArrowId = "aircraft-arrow-down";
-        if (style != null && style.getImage(downArrowId) == null) {
-          Bitmap downBitmap = rotateBitmap(baseBitmap, 180);
-          style.addImage(downArrowId, downBitmap, false); // false = not SDF to preserve arrow appearance
-          Log.d(TAG, "Added down arrow icon: " + downArrowId);
-        }
+        // Load the base arrow bitmap for this color
+        Bitmap baseBitmap = loadPngAsset(assetPath);
         
-        Log.d(TAG, "Successfully loaded arrow PNG assets with rotation");
-      } else {
-        throw new RuntimeException("Failed to load arrow PNG asset: " + arrowAssetPath);
+        if (baseBitmap != null) {
+          // Create up arrow (use bitmap as-is)
+          String upArrowId = "arrow-" + color + "-up";
+          if (style != null && style.getImage(upArrowId) == null) {
+            style.addImage(upArrowId, baseBitmap, false); // false = not SDF to preserve colors
+            Log.d(TAG, "Added " + color + " up arrow icon: " + upArrowId);
+          }
+          
+          // Create down arrow (rotate 180 degrees)
+          String downArrowId = "arrow-" + color + "-down";
+          if (style != null && style.getImage(downArrowId) == null) {
+            Bitmap downBitmap = rotateBitmap(baseBitmap, 180);
+            style.addImage(downArrowId, downBitmap, false); // false = not SDF to preserve colors
+            Log.d(TAG, "Added " + color + " down arrow icon: " + downArrowId);
+          }
+        } else {
+          Log.w(TAG, "Failed to load arrow asset: " + assetPath + ", skipping " + color + " arrows");
+        }
       }
+      
+      Log.d(TAG, "Successfully loaded all colored arrow PNG assets with rotation");
     } catch (Exception e) {
-      Log.e(TAG, "Error loading arrow PNG assets: " + e.getMessage(), e);
-      throw new RuntimeException("Failed to load arrow PNG assets: " + arrowAssetPath, e);
+      Log.e(TAG, "Error loading colored arrow PNG assets: " + e.getMessage(), e);
+      throw new RuntimeException("Failed to load colored arrow PNG assets", e);
     }
   }
 
@@ -4518,8 +4532,8 @@ final class MapLibreMapController
       // Load PNG assets for traffic icons
       loadMultiplePngAssets(trafficAssetPaths, trafficIconIds);
       
-      // Load arrow PNG assets (both up and down variants)
-      loadArrowPngAssets(arrowIconPath);
+      // Load arrow PNG assets (all color variants for both up and down directions)
+      loadColoredArrowPngAssets();
       
       // Load the primary aircraft icon (for fallback)
       String[] primaryAssetPaths = { aircraftIconPath };
@@ -4581,16 +4595,41 @@ final class MapLibreMapController
           PropertyFactory.textIgnorePlacement(true)
       );
       
-      // 4. Add arrow layer (right side, viewport aligned) with dynamic direction
+      // 4. Add arrow layer (right side, viewport aligned) with dynamic color matching aircraft
       String arrowLayerId = baseLayerId + "-arrow";
       SymbolLayer arrowLayer = new SymbolLayer(arrowLayerId, sourceId);
       arrowLayer.setProperties(
-          // Use conditional arrow direction based on isClimbing property
+          // Use conditional arrow color and direction based on proximity distance and climbing state
           PropertyFactory.iconImage(
               Expression.switchCase(
-                  Expression.get("isClimbing"),
-                  Expression.literal("aircraft-arrow-up"),    // Up arrow when climbing
-                  Expression.literal("aircraft-arrow-down")   // Down arrow when descending
+                  // First determine color based on proximity (same logic as aircraft)
+                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(2.0)),
+                  // Red arrows for critical proximity (<2nm)
+                  Expression.switchCase(
+                      Expression.get("isClimbing"),
+                      Expression.literal("arrow-red-up"),
+                      Expression.literal("arrow-red-down")
+                  ),
+                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(5.0)),
+                  // Yellow arrows for warning proximity (2-5nm)
+                  Expression.switchCase(
+                      Expression.get("isClimbing"),
+                      Expression.literal("arrow-yellow-up"),
+                      Expression.literal("arrow-yellow-down")
+                  ),
+                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(10.0)),
+                  // Blue arrows for caution proximity (5-10nm)
+                  Expression.switchCase(
+                      Expression.get("isClimbing"),
+                      Expression.literal("arrow-blue-up"),
+                      Expression.literal("arrow-blue-down")
+                  ),
+                  // Green arrows for safe distance (>10nm)
+                  Expression.switchCase(
+                      Expression.get("isClimbing"),
+                      Expression.literal("arrow-green-up"),
+                      Expression.literal("arrow-green-down")
+                  )
               )
           ),
           PropertyFactory.iconSize(((Number) arrowIconSize).floatValue()),

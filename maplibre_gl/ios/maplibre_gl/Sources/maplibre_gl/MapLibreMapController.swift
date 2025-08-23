@@ -2333,8 +2333,9 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             
             // Load and register PNG assets
             let aircraftIconId = try ensurePngAssetExists(assetPath: aircraftIconPath, iconType: "aircraft")
-            let upArrowIconId = try ensurePngAssetExists(assetPath: arrowIconPath, iconType: "arrow-up")
-            let downArrowIconId = try ensurePngAssetExists(assetPath: arrowIconPath, iconType: "arrow-down")
+            
+            // Load and register colored arrow PNG assets (all colors)
+            try loadColoredArrowPngAssets()
             
             // Extract configuration from properties
             let topLabelOffset = config["topLabelOffset"] as? Double ?? -2.5
@@ -2383,15 +2384,53 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             bottomLabelLayer.textAllowsOverlap = NSExpression(forConstantValue: true)
             bottomLabelLayer.textIgnoresPlacement = NSExpression(forConstantValue: true)
             
-            // 4. Add arrow PNG layer (viewport aligned, fixed to right side)
+            // 4. Add arrow PNG layer (viewport aligned, fixed to right side) with colored arrows
             let arrowLayerId = "\(baseLayerId)-arrow"
             let arrowLayer = MLNSymbolStyleLayer(identifier: arrowLayerId, source: style.source(withIdentifier: sourceId)!)
             
-            // Create conditional expression for arrow icon selection
+            // Create complex conditional expression for colored arrows matching aircraft proximity
+            // First check proximity distance, then check climbing state for each color
             let arrowIconExpression = NSExpression(
-                forConditional: NSExpression(forKeyPath: "isClimbing"),
-                trueExpression: NSExpression(forConstantValue: upArrowIconId),
-                falseExpression: NSExpression(forConstantValue: downArrowIconId)
+                forConditional: NSExpression(forFunction: "<", arguments: [
+                    NSExpression(forKeyPath: "proximityDistance"), 
+                    NSExpression(forConstantValue: 2.0)
+                ]),
+                // Red arrows for critical proximity (<2nm)
+                trueExpression: NSExpression(
+                    forConditional: NSExpression(forKeyPath: "isClimbing"),
+                    trueExpression: NSExpression(forConstantValue: "arrow-red-up"),
+                    falseExpression: NSExpression(forConstantValue: "arrow-red-down")
+                ),
+                falseExpression: NSExpression(
+                    forConditional: NSExpression(forFunction: "<", arguments: [
+                        NSExpression(forKeyPath: "proximityDistance"),
+                        NSExpression(forConstantValue: 5.0)
+                    ]),
+                    // Yellow arrows for warning proximity (2-5nm)
+                    trueExpression: NSExpression(
+                        forConditional: NSExpression(forKeyPath: "isClimbing"),
+                        trueExpression: NSExpression(forConstantValue: "arrow-yellow-up"),
+                        falseExpression: NSExpression(forConstantValue: "arrow-yellow-down")
+                    ),
+                    falseExpression: NSExpression(
+                        forConditional: NSExpression(forFunction: "<", arguments: [
+                            NSExpression(forKeyPath: "proximityDistance"),
+                            NSExpression(forConstantValue: 10.0)
+                        ]),
+                        // Blue arrows for caution proximity (5-10nm)
+                        trueExpression: NSExpression(
+                            forConditional: NSExpression(forKeyPath: "isClimbing"),
+                            trueExpression: NSExpression(forConstantValue: "arrow-blue-up"),
+                            falseExpression: NSExpression(forConstantValue: "arrow-blue-down")
+                        ),
+                        // Green arrows for safe distance (>10nm)
+                        falseExpression: NSExpression(
+                            forConditional: NSExpression(forKeyPath: "isClimbing"),
+                            trueExpression: NSExpression(forConstantValue: "arrow-green-up"),
+                            falseExpression: NSExpression(forConstantValue: "arrow-green-down")
+                        )
+                    )
+                )
             )
             
             arrowLayer.iconImageName = arrowIconExpression
@@ -2474,6 +2513,54 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         NSLog("Added PNG icon to style: \(iconId) from \(assetPath)")
         
         return iconId
+    }
+    
+    /**
+     * Loads all colored arrow PNG assets and creates rotated variants.
+     * Creates both up and down arrow versions for all proximity colors (red, yellow, blue, green).
+     */
+    private func loadColoredArrowPngAssets() throws {
+        NSLog("Loading colored arrow PNG assets for all proximity colors")
+        
+        // Define all arrow color variants
+        let arrowColors = ["red", "yellow", "blue", "green"]
+        let arrowAssetPaths = [
+            "arrow_red.png",
+            "arrow_yellow.png", 
+            "arrow_blue.png",
+            "arrow_green.png"
+        ]
+        
+        guard let style = mapView.style else {
+            throw LayerError.styleNotLoaded
+        }
+        
+        for (index, color) in arrowColors.enumerated() {
+            let assetPath = arrowAssetPaths[index]
+            
+            // Load the base arrow image for this color
+            guard let baseImage = loadImageFromAssets(assetPath: assetPath) else {
+                NSLog("Failed to load arrow asset: \(assetPath), skipping \(color) arrows")
+                continue
+            }
+            
+            // Create up arrow (use image as-is)
+            let upArrowId = "arrow-\(color)-up"
+            if style.image(forName: upArrowId) == nil {
+                style.setImage(baseImage, forName: upArrowId)
+                NSLog("Added \(color) up arrow icon: \(upArrowId)")
+            }
+            
+            // Create down arrow (rotate 180 degrees)
+            let downArrowId = "arrow-\(color)-down"
+            if style.image(forName: downArrowId) == nil {
+                let downImage = rotateImage(image: baseImage, angle: .pi) // 180 degrees
+                style.setImage(downImage, forName: downArrowId)
+                NSLog("Added \(color) down arrow icon: \(downArrowId)")
+            }
+        }
+        
+        NSLog("Successfully loaded all colored arrow PNG assets with rotation")
     }
     
     /**

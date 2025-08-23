@@ -47,3 +47,7 @@ flutter:
     - assets/traffic_yellow.png
     - assets/traffic_blue.png
     - assets/traffic_green.png
+    - assets/arrow_red.png
+    - assets/arrow_yellow.png
+    - assets/arrow_blue.png
+    - assets/arrow_green.png
