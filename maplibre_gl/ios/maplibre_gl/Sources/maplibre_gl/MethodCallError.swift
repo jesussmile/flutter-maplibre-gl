@@ -8,6 +8,9 @@ enum MethodCallError: Error {
     case sourceNotFound(sourceId: String)
     case layerNotFound(layerId: String)
     case styleNotFound
+    case styleNotLoaded
+    case invalidArguments(String)
+    case unknown(String)
     case sourceAlreadyExists(sourceId: String)
     case layerAlreadyExists(layerId: String)
     case geojsonParseError(sourceId: String)
@@ -28,13 +31,18 @@ enum MethodCallError: Error {
             return "layerNotFound"
         case .styleNotFound:
             return "styleNotFound"
+        case .styleNotLoaded:
+            return "styleNotLoaded"
+        case .invalidArguments:
+            return "invalidArguments"
+        case .unknown:
+            return "unknown"
         case .sourceAlreadyExists:
             return "sourceAlreadyExists"
         case .layerAlreadyExists:
             return "layerAlreadyExists"
         case .geojsonParseError:
             return "parseError"
-
         }
     }
 
@@ -54,6 +62,12 @@ enum MethodCallError: Error {
             return "Layer not found"
         case .styleNotFound:
             return "Style not found"
+        case .styleNotLoaded:
+            return "Style not loaded"
+        case .invalidArguments:
+            return "Invalid arguments"
+        case .unknown:
+            return "Unknown error"
         case .sourceAlreadyExists:
             return "Source already exists"
         case .layerAlreadyExists:
@@ -79,6 +93,12 @@ enum MethodCallError: Error {
             return "Layer with id \(layerId) not found."
         case .styleNotFound:
             return "Style not found."
+        case .styleNotLoaded:
+            return "Style not loaded."
+        case let .invalidArguments(details):
+            return details
+        case let .unknown(details):
+            return details
         case let .sourceAlreadyExists(sourceId):
             return "Source with id \(sourceId) already exists."
         case let .layerAlreadyExists(layerId):

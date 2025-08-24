@@ -28,7 +28,7 @@ class MLNTriangleCustomStyleLayer: MLNCustomStyleLayer {
     private var instances: [TriangleInstance] = []
     
     // MARK: - Initialization
-    init(identifier: String) {
+    override init(identifier: String) {
         super.init(identifier: identifier)
     }
     
@@ -136,7 +136,7 @@ class MLNTriangleCustomStyleLayer: MLNCustomStyleLayer {
     }
     
     // MARK: - MLNCustomStyleLayer Override
-    override func drawInMapView(_ mapView: MLNMapView, withContext context: MLNStyleLayerDrawingContext) {
+    override func draw(in mapView: MLNMapView, with context: MLNStyleLayerDrawingContext) {
         // Check if Metal is available and get the render encoder
         guard let renderEncoder = self.renderEncoder else {
             print("No Metal render encoder available - Metal backend may not be active")

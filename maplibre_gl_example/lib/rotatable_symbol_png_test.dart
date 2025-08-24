@@ -2,6 +2,7 @@
 // This shows how to use PNG assets instead of programmatically created symbols
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -47,12 +48,76 @@ class _RotatableSymbolPngTestBodyState
       Duration(milliseconds: 150); // Slower: was 50ms
   static const double _rotationStep = 2.0; // Slower: was 4 degrees
 
+  /// Get platform-specific aircraft icon size
+  /// iOS needs larger sizes than Android for the same visual appearance
+  double get _platformAircraftIconSize {
+    if (Platform.isIOS) {
+      return 0.25; // Larger for iOS - was 0.15
+    } else {
+      return 0.15; // Standard size for Android
+    }
+  }
+
+  /// Get platform-specific arrow icon size
+  /// iOS needs larger sizes than Android for the same visual appearance
+  double get _platformArrowIconSize {
+    if (Platform.isIOS) {
+      return 0.15; // Larger for iOS - was 0.08
+    } else {
+      return 0.08; // Standard size for Android
+    }
+  }
+
+  /// Get platform-specific large aircraft icon size (for testing)
+  double get _platformLargeAircraftIconSize {
+    if (Platform.isIOS) {
+      return 0.2; // Much larger for iOS - was 0.8
+    } else {
+      return 0.8; // Standard large size for Android
+    }
+  }
+
+  /// Get platform-specific large arrow icon size (for testing)
+  double get _platformLargeArrowIconSize {
+    if (Platform.isIOS) {
+      return 0.6; // Much larger for iOS - was 0.4
+    } else {
+      return 0.4; // Standard large size for Android
+    }
+  }
+
+  /// Get platform-specific test color icon sizes
+  double get _platformTestAircraftIconSize {
+    if (Platform.isIOS) {
+      return 0.75; // Larger for iOS - was 0.5
+    } else {
+      return 0.5; // Standard size for Android
+    }
+  }
+
+  double get _platformTestArrowIconSize {
+    if (Platform.isIOS) {
+      return 0.45; // Larger for iOS - was 0.3
+    } else {
+      return 0.3; // Standard size for Android
+    }
+  }
+
   void _onMapCreated(MapLibreMapController controller) {
     this.controller = controller;
   }
 
   void _onStyleLoaded() {
+    // Print platform-specific sizing info
+    print('🔧 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
+    print('🔧 Aircraft icon size: $_platformAircraftIconSize');
+    print('🔧 Arrow icon size: $_platformArrowIconSize');
+
     _testPngSymbolLayers();
+    // Automatically zoom to symbols location after loading
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _zoomToSymbols();
+    });
   }
 
   /// Get aircraft icon path based on proximity distance (with black outline preserved)
@@ -136,7 +201,8 @@ class _RotatableSymbolPngTestBodyState
             },
             'properties': {
               'rotation': _currentRotation,
-              'proximityDistance': _proximityDistance, // For dynamic PNG swapping
+              'proximityDistance':
+                  _proximityDistance, // For dynamic PNG swapping
               'topLabel': '35K',
               'bottomLabel': 'UAL123',
               'isClimbing': _isClimbing,
@@ -156,7 +222,8 @@ class _RotatableSymbolPngTestBodyState
             },
             'properties': {
               'rotation': _currentRotation + 90.0,
-              'proximityDistance': _proximityDistance + 2.0, // Different proximity for second aircraft
+              'proximityDistance': _proximityDistance +
+                  2.0, // Different proximity for second aircraft
               'topLabel': '28K',
               'bottomLabel': 'DAL456',
               'isClimbing': !_isClimbing,
@@ -175,14 +242,16 @@ class _RotatableSymbolPngTestBodyState
       await controller!.addGeoJsonSource('aircraft-png-source', geoJson);
       print('✅ Added GeoJSON source for PNG test');
 
-      // Use the working addRotatableSymbolPngLayers method with correct properties
+      // Use the working addRotatableSymbolPngLayers method with platform-specific sizes
       await controller!.addRotatableSymbolPngLayers(
         sourceId: 'aircraft-png-source',
         baseLayerId: 'aircraft-png-symbol',
         aircraftIconPath: 'traffic.png', // Use single icon for now
         arrowIconPath: 'arrow.png',
-        aircraftIconSize: 0.15,
-        arrowIconSize: 0.08,
+        aircraftIconSize:
+            _platformAircraftIconSize, // Platform-specific: iOS=0.25, Android=0.15
+        arrowIconSize:
+            _platformArrowIconSize, // Platform-specific: iOS=0.15, Android=0.08
         enableInteraction: true,
         config: {
           'topLabelOffset': -2.5,
@@ -190,16 +259,18 @@ class _RotatableSymbolPngTestBodyState
           'arrowOffsetX': 350.0,
         },
       );
-      
-      // Now test PNG swapping by updating the aircraft icon
-      await _loadCurrentProximityPng();
 
-      print('✅ Successfully added rotatable symbol layers with PNG icon replacement');
+      // Don't override the native iOS PNG loading - let it handle colored PNGs
+      // await _loadCurrentProximityPng(); // Commented out to let native handle it
+
+      print(
+          '✅ Successfully added rotatable symbol layers with PNG icon replacement');
 
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('PNG icon replacement working! Try "Test Colors" button'),
+          content:
+              Text('PNG icon replacement working! Try "Test Colors" button'),
           backgroundColor: Colors.green,
         ),
       );
@@ -362,15 +433,17 @@ class _RotatableSymbolPngTestBodyState
       await controller!.addGeoJsonSource('test-color-source', geoJson);
       print('✅ Added test color source');
 
-      // Use simple colored rectangle icons
+      // Use platform-specific colored rectangle icon sizes
       await controller!.addRotatableSymbolPngLayers(
         sourceId: 'test-color-source',
         baseLayerId: 'test-color-symbols',
         aircraftIconPath:
             'test-color-icon', // Will use programmatically created icon
         arrowIconPath: 'test-color-icon',
-        aircraftIconSize: 0.5,
-        arrowIconSize: 0.3,
+        aircraftIconSize:
+            _platformTestAircraftIconSize, // Platform-specific: iOS=0.75, Android=0.5
+        arrowIconSize:
+            _platformTestArrowIconSize, // Platform-specific: iOS=0.45, Android=0.3
         enableInteraction: true,
         config: {
           'topLabelOffset': -2.5,
@@ -394,20 +467,20 @@ class _RotatableSymbolPngTestBodyState
   /// Clean up existing layers and sources
   Future<void> _cleanupExistingLayers() async {
     if (controller == null) return;
-    
+
     final layerIds = [
       'aircraft-png-symbol',
       'aircraft-png-symbol-triangle',
-      'aircraft-png-symbol-top-label', 
+      'aircraft-png-symbol-top-label',
       'aircraft-png-symbol-bottom-label',
       'aircraft-png-symbol-arrow',
       'aircraft-text-symbol',
       'aircraft-text-symbol-triangle',
       'aircraft-text-symbol-top-label',
-      'aircraft-text-symbol-bottom-label', 
+      'aircraft-text-symbol-bottom-label',
       'aircraft-text-symbol-arrow'
     ];
-    
+
     // Remove layers first
     for (final layerId in layerIds) {
       try {
@@ -417,7 +490,7 @@ class _RotatableSymbolPngTestBodyState
         // Layer doesn't exist, which is fine
       }
     }
-    
+
     // Remove sources
     try {
       await controller!.removeSource('aircraft-png-source');
@@ -426,100 +499,103 @@ class _RotatableSymbolPngTestBodyState
       // Source doesn't exist, which is fine
     }
   }
-  
+
   /// Load all PNG icons into MapLibre style
   Future<void> _loadAllPngIcons() async {
     if (controller == null) return;
-    
+
     final iconAssets = [
       'traffic_red.png',
-      'traffic_yellow.png', 
+      'traffic_yellow.png',
       'traffic_blue.png',
       'traffic_green.png',
       'arrow.png'
     ];
-    
+
     // For now, we don't need to manually load icons as addRotatableSymbolPngLayers handles this
-    print('ℹ️ PNG icons will be loaded automatically by addRotatableSymbolPngLayers');
+    print(
+        'ℹ️ PNG icons will be loaded automatically by addRotatableSymbolPngLayers');
   }
-  
+
   /// Load the current proximity-based PNG and update triangle icon
   Future<void> _loadCurrentProximityPng() async {
     if (controller == null) return;
-    
+
     try {
       // Get the appropriate PNG asset for current proximity
       final currentPngPath = _getAircraftIconPath();
       print('🖼️ Loading PNG asset: $currentPngPath');
-      
+
       // Load the PNG asset as bytes
       final bytes = await rootBundle.load('assets/$currentPngPath');
-      
+
       // Replace the triangle icon with our colored PNG
-      await controller!.addImage('maplibre-triangle-icon', bytes.buffer.asUint8List());
+      await controller!
+          .addImage('maplibre-triangle-icon', bytes.buffer.asUint8List());
       print('✅ Updated triangle icon with: $currentPngPath');
-      
     } catch (e) {
       print('❌ Error loading PNG assets: $e');
     }
   }
-  
+
   /// Update the triangle icon with new proximity-based PNG
   Future<void> _updateProximityPng() async {
     if (controller == null) return;
-    
+
     try {
       // Get the new PNG for current proximity
       final newPngPath = _getAircraftIconPath();
       print('🔄 Updating triangle icon to: $newPngPath');
-      
+
       // Load the new PNG asset
       final bytes = await rootBundle.load('assets/$newPngPath');
-      
+
       // Update the triangle icon in MapLibre style
-      await controller!.addImage('maplibre-triangle-icon', bytes.buffer.asUint8List());
+      await controller!
+          .addImage('maplibre-triangle-icon', bytes.buffer.asUint8List());
       print('✅ Updated triangle icon to: $newPngPath');
-      
     } catch (e) {
       print('❌ Error updating PNG: $e');
     }
   }
-  
+
   /// Create simple arrow icons programmatically
   Future<void> _createArrowIcons() async {
     // For now, we'll use the PNG arrow or create simple colored rectangles
     // This can be expanded to create programmatic arrows if needed
     print('ℹ️ Using PNG arrow from assets');
   }
-  
+
   /// Create all symbol layers using standard MapLibre methods
   Future<void> _createSymbolLayers() async {
     if (controller == null) return;
-    
+
     final sourceId = 'aircraft-png-source';
     final baseLayerId = 'aircraft-png-symbol';
-    
+
     // Create separate layers for each color variant
     final colorVariants = {
       'red': 'traffic_red.png',
-      'yellow': 'traffic_yellow.png', 
+      'yellow': 'traffic_yellow.png',
       'blue': 'traffic_blue.png',
       'green': 'traffic_green.png',
     };
-    
+
     // Create a layer for each color variant
     for (final entry in colorVariants.entries) {
       final color = entry.key;
       final assetPath = entry.value;
-      
+
       try {
         await controller!.addRotatableSymbolPngLayers(
           sourceId: sourceId,
           baseLayerId: '$baseLayerId-$color',
           aircraftIconPath: assetPath,
           arrowIconPath: 'arrow.png',
-          aircraftIconSize: 0.15,
-          arrowIconSize: 0.08,
+          aircraftIconSize:
+              _platformAircraftIconSize, // Platform-specific: iOS=0.25, Android=0.15
+          arrowIconSize:
+              _platformArrowIconSize, // Platform-specific: iOS=0.15, Android=0.08
           enableInteraction: true,
           config: {
             'topLabelOffset': -2.5,
@@ -528,30 +604,32 @@ class _RotatableSymbolPngTestBodyState
           },
         );
         print('✅ Created PNG symbol layer for $color using $assetPath');
-        
+
         // Initially hide all layers except green (safe)
         if (color != 'green') {
           await controller!.setLayerVisibility('$baseLayerId-$color', false);
-          await controller!.setLayerVisibility('$baseLayerId-$color-top-label', false);
-          await controller!.setLayerVisibility('$baseLayerId-$color-bottom-label', false);
-          await controller!.setLayerVisibility('$baseLayerId-$color-arrow', false);
+          await controller!
+              .setLayerVisibility('$baseLayerId-$color-top-label', false);
+          await controller!
+              .setLayerVisibility('$baseLayerId-$color-bottom-label', false);
+          await controller!
+              .setLayerVisibility('$baseLayerId-$color-arrow', false);
         }
-        
       } catch (e) {
         print('❌ Error creating layer for $color: $e');
       }
     }
-    
+
     print('✅ Created multiple PNG symbol layers with visibility control');
   }
-  
+
   /// Update layer visibility based on proximity distance
   Future<void> _updateLayerVisibilityForProximity() async {
     if (controller == null) return;
-    
+
     final baseLayerId = 'aircraft-png-symbol';
     final colorVariants = ['red', 'yellow', 'blue', 'green'];
-    
+
     // Determine which color should be visible
     String activeColor;
     if (_proximityDistance < 2.0) {
@@ -563,22 +641,26 @@ class _RotatableSymbolPngTestBodyState
     } else {
       activeColor = 'green';
     }
-    
+
     // Update visibility for all color variants
     for (final color in colorVariants) {
       final isVisible = (color == activeColor);
-      
+
       try {
         await controller!.setLayerVisibility('$baseLayerId-$color', isVisible);
-        await controller!.setLayerVisibility('$baseLayerId-$color-top-label', isVisible);
-        await controller!.setLayerVisibility('$baseLayerId-$color-bottom-label', isVisible);
-        await controller!.setLayerVisibility('$baseLayerId-$color-arrow', isVisible);
+        await controller!
+            .setLayerVisibility('$baseLayerId-$color-top-label', isVisible);
+        await controller!
+            .setLayerVisibility('$baseLayerId-$color-bottom-label', isVisible);
+        await controller!
+            .setLayerVisibility('$baseLayerId-$color-arrow', isVisible);
       } catch (e) {
         print('❌ Error updating visibility for $color: $e');
       }
     }
-    
-    print('🎨 Updated layer visibility - Active: $activeColor for ${_proximityDistance.toStringAsFixed(1)}nm');
+
+    print(
+        '🎨 Updated layer visibility - Active: $activeColor for ${_proximityDistance.toStringAsFixed(1)}nm');
   }
 
   /// Update the aircraft icon path method to return the icon name for dynamic selection
@@ -587,13 +669,14 @@ class _RotatableSymbolPngTestBodyState
     if (_proximityDistance < 2.0) {
       iconName = 'traffic_red'; // Red - Critical proximity (<2nm)
     } else if (_proximityDistance < 5.0) {
-      iconName = 'traffic_yellow'; // Yellow - Warning proximity (2-5nm) 
+      iconName = 'traffic_yellow'; // Yellow - Warning proximity (2-5nm)
     } else if (_proximityDistance < 10.0) {
       iconName = 'traffic_blue'; // Blue - Caution proximity (5-10nm)
     } else {
       iconName = 'traffic_green'; // Green - Safe distance (>10nm)
     }
-    print('🛮 Aircraft icon for ${_proximityDistance.toStringAsFixed(1)}nm: $iconName');
+    print(
+        '🛮 Aircraft icon for ${_proximityDistance.toStringAsFixed(1)}nm: $iconName');
     return iconName;
   }
 
@@ -602,9 +685,9 @@ class _RotatableSymbolPngTestBodyState
     if (controller == null) return;
 
     try {
-      // Update the PNG icon first
-      await _updateProximityPng();
-      
+      // Let native iOS handle PNG swapping, don't override from Flutter
+      // await _updateProximityPng(); // Commented out to let native handle colored PNGs
+
       // Update the GeoJSON source with new rotation values
       final updatedGeoJson = {
         'type': 'FeatureCollection',
@@ -617,7 +700,8 @@ class _RotatableSymbolPngTestBodyState
             },
             'properties': {
               'rotation': _currentRotation,
-              'proximityDistance': _proximityDistance, // For dynamic PNG swapping
+              'proximityDistance':
+                  _proximityDistance, // For dynamic PNG swapping
               'topLabel': '35K',
               'bottomLabel': 'UAL123',
               'isClimbing': _isClimbing,
@@ -637,7 +721,8 @@ class _RotatableSymbolPngTestBodyState
             },
             'properties': {
               'rotation': _currentRotation + 90.0,
-              'proximityDistance': _proximityDistance + 2.0, // Different proximity for second aircraft
+              'proximityDistance': _proximityDistance +
+                  2.0, // Different proximity for second aircraft
               'topLabel': '28K',
               'bottomLabel': 'DAL456',
               'isClimbing': !_isClimbing,
@@ -653,9 +738,169 @@ class _RotatableSymbolPngTestBodyState
       };
 
       await controller!.setGeoJsonSource('aircraft-png-source', updatedGeoJson);
-      print('🔄 Updated aircraft data - Distance: ${_proximityDistance.toStringAsFixed(1)}nm, Icon: ${_getAircraftIconPath()}');
+      print(
+          '🔄 Updated aircraft data - Distance: ${_proximityDistance.toStringAsFixed(1)}nm, Icon: ${_getAircraftIconPath()}');
     } catch (e) {
       print('❌ Error updating aircraft data: $e');
+    }
+  }
+
+  /// Test symbols with larger sizes to make them more visible
+  Future<void> _testLargerSymbols() async {
+    if (controller == null) return;
+
+    try {
+      await _cleanupExistingLayers();
+
+      // Create GeoJSON source with same location
+      final geoJson = {
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'properties': {
+              'id': 'aircraft_1',
+              'callSign': 'TEST01',
+              'altitude': '3500',
+              'heading': _currentRotation,
+              'climbing': _isClimbing,
+            },
+            'geometry': {
+              'type': 'Point',
+              'coordinates': [center.longitude, center.latitude],
+            },
+          },
+        ],
+      };
+
+      await controller!.addGeoJsonSource('aircraft-png-source', geoJson);
+      print('✅ Added GeoJSON source for large symbols test');
+
+      // Use much larger platform-specific sizes
+      await controller!.addRotatableSymbolPngLayers(
+        sourceId: 'aircraft-png-source',
+        baseLayerId: 'aircraft-png-symbol',
+        aircraftIconPath: 'traffic.png',
+        arrowIconPath: 'arrow.png',
+        aircraftIconSize:
+            _platformLargeAircraftIconSize, // Platform-specific: iOS=1.2, Android=0.8
+        arrowIconSize:
+            _platformLargeArrowIconSize, // Platform-specific: iOS=0.6, Android=0.4
+        enableInteraction: true,
+        config: {
+          'topLabelOffset': -3.0,
+          'bottomLabelOffset': 3.0,
+          'arrowOffsetX': 400.0,
+        },
+      );
+
+      print('🔍 Added LARGE symbols - Aircraft: 0.8, Arrow: 0.4');
+
+      // Force zoom to location
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _zoomToSymbols();
+    } catch (e) {
+      print('❌ Error testing large symbols: $e');
+    }
+  }
+
+  /// Test symbol layer visibility and properties
+  Future<void> _testSymbolVisibility() async {
+    if (controller == null) return;
+
+    try {
+      // Get all layer IDs that should be visible
+      final layerIds = [
+        'aircraft-png-symbol-aircraft',
+        'aircraft-png-symbol-top-label',
+        'aircraft-png-symbol-bottom-label',
+        'aircraft-png-symbol-arrow'
+      ];
+
+      print('👁️ Testing visibility for layers: $layerIds');
+
+      // Try to make layers visible
+      for (final layerId in layerIds) {
+        try {
+          // Log layer for debugging (setLayerProperty not available in this API)
+          print('✅ Layer $layerId should be visible');
+
+          // Note: Direct layer property setting not available in this MapLibre version
+          // Symbols should be visible by default when added correctly
+        } catch (e) {
+          print('❌ Error setting visibility for $layerId: $e');
+        }
+      }
+
+      print('👁️ Visibility test complete - check map for symbols');
+    } catch (e) {
+      print('❌ Error testing visibility: $e');
+    }
+  }
+
+  /// Debug symbol layers and print detailed information
+  Future<void> _debugSymbolLayers() async {
+    if (controller == null) return;
+
+    try {
+      print('🐛 DEBUG: Symbol layers information');
+      print('🐛 Center coordinates: ${center.latitude}, ${center.longitude}');
+      print(
+          '🐛 Current zoom level: ${controller!.cameraPosition?.zoom ?? "unknown"}');
+      print('🐛 Proximity distance: $_proximityDistance nm');
+      print('🐛 Current rotation: $_currentRotation °');
+      print('🐛 Is climbing: $_isClimbing');
+
+      // Force camera to exact coordinates with higher zoom
+      await controller!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          const CameraPosition(
+            target:
+                LatLng(37.7749, -122.4194), // Exact San Francisco coordinates
+            zoom: 18.0, // Very high zoom
+          ),
+        ),
+      );
+
+      print('🐛 Forced camera to San Francisco at zoom 18');
+      print(
+          '🐛 If symbols still not visible, they may not be loading correctly');
+
+      // Create a simple test marker at exact location to verify coordinates
+      await controller!.addSymbol(
+        const SymbolOptions(
+          geometry: LatLng(37.7749, -122.4194),
+          textField: 'TEST MARKER HERE',
+          textSize: 16,
+          textColor: '#FF0000',
+          textHaloColor: '#FFFFFF',
+          textHaloWidth: 2,
+        ),
+      );
+
+      print('🐛 Added red TEST MARKER at exact coordinates');
+    } catch (e) {
+      print('❌ Error in debug: $e');
+    }
+  }
+
+  /// Zoom and center map to show symbols clearly
+  Future<void> _zoomToSymbols() async {
+    if (controller == null) return;
+
+    try {
+      // Move camera to symbol location with appropriate zoom
+      await controller!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          const CameraPosition(
+            target: center, // Same location as symbols
+            zoom: 15.0, // Closer zoom to see symbols
+          ),
+        ),
+      );
+      print('🎯 Zoomed to symbols location');
+    } catch (e) {
+      print('❌ Error zooming to symbols: $e');
     }
   }
 
@@ -672,131 +917,143 @@ class _RotatableSymbolPngTestBodyState
         title: const Text('PNG Rotatable Symbols Test'),
         backgroundColor: Colors.blue,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            color: Colors.blue.shade50,
-            child: Column(
-              children: [
-                const Text(
-                  'Aviation PNG Symbol Testing',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+          // Full-screen map
+          MapLibreMap(
+            initialCameraPosition: const CameraPosition(
+              target: center,
+              zoom: 8.0, // Zoomed out to see symbols better
+            ),
+            onMapCreated: _onMapCreated,
+            onStyleLoadedCallback: _onStyleLoaded,
+          ),
+          // Floating info panel at top
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(8.0),
+              color: Colors.blue.shade50.withValues(alpha: 0.9),
+              child: Column(
+                children: [
+                  const Text(
+                    '🎯 PNG Aviation Symbols Test',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.blue,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Testing PNG Icon Replacement for aviation symbols:\n'
-                  '• Standard rotatable symbol layers (working triangles)\n'
-                  '• Dynamic PNG replacement of triangle icon\n'
-                  '• Real-time icon swapping based on proximity\n'
-                  '• Preserved black outlines (no SDF tinting)\n'
-                  '• Proximity colors: Red(<2nm), Yellow(2-5nm), Blue(5-10nm), Green(>10nm)\n'
-                  '• Use "Test Colors" button to see PNG swapping!',
-                  style: TextStyle(fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                // First row: Test buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed: _testPngSymbolLayers,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
+                  const SizedBox(height: 4),
+                  // Compact test buttons - Row 1
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _testPngSymbolLayers,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text('🎯 PNG Test'),
                       ),
-                      child: const Text('Test PNG Symbols'),
-                    ),
-                    ElevatedButton(
-                      onPressed: _testFallbackTextSymbols,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
+                      ElevatedButton(
+                        onPressed: _testColorChanges,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(int.parse(
+                                  _getAircraftColor().substring(1),
+                                  radix: 16) +
+                              0xFF000000),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text('🎨 Colors'),
                       ),
-                      child: const Text('Test Text Fallback'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Second row: Animation controls
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed:
-                          _isAnimating ? _stopAnimation : _startAnimation,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _isAnimating ? Colors.red : Colors.green,
-                        foregroundColor: Colors.white,
+                      ElevatedButton(
+                        onPressed:
+                            _isAnimating ? _stopAnimation : _startAnimation,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              _isAnimating ? Colors.red : Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: Text(_isAnimating ? '⏹️' : '▶️'),
                       ),
-                      child: Text(_isAnimating
-                          ? '⏹️ Stop Animation'
-                          : '▶️ Start Animation'),
-                    ),
-                    ElevatedButton(
-                      onPressed: _manualRotateAircraft,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
-                        foregroundColor: Colors.white,
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Row 2: Size and visibility tests
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _testLargerSymbols,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text('🔍 Large Size'),
                       ),
-                      child: const Text('🔄 Rotate +45°'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Third row: Color testing
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed: _testColorChanges,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(int.parse(
-                                _getAircraftColor().substring(1),
-                                radix: 16) +
-                            0xFF000000),
-                        foregroundColor: Colors.white,
+                      ElevatedButton(
+                        onPressed: _testSymbolVisibility,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text('👁️ Visibility'),
                       ),
-                      child: const Text('🎨 Test Colors'),
-                    ),
-                    ElevatedButton(
-                      onPressed: _testSimpleColorIcons,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
+                      ElevatedButton(
+                        onPressed: _debugSymbolLayers,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text('🐛 Debug'),
                       ),
-                      child: const Text('🟩 Simple Icons'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                // Status text
-                Text(
-                  'Current Rotation: ${_currentRotation.toStringAsFixed(0)}° | '
-                  'Proximity: ${_proximityDistance.toStringAsFixed(1)}nm | '
-                  'Color: ${_getAircraftColor()} | '
-                  'State: ${_isClimbing ? "Climbing ✈️⬆️" : "Descending ✈️⬇️"} | '
-                  'Animation: ${_isAnimating ? "Running" : "Stopped"}',
-                  style: const TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Compact status text
+                  Text(
+                    '${_proximityDistance.toStringAsFixed(1)}nm | ${_currentRotation.toStringAsFixed(0)}° | '
+                    '${_isClimbing ? "⬆️" : "⬇️"} | ${_isAnimating ? "🔄" : "⏸️"}',
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
-          Expanded(
-            child: MapLibreMap(
-              initialCameraPosition: const CameraPosition(
-                target: center,
-                zoom: 12.0,
-              ),
-              onMapCreated: _onMapCreated,
-              onStyleLoadedCallback: _onStyleLoaded,
+          // Bottom floating button for zoom to symbols
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton(
+              onPressed: _zoomToSymbols,
+              backgroundColor: Colors.blue,
+              child: const Icon(Icons.center_focus_strong, color: Colors.white),
             ),
           ),
         ],

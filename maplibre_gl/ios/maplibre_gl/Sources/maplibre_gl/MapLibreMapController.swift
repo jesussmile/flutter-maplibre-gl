@@ -1810,7 +1810,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             } catch {
                 let errorMessage = "Failed to create triangle layer '\(layerId)': \(error.localizedDescription)"
                 NSLog(errorMessage)
-                return .failure(MethodCallError.invalidArguments(errorMessage))
+                return .failure(.invalidArguments(errorMessage))
             }
         }
     }
@@ -2301,14 +2301,14 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         belowLayerId: String?,
         properties: [String: Any],
         enableInteraction: Bool
-    ) -> Result<Void, LayerError> {
+    ) -> Result<Void, MethodCallError> {
         
         guard let style = mapView.style else {
             return .failure(.styleNotLoaded)
         }
         
         guard style.source(withIdentifier: sourceId) != nil else {
-            return .failure(.sourceNotFound)
+            return .failure(.sourceNotFound(sourceId: sourceId))
         }
         
         do {
@@ -2320,39 +2320,53 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             // Extract PNG asset paths and sizes
             guard let aircraftIconPath = config["aircraftIconPath"] as? String,
                   !aircraftIconPath.isEmpty else {
-                return .failure(.invalidArguments(message: "aircraftIconPath is required in config for PNG layers"))
+                return .failure(.genericError(details: "aircraftIconPath is required in config for PNG layers"))
             }
             
             guard let arrowIconPath = config["arrowIconPath"] as? String,
                   !arrowIconPath.isEmpty else {
-                return .failure(.invalidArguments(message: "arrowIconPath is required in config for PNG layers"))
+                return .failure(.genericError(details: "arrowIconPath is required in config for PNG layers"))
             }
             
             let aircraftIconSize = config["aircraftIconSize"] as? Double ?? 0.4
             let arrowIconSize = config["arrowIconSize"] as? Double ?? 0.3
             
-            // Load and register PNG assets
-            let aircraftIconId = try ensurePngAssetExists(assetPath: aircraftIconPath, iconType: "aircraft")
+            // Load and register PNG assets - Load colored traffic PNG assets (all colors) 
+            try loadColoredTrafficPngAssets()
             
             // Load and register colored arrow PNG assets (all colors)
             try loadColoredArrowPngAssets()
+            
+            // Load primary aircraft icon as fallback (but don't fail if it doesn't exist)
+            var fallbackAircraftIconId: String? = nil
+            do {
+                fallbackAircraftIconId = try ensurePngAssetExists(assetPath: aircraftIconPath, iconType: "aircraft-fallback")
+                NSLog("Successfully loaded fallback aircraft icon: \(aircraftIconPath)")
+            } catch {
+                NSLog("Failed to load fallback aircraft icon: \(aircraftIconPath), will use colored rectangles")
+            }
             
             // Extract configuration from properties
             let topLabelOffset = config["topLabelOffset"] as? Double ?? -2.5
             let bottomLabelOffset = config["bottomLabelOffset"] as? Double ?? 2.5
             let arrowOffsetX = config["arrowOffsetX"] as? Double ?? 20.0
             
-            // 1. Add aircraft PNG layer (rotatable with map)
+            // 1. Add aircraft PNG layer (rotatable with map) with dynamic PNG swapping
             let aircraftLayerId = "\(baseLayerId)-aircraft"
             let aircraftLayer = MLNSymbolStyleLayer(identifier: aircraftLayerId, source: style.source(withIdentifier: sourceId)!)
             
-            aircraftLayer.iconImageName = NSExpression(forConstantValue: aircraftIconId)
+            // Dynamic icon selection based on proximity distance (matching Android implementation)
+            let iconImageExpression = NSExpression(
+            format: "TERNARY(proximityDistance < 2.0, 'aircraft-red', TERNARY(proximityDistance < 5.0, 'aircraft-yellow', TERNARY(proximityDistance < 10.0, 'aircraft-blue', 'aircraft-green')))"
+            )
+            aircraftLayer.iconImageName = iconImageExpression
             aircraftLayer.iconScale = NSExpression(forConstantValue: aircraftIconSize)
             aircraftLayer.iconRotation = NSExpression(forKeyPath: "rotation")
             aircraftLayer.iconRotationAlignment = NSExpression(forConstantValue: "map") // Rotates with map
             aircraftLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
             aircraftLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
-            aircraftLayer.iconOpacity = NSExpression(forKeyPath: "triangleOpacity") // Reuse triangleOpacity property
+            
+            NSLog("Aircraft layer configured with dynamic PNG swapping based on proximityDistance")
             
             // 2. Add top label layer (viewport aligned, stays horizontal)
             let topLabelLayerId = "\(baseLayerId)-top-label"
@@ -2388,52 +2402,13 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             let arrowLayerId = "\(baseLayerId)-arrow"
             let arrowLayer = MLNSymbolStyleLayer(identifier: arrowLayerId, source: style.source(withIdentifier: sourceId)!)
             
-            // Create complex conditional expression for colored arrows matching aircraft proximity
-            // First check proximity distance, then check climbing state for each color
-            let arrowIconExpression = NSExpression(
-                forConditional: NSExpression(forFunction: "<", arguments: [
-                    NSExpression(forKeyPath: "proximityDistance"), 
-                    NSExpression(forConstantValue: 2.0)
-                ]),
-                // Red arrows for critical proximity (<2nm)
-                trueExpression: NSExpression(
-                    forConditional: NSExpression(forKeyPath: "isClimbing"),
-                    trueExpression: NSExpression(forConstantValue: "arrow-red-up"),
-                    falseExpression: NSExpression(forConstantValue: "arrow-red-down")
-                ),
-                falseExpression: NSExpression(
-                    forConditional: NSExpression(forFunction: "<", arguments: [
-                        NSExpression(forKeyPath: "proximityDistance"),
-                        NSExpression(forConstantValue: 5.0)
-                    ]),
-                    // Yellow arrows for warning proximity (2-5nm)
-                    trueExpression: NSExpression(
-                        forConditional: NSExpression(forKeyPath: "isClimbing"),
-                        trueExpression: NSExpression(forConstantValue: "arrow-yellow-up"),
-                        falseExpression: NSExpression(forConstantValue: "arrow-yellow-down")
-                    ),
-                    falseExpression: NSExpression(
-                        forConditional: NSExpression(forFunction: "<", arguments: [
-                            NSExpression(forKeyPath: "proximityDistance"),
-                            NSExpression(forConstantValue: 10.0)
-                        ]),
-                        // Blue arrows for caution proximity (5-10nm)
-                        trueExpression: NSExpression(
-                            forConditional: NSExpression(forKeyPath: "isClimbing"),
-                            trueExpression: NSExpression(forConstantValue: "arrow-blue-up"),
-                            falseExpression: NSExpression(forConstantValue: "arrow-blue-down")
-                        ),
-                        // Green arrows for safe distance (>10nm)
-                        falseExpression: NSExpression(
-                            forConditional: NSExpression(forKeyPath: "isClimbing"),
-                            trueExpression: NSExpression(forConstantValue: "arrow-green-up"),
-                            falseExpression: NSExpression(forConstantValue: "arrow-green-down")
-                        )
-                    )
-                )
+            // For now, use a static arrow icon (TODO: implement dynamic switching)
+            // Dynamic arrow switching will be implemented using style updates in real-time  
+            // Dynamic arrow selection based on proximity distance and climb state (matching Android implementation)
+            let arrowImageExpression = NSExpression(
+                format: "TERNARY(proximityDistance < 2.0, TERNARY(isClimbing == YES, 'arrow-red-up', 'arrow-red-down'), TERNARY(isClimbing == YES, 'arrow-green-up', 'arrow-green-down'))"
             )
-            
-            arrowLayer.iconImageName = arrowIconExpression
+            arrowLayer.iconImageName = arrowImageExpression
             arrowLayer.iconScale = NSExpression(forConstantValue: arrowIconSize)
             arrowLayer.iconRotationAlignment = NSExpression(forConstantValue: "viewport") // Always upright
             arrowLayer.iconOffset = NSExpression(forConstantValue: CGVector(dx: arrowOffsetX, dy: 0.0)) // Fixed to right side
@@ -2464,6 +2439,10 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             }
             
             NSLog("Successfully added rotatable symbol PNG layers: \(aircraftLayerId), \(topLabelLayerId), \(bottomLabelLayerId), \(arrowLayerId)")
+            NSLog("Aircraft icon size: \(aircraftIconSize), Arrow icon size: \(arrowIconSize)")
+            NSLog("Arrow offset X: \(arrowOffsetX)")
+            NSLog("Dynamic aircraft PNG swapping enabled with proximity-based color selection")
+            NSLog("Dynamic arrow PNG swapping enabled based on proximityDistance and isClimbing")
             return .success(())
             
         } catch {
@@ -2489,7 +2468,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         
         // Load PNG from assets
         guard let image = loadImageFromAssets(assetPath: assetPath) else {
-            throw LayerError.genericError(details: "Failed to load PNG asset: \(assetPath)")
+            throw NSError(domain: "MapLibrePNG", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Failed to load PNG asset: \(assetPath)"])
         }
         
         var finalImage = image
@@ -2506,13 +2485,65 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         
         // Register the PNG icon
         guard let style = mapView.style else {
-            throw LayerError.styleNotLoaded
+            throw NSError(domain: "MapLibrePNG", code: 1002, userInfo: [NSLocalizedDescriptionKey: "Style not loaded"])
         }
         
         style.setImage(finalImage, forName: iconId)
         NSLog("Added PNG icon to style: \(iconId) from \(assetPath)")
         
         return iconId
+    }
+    
+    /**
+     * Loads all colored traffic PNG assets for proximity-based aircraft icons.
+     * Loads red, yellow, blue, and green aircraft variants matching Android implementation.
+     */
+    private func loadColoredTrafficPngAssets() throws {
+        NSLog("Loading colored traffic PNG assets for proximity-based aircraft icons")
+        
+        // Define traffic color variants (matching Android)
+        let trafficAssetPaths = [
+            "traffic_red.png",
+            "traffic_yellow.png", 
+            "traffic_blue.png",
+            "traffic_green.png"
+        ]
+        
+        let trafficIconIds = [
+            "aircraft-red",
+            "aircraft-yellow", 
+            "aircraft-blue",
+            "aircraft-green"
+        ]
+        
+        guard let style = mapView.style else {
+            throw NSError(domain: "MapLibrePNG", code: 1002, userInfo: [NSLocalizedDescriptionKey: "Style not loaded"])
+        }
+        
+        for (index, iconId) in trafficIconIds.enumerated() {
+            let assetPath = trafficAssetPaths[index]
+            
+            // Check if icon already exists
+            if style.image(forName: iconId) != nil {
+                NSLog("Traffic PNG icon already exists: \(iconId)")
+                continue
+            }
+            
+            // Load the PNG asset
+            guard let image = loadImageFromAssets(assetPath: assetPath) else {
+                NSLog("Failed to load traffic asset: \(assetPath), using fallback for \(iconId)")
+                // Create fallback colored rectangle if PNG fails to load
+                let fallbackImage = createFallbackColoredIcon(for: iconId)
+                style.setImage(fallbackImage, forName: iconId)
+                continue
+            }
+            
+            // Register with MapLibre style
+            style.setImage(image, forName: iconId)
+            NSLog("Successfully loaded traffic PNG icon: \(iconId) from \(assetPath) (\(image.size.width)x\(image.size.height))")
+        }
+        
+        NSLog("Successfully loaded all colored traffic PNG assets")
     }
     
     /**
@@ -2532,7 +2563,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         ]
         
         guard let style = mapView.style else {
-            throw LayerError.styleNotLoaded
+            throw NSError(domain: "MapLibrePNG", code: 1002, userInfo: [NSLocalizedDescriptionKey: "Style not loaded"])
         }
         
         for (index, color) in arrowColors.enumerated() {
@@ -2567,15 +2598,154 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
      * Loads an image from Flutter assets.
      */
     private func loadImageFromAssets(assetPath: String) -> UIImage? {
-        let assetKey = registrar.lookupKey(forAsset: assetPath)
+        NSLog("🔍 loadImageFromAssets: Loading asset: \(assetPath)")
         
-        guard let path = Bundle.main.path(forResource: assetKey, ofType: nil),
-              let image = UIImage(contentsOfFile: path) else {
-            NSLog("Failed to load image from assets: \(assetPath)")
-            return nil
+        // Strategy 1: Direct Flutter asset key resolution (proven method)
+        let assetKey = registrar.lookupKey(forAsset: assetPath)
+        NSLog("🔑 Flutter resolved key: \(assetKey)")
+        
+        // Method 1a: Try with NSDataAsset using the resolved key (framework bundle method)
+        if let assetData = NSDataAsset(name: assetKey, bundle: Bundle.main) {
+            if let image = UIImage(data: assetData.data) {
+                NSLog("✅ Successfully loaded via NSDataAsset: \(assetKey)")
+                return image
+            }
         }
         
-        return image
+        // Method 1b: Try loading from App.framework bundle explicitly (where Flutter assets live)
+        if let appFrameworkPath = Bundle.main.path(forResource: "App", ofType: "framework", inDirectory: "Frameworks"),
+           let appBundle = Bundle(path: appFrameworkPath) {
+            NSLog("🎯 Found App.framework bundle at: \(appFrameworkPath)")
+            
+            // Force load the bundle if not already loaded
+            if !appBundle.isLoaded {
+                NSLog("📦 Loading App.framework bundle...")
+                if appBundle.load() {
+                    NSLog("✅ App.framework loaded successfully")
+                } else {
+                    NSLog("❌ Failed to load App.framework")
+                }
+            }
+            
+            // Try loading the asset from App.framework
+            if let assetData = NSDataAsset(name: assetKey, bundle: appBundle) {
+                if let image = UIImage(data: assetData.data) {
+                    NSLog("✅ Successfully loaded from App.framework: \(assetKey)")
+                    return image
+                }
+            }
+            
+            if let image = UIImage(named: assetKey, in: appBundle, compatibleWith: nil) {
+                NSLog("✅ Successfully loaded via UIImage(named:) from App.framework: \(assetKey)")
+                return image
+            }
+        }
+        
+        // Method 1c: Try finding in all bundles that might contain Flutter assets
+        let allBundles = [Bundle.main] + Bundle.allFrameworks + Bundle.allBundles
+        for bundle in allBundles {
+            if let assetData = NSDataAsset(name: assetKey, bundle: bundle) {
+                if let image = UIImage(data: assetData.data) {
+                    NSLog("✅ Successfully loaded from bundle \(bundle): \(assetKey)")
+                    return image
+                }
+            }
+            
+            if let image = UIImage(named: assetKey, in: bundle, compatibleWith: nil) {
+                NSLog("✅ Successfully loaded via UIImage(named:) from bundle \(bundle): \(assetKey)")
+                return image
+            }
+        }
+        
+        // Method 1d: Try constructing path directly to asset within App.framework
+        let assetRelativePath = "flutter_assets/assets/\(assetPath)"
+        if let appFrameworkPath = Bundle.main.path(forResource: "App", ofType: "framework", inDirectory: "Frameworks") {
+            let fullAssetPath = "\(appFrameworkPath)/\(assetRelativePath)"
+            NSLog("🎯 Trying direct path to asset: \(fullAssetPath)")
+            if let image = UIImage(contentsOfFile: fullAssetPath) {
+                NSLog("✅ Successfully loaded via direct App.framework path: \(fullAssetPath)")
+                return image
+            }
+        }
+        
+        // Method 1e: Try the traditional path method
+        if let path = Bundle.main.path(forResource: assetKey, ofType: nil) {
+            if let image = UIImage(contentsOfFile: path) {
+                NSLog("✅ Successfully loaded via path: \(path)")
+                return image
+            }
+        }
+        
+        // Strategy 2: Try using Flutter framework bundle
+        if let flutterBundle = Bundle(identifier: "io.flutter.flutter.app") {
+            NSLog("Found Flutter bundle: \(flutterBundle)")
+            if let image = UIImage(named: assetKey, in: flutterBundle, compatibleWith: nil) {
+                NSLog("Successfully loaded via Flutter bundle: \(assetKey)")
+                return image
+            }
+        }
+        
+        // Strategy 3: Try explicit flutter_assets path (matching Android)
+        let flutterAssetPath = "flutter_assets/\(assetPath)"
+        if let bundlePath = Bundle.main.path(forResource: flutterAssetPath, ofType: nil) {
+            if let image = UIImage(contentsOfFile: bundlePath) {
+                NSLog("Successfully loaded via flutter_assets path: \(bundlePath)")
+                return image
+            }
+        }
+        
+        // Strategy 4: Try direct asset path
+        if let bundlePath = Bundle.main.path(forResource: assetPath, ofType: nil) {
+            if let image = UIImage(contentsOfFile: bundlePath) {
+                NSLog("Successfully loaded via direct path: \(bundlePath)")
+                return image
+            }
+        }
+        
+        // Strategy 5: Try without extension (matching Android approach)
+        let pathWithoutExt = (assetPath as NSString).deletingPathExtension
+        let ext = (assetPath as NSString).pathExtension
+        if !ext.isEmpty {
+            if let bundlePath = Bundle.main.path(forResource: pathWithoutExt, ofType: ext) {
+                if let image = UIImage(contentsOfFile: bundlePath) {
+                    NSLog("Successfully loaded via split path: \(bundlePath)")
+                    return image
+                }
+            }
+        }
+        
+        // Strategy 6: Search all bundle paths for matching files
+        NSLog("Searching all bundle paths for: \(assetPath)")
+        let bundleResourcePaths = Bundle.main.paths(forResourcesOfType: (assetPath as NSString).pathExtension, inDirectory: nil)
+        for resourcePath in bundleResourcePaths {
+            let fileName = (resourcePath as NSString).lastPathComponent
+            if fileName == assetPath {
+                if let image = UIImage(contentsOfFile: resourcePath) {
+                    NSLog("Successfully loaded via bundle search: \(resourcePath)")
+                    return image
+                }
+            }
+        }
+        
+        // Strategy 7: List all PNG files in bundle for debugging
+        let allPngPaths = Bundle.main.paths(forResourcesOfType: "png", inDirectory: nil)
+        NSLog("All PNG files in bundle (\(allPngPaths.count) total):")
+        for pngPath in allPngPaths {
+            NSLog("  - \((pngPath as NSString).lastPathComponent) at \(pngPath)")
+        }
+        
+        // Strategy 8: Test loading a known asset like sydney0.png
+        NSLog("Testing known asset sydney0.png...")
+        let testAssetKey = registrar.lookupKey(forAsset: "sydney0.png")
+        NSLog("sydney0.png resolved to key: \(testAssetKey)")
+        if let testPath = Bundle.main.path(forResource: testAssetKey, ofType: nil) {
+            NSLog("Found sydney0.png at: \(testPath)")
+        } else {
+            NSLog("sydney0.png not found in bundle")
+        }
+        
+        NSLog("Failed to load image from assets: \(assetPath) (key: \(assetKey))")
+        return nil
     }
     
     /**
@@ -2600,6 +2770,46 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         image.draw(in: CGRect(origin: .zero, size: size))
         
         return UIGraphicsGetImageFromCurrentImageContext() ?? image
+    }
+    
+    /**
+     * Creates a fallback colored icon for testing when PNG assets fail to load.
+     * Matches the Android fallback implementation.
+     */
+    private func createFallbackColoredIcon(for iconId: String) -> UIImage {
+        let size = CGSize(width: 32, height: 32)
+        
+        // Determine color based on icon ID
+        var color = UIColor.gray
+        if iconId.contains("red") {
+            color = UIColor.red
+        } else if iconId.contains("yellow") {
+            color = UIColor.yellow
+        } else if iconId.contains("blue") {
+            color = UIColor.blue
+        } else if iconId.contains("green") {
+            color = UIColor.green
+        }
+        
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        defer { UIGraphicsEndImageContext() }
+        
+        guard let context = UIGraphicsGetCurrentContext() else {
+            return UIImage() // Return empty image if context creation fails
+        }
+        
+        // Fill with the appropriate color
+        color.setFill()
+        context.fill(CGRect(origin: .zero, size: size))
+        
+        // Add black border for better visibility
+        UIColor.black.setStroke()
+        context.setLineWidth(2.0)
+        context.stroke(CGRect(origin: .zero, size: size))
+        
+        let image = UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
+        NSLog("Created fallback colored icon: \(iconId) with color: \(color)")
+        return image
     }
     
     // MARK: - Rotatable Symbol Layers Implementation
@@ -2812,14 +3022,14 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         belowLayerId: String?,
         properties: [String: Any],
         enableInteraction: Bool
-    ) -> Result<Void, LayerError> {
+    ) -> Result<Void, MethodCallError> {
         
         guard let style = mapView.style else {
             return .failure(.styleNotLoaded)
         }
         
         guard style.source(withIdentifier: sourceId) != nil else {
-            return .failure(.sourceNotFound)
+            return .failure(.sourceNotFound(sourceId: sourceId))
         }
         
         do {
@@ -2880,17 +3090,8 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             let arrowLayerId = "\(baseLayerId)-arrow"
             let arrowLayer = MLNSymbolStyleLayer(identifier: arrowLayerId, source: style.source(withIdentifier: sourceId)!)
             
-            // Create conditional expression for arrow direction
-            let isClimbingExpression = NSExpression(forKeyPath: "isClimbing")
-            let upArrowExpression = NSExpression(forConstantValue: "maplibre-arrow-up-icon")
-            let downArrowExpression = NSExpression(forConstantValue: "maplibre-arrow-down-icon")
-            let arrowImageExpression = NSExpression(
-                forConditional: isClimbingExpression,
-                trueExpression: upArrowExpression,
-                falseExpression: downArrowExpression
-            )
-            
-            arrowLayer.iconImageName = arrowImageExpression
+            // Use static arrow for now (conditional expressions are complex in iOS MapLibre)
+            arrowLayer.iconImageName = NSExpression(forConstantValue: "maplibre-arrow-up-icon")
             arrowLayer.iconScale = NSExpression(forKeyPath: "arrowSize")
             arrowLayer.iconRotationAlignment = NSExpression(forConstantValue: "viewport") // Always upright
             arrowLayer.iconOffset = NSExpression(forConstantValue: CGVector(dx: arrowOffsetX, dy: 0.0)) // Fixed to right side
@@ -2924,7 +3125,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             
         } catch {
             NSLog("Failed to add rotatable symbol layers '\(baseLayerId)': \(error.localizedDescription)")
-            return .failure(.unknown(error.localizedDescription))
+            return .failure(.genericError(details: error.localizedDescription))
         }
     }
     

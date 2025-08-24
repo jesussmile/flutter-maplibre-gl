@@ -176,13 +176,13 @@ class LayerPropertyConverter {
             var parsedValue: Any?
             
             switch propertyName {
-            case "triangle-size":
-            case "triangle-opacity":
-            case "triangle-blur":
-            case "triangle-rotation":
-            case "triangle-stroke-width":
-            case "triangle-stroke-opacity":
-            case "triangle-sort-key":
+            case "triangle-size",
+                 "triangle-opacity",
+                 "triangle-blur", 
+                 "triangle-rotation",
+                 "triangle-stroke-width",
+                 "triangle-stroke-opacity",
+                 "triangle-sort-key":
                 // Parse numbers - try literal first, then expression
                 if let numberValue = Float(propertyValue) {
                     parsedValue = numberValue
@@ -190,8 +190,8 @@ class LayerPropertyConverter {
                     parsedValue = interpretExpression(propertyName: propertyName, expression: propertyValue)
                 }
                 
-            case "triangle-color":
-            case "triangle-stroke-color":
+            case "triangle-color",
+                 "triangle-stroke-color":
                 // Parse colors - can be hex strings or expressions
                 if propertyValue.hasPrefix("#") || propertyValue.hasPrefix("rgb") {
                     parsedValue = propertyValue
@@ -211,10 +211,10 @@ class LayerPropertyConverter {
                     parsedValue = interpretExpression(propertyName: propertyName, expression: propertyValue)
                 }
                 
-            case "triangle-translate-anchor":
-            case "triangle-pitch-scale":
-            case "triangle-pitch-alignment":
-            case "triangle-rotation-alignment":
+            case "triangle-translate-anchor",
+                 "triangle-pitch-scale",
+                 "triangle-pitch-alignment",
+                 "triangle-rotation-alignment":
                 // Parse enum strings
                 let trimmedValue = propertyValue.trimmingCharacters(in: .init(charactersIn: "\""))
                 parsedValue = trimmedValue
@@ -232,7 +232,8 @@ class LayerPropertyConverter {
             
             // Update the triangle layer with parsed property
             if let value = parsedValue {
-                triangleLayer.updateProperty(name: propertyName, value: value)
+                // TODO: Implement property updates for MLNTriangleCustomStyleLayer
+                NSLog("Triangle layer property update: \(propertyName) = \(value)")
             }
         }
     }
