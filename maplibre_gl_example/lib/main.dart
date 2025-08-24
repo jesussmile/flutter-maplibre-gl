@@ -42,6 +42,7 @@ import 'polyline_editing.dart';
 import 'rotatable_symbol_page.dart';
 import 'rotatable_symbol_png_test.dart';
 import 'scrolling_map.dart';
+import 'simple_state_labels_page.dart';
 import 'sources.dart';
 
 final List<ExamplePage> _allPages = <ExamplePage>[
@@ -76,6 +77,7 @@ final List<ExamplePage> _allPages = <ExamplePage>[
   const GpsLocationPage(),
   const StratuxTrafficPage(),
   ADSBTrafficPage(),
+  const SimpleStateLabelsPage(),
 ];
 
 class MapsDemo extends StatefulWidget {
