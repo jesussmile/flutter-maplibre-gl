@@ -52,7 +52,7 @@ class _RotatableSymbolPngTestBodyState
   /// iOS needs larger sizes than Android for the same visual appearance
   double get _platformAircraftIconSize {
     if (Platform.isIOS) {
-      return 0.6; // Much larger for better initial visibility - was 0.25
+      return 0.07; // Much larger for better initial visibility - was 0.25
     } else {
       return 0.4; // Larger for better initial visibility - was 0.15
     }
@@ -62,9 +62,19 @@ class _RotatableSymbolPngTestBodyState
   /// iOS needs larger sizes than Android for the same visual appearance
   double get _platformArrowIconSize {
     if (Platform.isIOS) {
-      return 0.3; // Larger for better initial visibility - was 0.15
+      return 0.05; // Larger for better initial visibility - was 0.15
     } else {
       return 0.2; // Larger for better initial visibility - was 0.08
+    }
+  }
+
+  /// Get platform-specific arrow offset X position
+  /// iOS needs more offset to the right than Android
+  double get _platformArrowOffsetX {
+    if (Platform.isIOS) {
+      return 550.0; // Move arrow further right for iOS
+    } else {
+      return 350.0; // Keep current offset for Android
     }
   }
 
@@ -256,7 +266,8 @@ class _RotatableSymbolPngTestBodyState
         config: {
           'topLabelOffset': -2.5,
           'bottomLabelOffset': 2.5,
-          'arrowOffsetX': 350.0,
+          'arrowOffsetX':
+              _platformArrowOffsetX, // Platform-specific: iOS=450.0, Android=350.0
         },
       );
 
@@ -606,7 +617,7 @@ class _RotatableSymbolPngTestBodyState
           config: {
             'topLabelOffset': -2.5,
             'bottomLabelOffset': 2.5,
-            'arrowOffsetX': 350.0,
+            'arrowOffsetX': _platformArrowOffsetX,
           },
         );
         print('✅ Created PNG symbol layer for $color using $assetPath');
