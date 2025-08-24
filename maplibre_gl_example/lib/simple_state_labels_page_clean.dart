@@ -55,7 +55,8 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
     StateLocation('Pennsylvania', 'PA', LatLng(40.5908, -77.2098), Colors.teal),
     StateLocation('Ohio', 'OH', LatLng(40.3888, -82.7649), Colors.indigo),
     StateLocation('Georgia', 'GA', LatLng(33.0406, -83.6431), Colors.pink),
-    StateLocation('North Carolina', 'NC', LatLng(35.5175, -80.8031), Colors.cyan),
+    StateLocation(
+        'North Carolina', 'NC', LatLng(35.5175, -80.8031), Colors.cyan),
     StateLocation('Michigan', 'MI', LatLng(43.3266, -84.5361), Colors.amber),
   ];
 
@@ -343,14 +344,28 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
   // OPTIMIZED Stress test methods
   Future<void> _generateTemplateImages() async {
     if (_mapController == null) return;
-    
+
     final colors = [
-      Colors.red, Colors.blue, Colors.green, Colors.purple, Colors.orange,
-      Colors.teal, Colors.indigo, Colors.pink, Colors.cyan, Colors.amber,
-      Colors.deepOrange, Colors.deepPurple, Colors.lightBlue, Colors.lightGreen,
-      Colors.lime, Colors.yellow, Colors.brown, Colors.grey,
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.purple,
+      Colors.orange,
+      Colors.teal,
+      Colors.indigo,
+      Colors.pink,
+      Colors.cyan,
+      Colors.amber,
+      Colors.deepOrange,
+      Colors.deepPurple,
+      Colors.lightBlue,
+      Colors.lightGreen,
+      Colors.lime,
+      Colors.yellow,
+      Colors.brown,
+      Colors.grey,
     ];
-    
+
     for (int i = 0; i < colors.length; i++) {
       final templateState = StateLocation(
         'Template',
@@ -358,11 +373,11 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
         LatLng(0, 0), // Coordinates don't matter for templates
         colors[i],
       );
-      
+
       final imageBytes = await _createWidgetImage(templateState);
       await _mapController!.addImage('template-$i', imageBytes);
     }
-    
+
     print('📸 Generated ${colors.length} template images for reuse');
   }
 
@@ -375,29 +390,29 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
     });
 
     final stopwatch = Stopwatch()..start();
-    
+
     try {
       print('🚀 Starting OPTIMIZED stress test: 10,000 random chips...');
-      
+
       // OPTIMIZATION 1: Create only template images instead of unique ones
       print('📸 Generating template chip images...');
       await _generateTemplateImages();
-      
+
       // Generate random state data for stress testing
       final stressTestStates = _generateRandomStates(10000);
-      
+
       print('🎯 Adding symbols to map (using templates)...');
-      
+
       // OPTIMIZATION 2: Batch symbol additions
       final symbolOptionsList = <SymbolOptions>[];
       final symbolDataList = <Map<String, dynamic>>[];
-      
+
       for (int i = 0; i < stressTestStates.length; i++) {
         final state = stressTestStates[i];
-        
+
         // Use template images instead of unique ones
         final templateIndex = i % 18; // 18 different colors/templates
-        
+
         symbolOptionsList.add(SymbolOptions(
           geometry: state.coordinates,
           iconImage: 'template-$templateIndex',
@@ -405,9 +420,9 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
           iconAnchor: 'center',
           iconOffset: const Offset(0, 0),
         ));
-        
+
         symbolDataList.add({'stateData': state, 'index': i});
-        
+
         // Update progress every 2000 symbols
         if ((i + 1) % 2000 == 0) {
           print('Prepared ${i + 1}/10,000 symbols...');
@@ -416,23 +431,25 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
           });
         }
       }
-      
+
       // OPTIMIZATION 3: Batch add symbols (much faster!)
       print('🚀 Batch adding all symbols...');
-      final symbols = await _mapController!.addSymbols(symbolOptionsList, symbolDataList);
-      
+      final symbols =
+          await _mapController!.addSymbols(symbolOptionsList, symbolDataList);
+
       // Store mappings for tap handling
       for (int i = 0; i < symbols.length; i++) {
         final symbol = symbols[i];
         final stateData = symbolDataList[i]['stateData'] as StateLocation;
         _symbolToStateMap[symbol.id] = stateData;
       }
-      
+
       stopwatch.stop();
       print('✅ OPTIMIZED stress test completed!');
-      print('⏱️  Total time: ${stopwatch.elapsedMilliseconds}ms (${(stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s)');
+      print(
+          '⏱️  Total time: ${stopwatch.elapsedMilliseconds}ms (${(stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s)');
       print('📊 Created 10,000 symbols using template optimization');
-      
+
       // Show completion dialog
       if (mounted) {
         showDialog(
@@ -450,8 +467,10 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('✅ Created 10,000 symbols using templates'),
-                Text('⏱️ Time: ${(stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s'),
-                Text('🚀 ${(10000 / (stopwatch.elapsedMilliseconds / 1000)).toStringAsFixed(0)} symbols/second'),
+                Text(
+                    '⏱️ Time: ${(stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s'),
+                Text(
+                    '🚀 ${(10000 / (stopwatch.elapsedMilliseconds / 1000)).toStringAsFixed(0)} symbols/second'),
                 const SizedBox(height: 8),
                 const Text('Much faster using template images!'),
               ],
@@ -465,7 +484,6 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
           ),
         );
       }
-      
     } catch (e) {
       print('❌ Stress test failed: $e');
     } finally {
@@ -478,29 +496,78 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
   List<StateLocation> _generateRandomStates(int count) {
     final states = <StateLocation>[];
     final colors = [
-      Colors.red, Colors.blue, Colors.green, Colors.purple, Colors.orange,
-      Colors.teal, Colors.indigo, Colors.pink, Colors.cyan, Colors.amber,
-      Colors.deepOrange, Colors.deepPurple, Colors.lightBlue, Colors.lightGreen,
-      Colors.lime, Colors.yellow, Colors.brown, Colors.grey,
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.purple,
+      Colors.orange,
+      Colors.teal,
+      Colors.indigo,
+      Colors.pink,
+      Colors.cyan,
+      Colors.amber,
+      Colors.deepOrange,
+      Colors.deepPurple,
+      Colors.lightBlue,
+      Colors.lightGreen,
+      Colors.lime,
+      Colors.yellow,
+      Colors.brown,
+      Colors.grey,
     ];
-    
+
     final cityNames = [
-      'Tokyo', 'Delhi', 'Shanghai', 'São Paulo', 'Mexico City', 'Cairo', 'Mumbai', 'Beijing',
-      'Dhaka', 'Osaka', 'New York', 'Karachi', 'Buenos Aires', 'Chongqing', 'Istanbul', 'Kolkata',
-      'Manila', 'Lagos', 'Rio de Janeiro', 'Tianjin', 'Kinshasa', 'Guangzhou', 'Los Angeles',
-      'Moscow', 'Shenzhen', 'Lahore', 'Bangalore', 'Paris', 'Bogotá', 'Jakarta', 'Chennai',
-      'Lima', 'Bangkok', 'Seoul', 'Nagoya', 'Hyderabad', 'London', 'Tehran', 'Chicago', 'Chengdu',
+      'Tokyo',
+      'Delhi',
+      'Shanghai',
+      'São Paulo',
+      'Mexico City',
+      'Cairo',
+      'Mumbai',
+      'Beijing',
+      'Dhaka',
+      'Osaka',
+      'New York',
+      'Karachi',
+      'Buenos Aires',
+      'Chongqing',
+      'Istanbul',
+      'Kolkata',
+      'Manila',
+      'Lagos',
+      'Rio de Janeiro',
+      'Tianjin',
+      'Kinshasa',
+      'Guangzhou',
+      'Los Angeles',
+      'Moscow',
+      'Shenzhen',
+      'Lahore',
+      'Bangalore',
+      'Paris',
+      'Bogotá',
+      'Jakarta',
+      'Chennai',
+      'Lima',
+      'Bangkok',
+      'Seoul',
+      'Nagoya',
+      'Hyderabad',
+      'London',
+      'Tehran',
+      'Chicago',
+      'Chengdu',
     ];
-    
+
     for (int i = 0; i < count; i++) {
       // Generate random coordinates (latitude: -90 to 90, longitude: -180 to 180)
       final lat = _random.nextDouble() * 180 - 90; // -90 to 90
       final lng = _random.nextDouble() * 360 - 180; // -180 to 180
-      
+
       final cityName = cityNames[_random.nextInt(cityNames.length)];
       final abbreviation = '${(i + 1).toString().padLeft(2, '0')}';
       final color = colors[_random.nextInt(colors.length)];
-      
+
       states.add(StateLocation(
         '$cityName $abbreviation',
         abbreviation,
@@ -508,24 +575,24 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
         color,
       ));
     }
-    
+
     return states;
   }
 
   Future<void> _clearStressTest() async {
     if (_mapController == null) return;
-    
+
     print('🧹 Clearing stress test symbols...');
     await _mapController!.clearSymbols();
-    
+
     // Re-add original state symbols
     await _generateStateImages();
     await _addStateSymbols();
-    
+
     setState(() {
       _stressTestSymbolCount = 0;
     });
-    
+
     print('✅ Cleared stress test, restored original symbols');
   }
 
@@ -625,7 +692,8 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
                       width: 200, // Fixed width for progress bar
                       child: LinearProgressIndicator(
                         backgroundColor: Colors.grey.shade300,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.red.shade600),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.red.shade600),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -648,7 +716,8 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.speed, size: 16, color: Colors.green.shade600),
+                        Icon(Icons.speed,
+                            size: 16, color: Colors.green.shade600),
                         const SizedBox(width: 4),
                         const Text(
                           'GPU Accelerated',
@@ -677,7 +746,7 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                _isStressTesting 
+                _isStressTesting
                     ? 'Stress test in progress... Creating 10,000 random chips worldwide!'
                     : 'Tap any state label to see info. Use the speed icon (⚡) to run a 10K chip stress test!',
                 style: const TextStyle(
