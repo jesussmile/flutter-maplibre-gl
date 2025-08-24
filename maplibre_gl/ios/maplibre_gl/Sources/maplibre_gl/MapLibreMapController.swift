@@ -2404,8 +2404,9 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             // For now, use a static arrow icon (TODO: implement dynamic switching)
             // Dynamic arrow switching will be implemented using style updates in real-time  
             // Dynamic arrow selection based on proximity distance and climb state (matching Android implementation)
+            // Red: Critical (<2nm), Yellow: Warning (2-5nm), Blue: Caution (5-10nm), Green: Safe (>10nm)
             let arrowImageExpression = NSExpression(
-                format: "TERNARY(proximityDistance < 2.0, TERNARY(isClimbing == YES, 'arrow-red-up', 'arrow-red-down'), TERNARY(isClimbing == YES, 'arrow-green-up', 'arrow-green-down'))"
+                format: "TERNARY(proximityDistance < 2.0, TERNARY(isClimbing == YES, 'arrow-red-up', 'arrow-red-down'), TERNARY(proximityDistance < 5.0, TERNARY(isClimbing == YES, 'arrow-yellow-up', 'arrow-yellow-down'), TERNARY(proximityDistance < 10.0, TERNARY(isClimbing == YES, 'arrow-blue-up', 'arrow-blue-down'), TERNARY(isClimbing == YES, 'arrow-green-up', 'arrow-green-down'))))"
             )
             arrowLayer.iconImageName = arrowImageExpression
             arrowLayer.iconScale = NSExpression(forConstantValue: arrowIconSize)
