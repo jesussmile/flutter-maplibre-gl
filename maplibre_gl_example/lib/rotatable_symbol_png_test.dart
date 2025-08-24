@@ -491,6 +491,9 @@ class _RotatableSymbolPngTestBodyState
       }
     }
 
+    // CRITICAL: Add delay for iOS layer removal to complete
+    await Future.delayed(Duration(milliseconds: Platform.isIOS ? 200 : 50));
+
     // Remove sources
     try {
       await controller!.removeSource('aircraft-png-source');
@@ -498,6 +501,9 @@ class _RotatableSymbolPngTestBodyState
     } catch (e) {
       // Source doesn't exist, which is fine
     }
+
+    // CRITICAL: Add delay for iOS source removal to complete
+    await Future.delayed(Duration(milliseconds: Platform.isIOS ? 300 : 50));
   }
 
   /// Load all PNG icons into MapLibre style
@@ -752,18 +758,25 @@ class _RotatableSymbolPngTestBodyState
     try {
       await _cleanupExistingLayers();
 
-      // Create GeoJSON source with same location
+      // Create GeoJSON source with CORRECT property names for iOS
       final geoJson = {
         'type': 'FeatureCollection',
         'features': [
           {
             'type': 'Feature',
             'properties': {
-              'id': 'aircraft_1',
-              'callSign': 'TEST01',
-              'altitude': '3500',
-              'heading': _currentRotation,
-              'climbing': _isClimbing,
+              'rotation': _currentRotation, // Fixed: was 'heading'
+              'proximityDistance':
+                  _proximityDistance, // Added: required for iOS
+              'topLabel': 'LARGE', // Fixed: was missing
+              'bottomLabel': 'TEST01', // Fixed: was 'callSign'
+              'isClimbing': _isClimbing, // Fixed: was 'climbing'
+              'labelSize': 16.0, // Added: for larger labels
+              'labelColor': '#000000', // Added: required for iOS
+              'triangleSize': 0.15, // Added: for compatibility
+              'arrowSize': 0.08, // Added: for compatibility
+              'triangleOpacity': 1.0, // Added: required for iOS
+              'arrowOpacity': 1.0, // Added: required for iOS
             },
             'geometry': {
               'type': 'Point',

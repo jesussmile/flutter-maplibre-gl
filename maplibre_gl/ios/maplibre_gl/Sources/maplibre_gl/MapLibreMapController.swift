@@ -2373,7 +2373,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             let topLabelLayer = MLNSymbolStyleLayer(identifier: topLabelLayerId, source: style.source(withIdentifier: sourceId)!)
             
             topLabelLayer.text = NSExpression(forKeyPath: "topLabel")
-            topLabelLayer.textFontNames = NSExpression(forConstantValue: ["Arial-Bold"])
+            // Remove custom font specification - let MapLibre use default fonts
             topLabelLayer.textFontSize = NSExpression(forKeyPath: "labelSize")
             topLabelLayer.textColor = NSExpression(forKeyPath: "labelColor")
             topLabelLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
@@ -2388,7 +2388,6 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             let bottomLabelLayer = MLNSymbolStyleLayer(identifier: bottomLabelLayerId, source: style.source(withIdentifier: sourceId)!)
             
             bottomLabelLayer.text = NSExpression(forKeyPath: "bottomLabel")
-            bottomLabelLayer.textFontNames = NSExpression(forConstantValue: ["Arial-Bold"])
             bottomLabelLayer.textFontSize = NSExpression(forKeyPath: "labelSize")
             bottomLabelLayer.textColor = NSExpression(forKeyPath: "labelColor")
             bottomLabelLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
@@ -3061,7 +3060,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             let topLabelLayer = MLNSymbolStyleLayer(identifier: topLabelLayerId, source: style.source(withIdentifier: sourceId)!)
             
             topLabelLayer.text = NSExpression(forKeyPath: "topLabel")
-            topLabelLayer.textFontNames = NSExpression(forConstantValue: ["Arial-Bold"])
+            // Remove custom font specification - let MapLibre use default fonts
             topLabelLayer.textFontSize = NSExpression(forKeyPath: "labelSize")
             topLabelLayer.textColor = NSExpression(forKeyPath: "labelColor")
             topLabelLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
@@ -3076,7 +3075,6 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             let bottomLabelLayer = MLNSymbolStyleLayer(identifier: bottomLabelLayerId, source: style.source(withIdentifier: sourceId)!)
             
             bottomLabelLayer.text = NSExpression(forKeyPath: "bottomLabel")
-            bottomLabelLayer.textFontNames = NSExpression(forConstantValue: ["Arial-Bold"])
             bottomLabelLayer.textFontSize = NSExpression(forKeyPath: "labelSize")
             bottomLabelLayer.textColor = NSExpression(forKeyPath: "labelColor")
             bottomLabelLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
