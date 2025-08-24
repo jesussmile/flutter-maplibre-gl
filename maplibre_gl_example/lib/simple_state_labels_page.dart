@@ -1,11 +1,25 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import 'page.dart';
 
+class StateLocation {
+  final String name;
+  final String abbreviation;
+  final LatLng coordinates;
+  final Color color;
+
+  StateLocation(this.name, this.abbreviation, this.coordinates, this.color);
+}
+
 class SimpleStateLabelsPage extends ExamplePage {
   const SimpleStateLabelsPage({super.key})
-      : super(const Icon(Icons.location_on), 'Simple State Labels');
+      : super(const Icon(Icons.location_on), 'Native State Labels');
 
   @override
   Widget build(BuildContext context) => const _SimpleStateLabelsMap();
@@ -19,26 +33,615 @@ class _SimpleStateLabelsMap extends StatefulWidget {
 }
 
 class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
+  MapLibreMapController? _mapController;
+  final Map<String, StateLocation> _symbolToStateMap = {};
+  bool _isStressTesting = false;
+  int _stressTestSymbolCount = 0;
+  final Random _random = Random();
+
   // US center
   static const _initialCamera = CameraPosition(
     target: LatLng(39.8283, -98.5795),
     zoom: 4.0,
   );
 
+  // State locations with their coordinates
+  final List<StateLocation> _stateLocations = [
+    StateLocation('California', 'CA', LatLng(36.7783, -119.4179), Colors.blue),
+    StateLocation('Texas', 'TX', LatLng(31.9686, -99.9018), Colors.red),
+    StateLocation('Florida', 'FL', LatLng(27.7663, -82.6404), Colors.green),
+    StateLocation('New York', 'NY', LatLng(42.1657, -74.9481), Colors.purple),
+    StateLocation('Illinois', 'IL', LatLng(40.3363, -89.0022), Colors.orange),
+    StateLocation('Pennsylvania', 'PA', LatLng(40.5908, -77.2098), Colors.teal),
+    StateLocation('Ohio', 'OH', LatLng(40.3888, -82.7649), Colors.indigo),
+    StateLocation('Georgia', 'GA', LatLng(33.0406, -83.6431), Colors.pink),
+    StateLocation(
+        'North Carolina', 'NC', LatLng(35.5175, -80.8031), Colors.cyan),
+    StateLocation('Michigan', 'MI', LatLng(43.3266, -84.5361), Colors.amber),
+  ];
+
+  Future<void> _onMapCreated(MapLibreMapController controller) async {
+    _mapController = controller;
+
+    // Add symbol tap handler
+    controller.onSymbolTapped.add(_onSymbolTapped);
+
+    // Wait a bit for the map to fully load
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Generate custom widget images for each state
+    await _generateStateImages();
+
+    // Add symbols with custom images for each state
+    await _addStateSymbols();
+  }
+
+  Future<void> _generateStateImages() async {
+    if (_mapController == null) return;
+
+    for (int i = 0; i < _stateLocations.length; i++) {
+      final state = _stateLocations[i];
+      final imageBytes = await _createWidgetImage(state);
+
+      // Add the custom image to the map style
+      await _mapController!
+          .addImage('state-${state.abbreviation.toLowerCase()}', imageBytes);
+    }
+  }
+
+  Future<Uint8List> _createWidgetImage(StateLocation state) async {
+    // Create a simple container with the state info that can be easily converted to image
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    // First, measure the text to determine chip size
+    final nameTextPainter = TextPainter(
+      text: TextSpan(
+        text: state.name,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    nameTextPainter.layout();
+
+    final abbreviationTextPainter = TextPainter(
+      text: TextSpan(
+        text: state.abbreviation,
+        style: TextStyle(
+          color: state.color,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    abbreviationTextPainter.layout();
+
+    // Calculate dynamic chip dimensions
+    const double circleRadius = 22;
+    const double horizontalPadding = 20;
+    const double spaceBetween = 14;
+    const double verticalPadding = 16;
+
+    final double chipWidth = horizontalPadding +
+        (circleRadius * 2) +
+        spaceBetween +
+        nameTextPainter.width +
+        horizontalPadding;
+    final double chipHeight = verticalPadding * 2 +
+        (nameTextPainter.height > circleRadius * 2
+            ? nameTextPainter.height
+            : circleRadius * 2);
+
+    // Paint the background with rounded corners
+    final backgroundPaint = Paint()
+      ..color = state.color.withOpacity(0.9)
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+
+    final double radius = chipHeight / 2;
+
+    final rect = Rect.fromLTWH(0, 0, chipWidth, chipHeight);
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+
+    // Draw shadow
+    final shadowRect = rect.translate(0, 3);
+    final shadowRRect =
+        RRect.fromRectAndRadius(shadowRect, Radius.circular(radius));
+    canvas.drawRRect(shadowRRect, shadowPaint);
+
+    // Draw background
+    canvas.drawRRect(rrect, backgroundPaint);
+
+    // Draw border
+    canvas.drawRRect(rrect, borderPaint);
+
+    // Draw the circle for abbreviation
+    final circlePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final circleCenter =
+        Offset(horizontalPadding + circleRadius, chipHeight / 2);
+    canvas.drawCircle(circleCenter, circleRadius, circlePaint);
+
+    // Draw abbreviation text centered in circle
+    abbreviationTextPainter.paint(
+      canvas,
+      Offset(circleCenter.dx - abbreviationTextPainter.width / 2,
+          circleCenter.dy - abbreviationTextPainter.height / 2),
+    );
+
+    // Draw state name text
+    final nameX = horizontalPadding + (circleRadius * 2) + spaceBetween;
+    final nameY = chipHeight / 2 - nameTextPainter.height / 2;
+    nameTextPainter.paint(canvas, Offset(nameX, nameY));
+
+    // Convert to image
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(chipWidth.toInt(), chipHeight.toInt());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    return byteData!.buffer.asUint8List();
+  }
+
+  // Remove the old _widgetToImage method since we're using canvas painting instead
+
+  Future<void> _addStateSymbols() async {
+    if (_mapController == null) return;
+
+    // Add symbols for each state location using custom images
+    for (int i = 0; i < _stateLocations.length; i++) {
+      final state = _stateLocations[i];
+
+      final symbol = await _mapController!.addSymbol(
+        SymbolOptions(
+          geometry: state.coordinates,
+          iconImage: 'state-${state.abbreviation.toLowerCase()}',
+          iconSize: 1.0,
+          iconAnchor: 'center',
+          iconOffset: const Offset(0, 0),
+          // Remove text since it's now part of the image
+        ),
+      );
+
+      // Store the mapping for tap handling
+      _symbolToStateMap[symbol.id] = state;
+    }
+  }
+
+  void _onSymbolTapped(Symbol symbol) {
+    final state = _symbolToStateMap[symbol.id];
+    if (state != null) {
+      _showStateInfo(state);
+    }
+  }
+
+  void _showStateInfo(StateLocation state) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: state.color,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: Text(
+                    state.abbreviation,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  state.name,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Coordinates:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on,
+                            size: 16, color: Colors.red),
+                        const SizedBox(width: 8),
+                        const Text('Latitude: ',
+                            style: TextStyle(fontWeight: FontWeight.w500)),
+                        Text(
+                          state.coordinates.latitude.toStringAsFixed(4),
+                          style: const TextStyle(fontFamily: 'monospace'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on,
+                            size: 16, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        const Text('Longitude: ',
+                            style: TextStyle(fontWeight: FontWeight.w500)),
+                        Text(
+                          state.coordinates.longitude.toStringAsFixed(4),
+                          style: const TextStyle(fontFamily: 'monospace'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _mapController?.animateCamera(
+                  CameraUpdate.newLatLngZoom(state.coordinates, 6.0),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: state.color,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Zoom to Location'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Stress test methods
+  Future<void> _runStressTest() async {
+    if (_mapController == null || _isStressTesting) return;
+
+    setState(() {
+      _isStressTesting = true;
+      _stressTestSymbolCount = 0;
+    });
+
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      print('🚀 Starting stress test: 10,000 random chips around the world...');
+
+      // Generate random state data for stress testing
+      final stressTestStates = _generateRandomStates(10000);
+
+      // First, generate all images (this might take a while)
+      print('📸 Generating 10,000 chip images...');
+      for (int i = 0; i < stressTestStates.length; i++) {
+        final state = stressTestStates[i];
+        final imageBytes = await _createWidgetImage(state);
+        await _mapController!.addImage('stress-test-$i', imageBytes);
+
+        // Update progress every 1000 images
+        if ((i + 1) % 1000 == 0) {
+          print('Generated ${i + 1}/10,000 images...');
+          setState(() {
+            _stressTestSymbolCount = i + 1;
+          });
+        }
+      }
+
+      print('🎯 Adding symbols to map...');
+
+      // Add all symbols to the map
+      for (int i = 0; i < stressTestStates.length; i++) {
+        final state = stressTestStates[i];
+
+        final symbol = await _mapController!.addSymbol(
+          SymbolOptions(
+            geometry: state.coordinates,
+            iconImage: 'stress-test-$i',
+            iconSize: 0.8, // Slightly smaller for better performance
+            iconAnchor: 'center',
+            iconOffset: const Offset(0, 0),
+          ),
+        );
+
+        // Store the mapping for tap handling
+        _symbolToStateMap[symbol.id] = state;
+
+        // Update progress every 1000 symbols
+        if ((i + 1) % 1000 == 0) {
+          print('Added ${i + 1}/10,000 symbols to map...');
+          setState(() {
+            _stressTestSymbolCount = 10000 + i + 1;
+          });
+        }
+      }
+
+      stopwatch.stop();
+      print('✅ Stress test completed!');
+      print(
+          '⏱️  Total time: ${stopwatch.elapsedMilliseconds}ms (${(stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s)');
+      print('📊 Created 10,000 symbols successfully');
+
+      // Show completion dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Stress Test Complete!'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('✅ Successfully created 10,000 random chips'),
+                Text(
+                    '⏱️ Time taken: ${(stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)} seconds'),
+                const SizedBox(height: 8),
+                const Text(
+                    'Now try zooming and panning to test scrolling performance!'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Stress test failed: $e');
+    } finally {
+      setState(() {
+        _isStressTesting = false;
+      });
+    }
+  }
+
+  List<StateLocation> _generateRandomStates(int count) {
+    final states = <StateLocation>[];
+    final colors = [
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.purple,
+      Colors.orange,
+      Colors.teal,
+      Colors.indigo,
+      Colors.pink,
+      Colors.cyan,
+      Colors.amber,
+      Colors.deepOrange,
+      Colors.deepPurple,
+      Colors.lightBlue,
+      Colors.lightGreen,
+      Colors.lime,
+      Colors.yellow,
+      Colors.brown,
+      Colors.grey,
+    ];
+
+    final cityNames = [
+      'Tokyo',
+      'Delhi',
+      'Shanghai',
+      'São Paulo',
+      'Mexico City',
+      'Cairo',
+      'Mumbai',
+      'Beijing',
+      'Dhaka',
+      'Osaka',
+      'New York',
+      'Karachi',
+      'Buenos Aires',
+      'Chongqing',
+      'Istanbul',
+      'Kolkata',
+      'Manila',
+      'Lagos',
+      'Rio de Janeiro',
+      'Tianjin',
+      'Kinshasa',
+      'Guangzhou',
+      'Los Angeles',
+      'Moscow',
+      'Shenzhen',
+      'Lahore',
+      'Bangalore',
+      'Paris',
+      'Bogotá',
+      'Jakarta',
+      'Chennai',
+      'Lima',
+      'Bangkok',
+      'Seoul',
+      'Nagoya',
+      'Hyderabad',
+      'London',
+      'Tehran',
+      'Chicago',
+      'Chengdu',
+      'Nanjing',
+      'Wuhan',
+      'Ho Chi Minh City',
+      'Luanda',
+      'Ahmedabad',
+      'Kuala Lumpur',
+      'Xi\'an',
+      'Hong Kong',
+      'Dongguan',
+      'Hangzhou',
+      'Foshan',
+      'Shenyang',
+      'Riyadh',
+      'Baghdad',
+      'Santiago',
+      'Surat',
+      'Madrid',
+      'Suzhou',
+      'Pune',
+      'Harbin',
+      'Houston',
+      'Dallas',
+      'Toronto',
+      'Dar es Salaam',
+      'Miami',
+      'Belo Horizonte',
+      'Singapore',
+      'Philadelphia',
+      'Atlanta',
+      'Fukuoka',
+      'Khartoum',
+      'Barcelona',
+      'Johannesburg',
+      'Saint Petersburg',
+      'Qingdao',
+      'Dalian',
+      'Washington',
+      'Yangon',
+      'Alexandria',
+      'Jinan',
+      'Guadalajara',
+    ];
+
+    for (int i = 0; i < count; i++) {
+      // Generate random coordinates (latitude: -90 to 90, longitude: -180 to 180)
+      final lat = _random.nextDouble() * 180 - 90; // -90 to 90
+      final lng = _random.nextDouble() * 360 - 180; // -180 to 180
+
+      final cityName = cityNames[_random.nextInt(cityNames.length)];
+      final abbreviation = '${(i + 1).toString().padLeft(2, '0')}';
+      final color = colors[_random.nextInt(colors.length)];
+
+      states.add(StateLocation(
+        '$cityName $abbreviation',
+        abbreviation,
+        LatLng(lat, lng),
+        color,
+      ));
+    }
+
+    return states;
+  }
+
+  Future<void> _clearStressTest() async {
+    if (_mapController == null) return;
+
+    print('🧹 Clearing stress test symbols...');
+    await _mapController!.clearSymbols();
+
+    // Re-add original state symbols
+    await _generateStateImages();
+    await _addStateSymbols();
+
+    setState(() {
+      _stressTestSymbolCount = 0;
+    });
+
+    print('✅ Cleared stress test, restored original symbols');
+  }
+
+  @override
+  void dispose() {
+    _mapController?.onSymbolTapped.remove(_onSymbolTapped);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Simple State Labels'),
+        title: const Text('Native State Labels'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
+        actions: [
+          // Stress test button
+          IconButton(
+            icon: const Icon(Icons.speed),
+            onPressed: _isStressTesting ? null : _runStressTest,
+            tooltip: 'Run Stress Test (10K chips)',
+          ),
+          // Clear stress test button
+          IconButton(
+            icon: const Icon(Icons.clear_all),
+            onPressed: _isStressTesting ? null : _clearStressTest,
+            tooltip: 'Clear Stress Test',
+          ),
+          // Refresh button
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              if (_mapController != null) {
+                await _mapController!.clearSymbols();
+                await _generateStateImages();
+                await _addStateSymbols();
+              }
+            },
+          ),
+        ],
       ),
       body: Stack(
         children: [
           MapLibreMap(
             styleString: 'https://demotiles.maplibre.org/style.json',
             initialCameraPosition: _initialCamera,
-            onMapCreated: (controller) {},
+            onMapCreated: _onMapCreated,
             myLocationEnabled: false,
             compassEnabled: true,
             tiltGesturesEnabled: true,
@@ -46,53 +649,7 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
             zoomGesturesEnabled: true,
             rotateGesturesEnabled: true,
           ),
-          // Static positioned labels as examples
-          const Positioned(
-            left: 100,
-            top: 200,
-            child: _StaticLabel(
-              name: 'California',
-              abbreviation: 'CA',
-              color: Color(0xFF2196F3),
-            ),
-          ),
-          const Positioned(
-            left: 300,
-            top: 350,
-            child: _StaticLabel(
-              name: 'Texas',
-              abbreviation: 'TX',
-              color: Color(0xFFFF5722),
-            ),
-          ),
-          const Positioned(
-            left: 500,
-            top: 450,
-            child: _StaticLabel(
-              name: 'Florida',
-              abbreviation: 'FL',
-              color: Color(0xFF4CAF50),
-            ),
-          ),
-          const Positioned(
-            left: 250,
-            top: 150,
-            child: _StaticLabel(
-              name: 'New York',
-              abbreviation: 'NY',
-              color: Color(0xFF9C27B0),
-            ),
-          ),
-          const Positioned(
-            left: 200,
-            top: 250,
-            child: _StaticLabel(
-              name: 'Illinois',
-              abbreviation: 'IL',
-              color: Color(0xFFFF9800),
-            ),
-          ),
-          // Floating controls
+          // Floating info panel
           Positioned(
             top: 20,
             left: 20,
@@ -114,7 +671,7 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Label Styles Demo',
+                    'Native Map Labels',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -122,28 +679,60 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Different styling examples\nfor map labels',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _LabelStyleExample(
-                        color: Colors.blue,
-                        text: 'Type 1',
-                      ),
-                      const SizedBox(width: 8),
-                      _LabelStyleExample(
+                  if (_isStressTesting) ...[
+                    const Text(
+                      'Running Stress Test...',
+                      style: TextStyle(
+                        fontSize: 12,
                         color: Colors.red,
-                        text: 'Type 2',
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: 200, // Fixed width for progress bar
+                      child: LinearProgressIndicator(
+                        backgroundColor: Colors.grey.shade300,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.red.shade600),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _stressTestSymbolCount <= 10000
+                          ? 'Images: $_stressTestSymbolCount/10,000'
+                          : 'Symbols: ${_stressTestSymbolCount - 10000}/10,000',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ] else ...[
+                    const Text(
+                      'GPU-accelerated symbols\nthat move with the map',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.speed,
+                            size: 16, color: Colors.green.shade600),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'GPU Accelerated',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -159,9 +748,11 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
                 color: Colors.green.shade700.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                'This is a simple demonstration of styled labels with rounded containers positioned over a MapLibre map',
-                style: TextStyle(
+              child: Text(
+                _isStressTesting
+                    ? 'Stress test in progress... Creating 10,000 random chips worldwide!'
+                    : 'Tap any state label to see info. Use the speed icon (⚡) to run a 10K chip stress test!',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
                 ),
@@ -170,99 +761,6 @@ class _SimpleStateLabelsMapState extends State<_SimpleStateLabelsMap> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StaticLabel extends StatelessWidget {
-  final String name;
-  final String abbreviation;
-  final Color color;
-
-  const _StaticLabel({
-    required this.name,
-    required this.abbreviation,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(
-                abbreviation,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LabelStyleExample extends StatelessWidget {
-  final Color color;
-  final String text;
-
-  const _LabelStyleExample({
-    required this.color,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white, width: 1),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
       ),
     );
   }
