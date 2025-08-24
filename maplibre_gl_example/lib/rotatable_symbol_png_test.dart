@@ -52,9 +52,9 @@ class _RotatableSymbolPngTestBodyState
   /// iOS needs larger sizes than Android for the same visual appearance
   double get _platformAircraftIconSize {
     if (Platform.isIOS) {
-      return 0.25; // Larger for iOS - was 0.15
+      return 0.6; // Much larger for better initial visibility - was 0.25
     } else {
-      return 0.15; // Standard size for Android
+      return 0.4; // Larger for better initial visibility - was 0.15
     }
   }
 
@@ -62,9 +62,9 @@ class _RotatableSymbolPngTestBodyState
   /// iOS needs larger sizes than Android for the same visual appearance
   double get _platformArrowIconSize {
     if (Platform.isIOS) {
-      return 0.15; // Larger for iOS - was 0.08
+      return 0.3; // Larger for better initial visibility - was 0.15
     } else {
-      return 0.08; // Standard size for Android
+      return 0.2; // Larger for better initial visibility - was 0.08
     }
   }
 
@@ -114,8 +114,8 @@ class _RotatableSymbolPngTestBodyState
     print('🔧 Arrow icon size: $_platformArrowIconSize');
 
     _testPngSymbolLayers();
-    // Automatically zoom to symbols location after loading
-    Future.delayed(const Duration(milliseconds: 500), () {
+    // Automatically zoom to symbols location after loading - reduced delay
+    Future.delayed(const Duration(milliseconds: 200), () {
       _zoomToSymbols();
     });
   }
@@ -923,7 +923,7 @@ class _RotatableSymbolPngTestBodyState
           MapLibreMap(
             initialCameraPosition: const CameraPosition(
               target: center,
-              zoom: 8.0, // Zoomed out to see symbols better
+              zoom: 14.0, // Closer zoom to see PNG icons immediately
             ),
             onMapCreated: _onMapCreated,
             onStyleLoadedCallback: _onStyleLoaded,
