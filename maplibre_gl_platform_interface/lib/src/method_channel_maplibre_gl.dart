@@ -1124,10 +1124,50 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<bool> isLineEditable(String lineId) async {
-    final result =
-        await _channel.invokeMethod('line#isEditable', <String, dynamic>{
+    return await _channel.invokeMethod('line#isEditable', {
       'lineId': lineId,
     });
-    return result as bool;
+  }
+
+  // Native LERC Canvas methods implementation
+  @override
+  Future<void> initializeNativeLercCanvas({
+    required String layerId,
+    required List<double> elevationData,
+    required int width,
+    required int height,
+    required List<double> bounds,
+    required double referenceAltitude,
+    required double warningAltitude,
+  }) async {
+    await _channel.invokeMethod('nativeLercCanvas#initialize', {
+      'layerId': layerId,
+      'elevationData': elevationData,
+      'width': width,
+      'height': height,
+      'bounds': bounds,
+      'referenceAltitude': referenceAltitude,
+      'warningAltitude': warningAltitude,
+    });
+  }
+
+  @override
+  Future<void> updateNativeLercCanvasAltitudes({
+    required String layerId,
+    required double referenceAltitude,
+    required double warningAltitude,
+  }) async {
+    await _channel.invokeMethod('nativeLercCanvas#updateAltitudes', {
+      'layerId': layerId,
+      'referenceAltitude': referenceAltitude,
+      'warningAltitude': warningAltitude,
+    });
+  }
+
+  @override
+  Future<void> disposeNativeLercCanvas(String layerId) async {
+    await _channel.invokeMethod('nativeLercCanvas#dispose', {
+      'layerId': layerId,
+    });
   }
 }
