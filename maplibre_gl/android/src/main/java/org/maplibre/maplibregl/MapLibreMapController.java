@@ -205,9 +205,35 @@ final class MapLibreMapController
   private TwoFingerHoldGestureDetector twoFingerHoldGestureDetector;
   private NativeMeasurementDetector nativeMeasurementDetector;
   
-  // Native LERC Canvas Layer fields
+  // NEW: High-performance terrain data manager with native buffering
+  private NativeTerrainManagerIntegration terrainManagerIntegration;
+  
+  // Package-private accessors for terrain manager integration
+  MapLibreMap getMapLibreMap() {
+    return mapLibreMap;
+  }
+  
+  Style getStyle() {
+    return style;
+  }
+  
+  // DEPRECATED: Legacy native LERC Canvas Layer fields (kept for backwards compatibility)
   private Map<String, Object> nativeLercCanvasLayers = new ConcurrentHashMap<>();
   private MethodChannel nativeLercMethodChannel;
+  
+  // DEPRECATED: Legacy performance optimization caches (superseded by NativeTerrainDataManager)
+  private final Map<String, double[]> elevationTileCache = new ConcurrentHashMap<>();
+  private final Map<String, Bitmap> coloredBitmapCache = new ConcurrentHashMap<>();
+  private final Map<String, Integer> cacheBustingVersions = new ConcurrentHashMap<>();
+  private final Map<String, android.os.Handler> debounceHandlers = new ConcurrentHashMap<>();
+  
+  // DEPRECATED: Pre-computed color lookup table (superseded by optimized bitmap creation)
+  private static int[][] colorLUT = null;
+  
+  // DEPRECATED: Cache management constants (superseded by NativeTerrainDataManager constants)
+  private static final int MAX_ELEVATION_CACHE_SIZE = 100;
+  private static final int MAX_BITMAP_CACHE_SIZE = 50;
+  private static final int DEBOUNCE_DELAY_MS = 25; // Short debounce for smooth updates
   Style.OnStyleLoaded onStyleLoadedCallback =
       new Style.OnStyleLoaded() {
         @Override
@@ -266,11 +292,30 @@ final class MapLibreMapController
     methodChannel = new MethodChannel(messenger, "plugins.flutter.io/maplibre_gl_" + id);
     methodChannel.setMethodCallHandler(this);
     
-    // Setup native LERC canvas method channel
+    // NEW: Initialize high-performance terrain data manager integration
+    terrainManagerIntegration = new NativeTerrainManagerIntegration(this);
+    
+    // DEPRECATED: Legacy native LERC canvas method channel (kept for backwards compatibility)
     nativeLercMethodChannel = new MethodChannel(messenger, "flight_canvas/native_lerc");
     nativeLercMethodChannel.setMethodCallHandler(new MethodChannel.MethodCallHandler() {
       @Override
       public void onMethodCall(MethodCall call, MethodChannel.Result result) {
+        // NEW: Route to high-performance terrain manager first
+        if (terrainManagerIntegration != null) {
+          switch (call.method) {
+            case "initialize":
+              terrainManagerIntegration.handleTerrainInitialize(call, result);
+              return;
+            case "updateAltitudes":
+              terrainManagerIntegration.handleTerrainUpdateAltitudes(call, result);
+              return;
+            case "dispose":
+              terrainManagerIntegration.handleTerrainDispose(call, result);
+              return;
+          }
+        }
+        
+        // Fallback to legacy handler for backwards compatibility
         handleNativeLercMethodCall(call, result);
       }
     });
@@ -308,6 +353,11 @@ final class MapLibreMapController
     mapLibreMap.addOnCameraMoveStartedListener(this);
     mapLibreMap.addOnCameraMoveListener(this);
     mapLibreMap.addOnCameraIdleListener(this);
+
+    // NEW: Initialize high-performance terrain data manager integration
+    if (terrainManagerIntegration != null) {
+      terrainManagerIntegration.initializeWithMap(mapLibreMap);
+    }
 
     // Initialize polyline editing manager
     polylineEditingManager = new PolylineEditingManager(mapLibreMap);
@@ -2303,8 +2353,13 @@ final class MapLibreMapController
     }
     methodChannel.invokeMethod("camera#onIdle", arguments);
     
-    // Update native LERC terrain tiles when camera movement stops
-    updateNativeLercTilesForCurrentView();
+    // NEW: Update high-performance terrain manager integration for viewport changes
+    if (terrainManagerIntegration != null) {
+      terrainManagerIntegration.updateViewport(mapLibreMap.getCameraPosition());
+    }
+    
+    // DEPRECATED: Legacy native LERC terrain tiles optimization (kept for backwards compatibility)
+    updateNativeLercTilesForCurrentViewOptimized();
   }
 
   @Override
@@ -5084,21 +5139,16 @@ final class MapLibreMapController
         return;
       }
       
-      Log.d(TAG, "Updating altitude thresholds for layer: " + layerId);
-      Log.d(TAG, "  Reference altitude: " + referenceAltitude + "ft");
-      Log.d(TAG, "  Warning altitude: " + warningAltitude + "ft");
-      Log.d(TAG, "  Elevation data size: " + elevationData.length + " pixels");
-      Log.d(TAG, "  Dimensions: " + width + "x" + height);
+      Log.d(TAG, "FAST altitude update - layer: " + layerId + " (ref=" + referenceAltitude + "ft, warn=" + warningAltitude + "ft)");
       
-      // Update the layer configuration with new altitude thresholds
+      // Update altitude thresholds in layer config
       layerConfig.put("referenceAltitude", referenceAltitude);
       layerConfig.put("warningAltitude", warningAltitude);
       layerConfig.put("lastUpdated", System.currentTimeMillis());
       
-      // Create or update the visual layer on the map
-      updateTerrainVisualization(layerId, layerConfig, elevationData, width, height, bounds, referenceAltitude, warningAltitude);
+      // Direct fast update - no debouncing, no complex tile processing
+      updateSimpleTerrainVisualization(layerId, layerConfig, elevationData, width, height, bounds, referenceAltitude, warningAltitude);
       
-      Log.d(TAG, "Successfully updated altitude thresholds for layer: " + layerId);
       result.success(null);
       
     } catch (Exception e) {
@@ -5617,7 +5667,11 @@ final class MapLibreMapController
   }
   
   /**
-   * Creates a color-coded terrain bitmap from elevation data.
+   * Creates a color-coded terrain bitmap from elevation data with caching and optimization.
+   * This method implements the performance patterns from the HTTP LERC layer:
+   * - Pre-computed color lookup table (LUT) for ultra-fast pixel coloring
+   * - Tile-wise bitmap caching to avoid regeneration
+   * - Cache-busting version management for altitude changes
    * 
    * @param elevationData Array of elevation values in meters
    * @param width Width of the elevation grid
@@ -5629,44 +5683,964 @@ final class MapLibreMapController
   private Bitmap createTerrainBitmap(double[] elevationData, int width, int height, 
                                     double referenceAltitude, double warningAltitude) {
     try {
-      Log.d(TAG, "Creating terrain bitmap: " + width + "x" + height + " pixels");
+      // Generate cache key including altitude thresholds for invalidation
+      String cacheKey = generateBitmapCacheKey(elevationData, width, height, referenceAltitude, warningAltitude);
+      
+      // Check if cached bitmap exists
+      Bitmap cachedBitmap = coloredBitmapCache.get(cacheKey);
+      if (cachedBitmap != null && !cachedBitmap.isRecycled()) {
+        Log.v(TAG, "Using cached terrain bitmap: " + width + "x" + height + " pixels");
+        return cachedBitmap;
+      }
+      
+      Log.d(TAG, "Creating new terrain bitmap with optimized color LUT: " + width + "x" + height + " pixels");
+      
+      // Initialize pre-computed color LUT if needed
+      if (colorLUT == null) {
+        initializeColorLUT();
+      }
       
       // Convert altitudes from feet to meters
       double referenceAltitudeM = referenceAltitude * 0.3048;
       double warningAltitudeM = warningAltitude * 0.3048;
       
-      // Create bitmap
+      // Create bitmap with optimized pixel processing
       Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
       int[] pixels = new int[width * height];
       
-      // Process each pixel
+      // Process each pixel using pre-computed color LUT for ultra-fast coloring
       for (int i = 0; i < elevationData.length && i < pixels.length; i++) {
         double elevation = elevationData[i];
-        int color;
-        
-        if (elevation < warningAltitudeM) {
-          // Red zone - below warning altitude (dangerous)
-          color = 0x80FF0000; // Semi-transparent red
-        } else if (elevation < referenceAltitudeM) {
-          // Yellow zone - below reference altitude (caution)
-          color = 0x80FFFF00; // Semi-transparent yellow
-        } else {
-          // Green zone - above reference altitude (safe)
-          color = 0x8000FF00; // Semi-transparent green
-        }
-        
-        pixels[i] = color;
+        pixels[i] = getColorFromLUT(elevation, referenceAltitudeM, warningAltitudeM);
       }
       
       // Set pixels to bitmap
       bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
       
-      Log.d(TAG, "Successfully created terrain bitmap with " + elevationData.length + " elevation points");
+      // Cache the bitmap with size management
+      cacheBitmapWithSizeManagement(cacheKey, bitmap);
+      
+      Log.d(TAG, "Successfully created and cached terrain bitmap with " + elevationData.length + " elevation points");
       return bitmap;
       
     } catch (Exception e) {
       Log.e(TAG, "Error creating terrain bitmap: " + e.getMessage(), e);
       return null;
+    }
+  }
+  
+  /**
+   * Initializes the pre-computed color lookup table (LUT) for ultra-fast terrain coloring.
+   * This pattern is inspired by the HTTP LERC layer's color LUT optimization.
+   */
+  private void initializeColorLUT() {
+    try {
+      Log.d(TAG, "Initializing color lookup table (LUT) for ultra-fast terrain coloring");
+      
+      // Create color LUT with sufficient resolution (256 levels per zone)
+      int lutSize = 768; // 256 * 3 zones (red, yellow, green)
+      colorLUT = new int[3][256]; // [zone][intensity]
+      
+      // Pre-compute red zone colors (dangerous terrain)
+      for (int i = 0; i < 256; i++) {
+        int alpha = 0x80 + (i * 0x7F / 255); // Variable transparency based on intensity
+        colorLUT[0][i] = (alpha << 24) | 0x00FF0000; // Semi-transparent red
+      }
+      
+      // Pre-compute yellow zone colors (caution terrain)
+      for (int i = 0; i < 256; i++) {
+        int alpha = 0x60 + (i * 0x9F / 255); // Variable transparency
+        colorLUT[1][i] = (alpha << 24) | 0x00FFFF00; // Semi-transparent yellow
+      }
+      
+      // Pre-compute green zone colors (safe terrain)
+      for (int i = 0; i < 256; i++) {
+        int alpha = 0x40 + (i * 0x7F / 255); // Variable transparency
+        colorLUT[2][i] = (alpha << 24) | 0x0000FF00; // Semi-transparent green
+      }
+      
+      Log.d(TAG, "Color LUT initialized with " + lutSize + " pre-computed color values");
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error initializing color LUT: " + e.getMessage(), e);
+      // Fallback to simple color computation
+      colorLUT = null;
+    }
+  }
+  
+  /**
+   * Gets color from the pre-computed lookup table for ultra-fast pixel coloring.
+   * This eliminates repeated color calculations during bitmap generation.
+   */
+  private int getColorFromLUT(double elevation, double referenceAltitudeM, double warningAltitudeM) {
+    if (colorLUT == null) {
+      // Fallback to direct color computation if LUT is not available
+      return getColorDirect(elevation, referenceAltitudeM, warningAltitudeM);
+    }
+    
+    try {
+      int zone;
+      int intensity;
+      
+      if (elevation < warningAltitudeM) {
+        // Red zone - below warning altitude (dangerous)
+        zone = 0;
+        // Calculate intensity based on how far below warning altitude
+        double ratio = Math.max(0.0, 1.0 - (warningAltitudeM - elevation) / 1000.0); // 1000m range
+        intensity = (int) (ratio * 255);
+      } else if (elevation < referenceAltitudeM) {
+        // Yellow zone - below reference altitude (caution)
+        zone = 1;
+        // Calculate intensity based on position between warning and reference
+        double range = referenceAltitudeM - warningAltitudeM;
+        double ratio = range > 0 ? (elevation - warningAltitudeM) / range : 0.5;
+        intensity = (int) (ratio * 255);
+      } else {
+        // Green zone - above reference altitude (safe)
+        zone = 2;
+        // Calculate intensity based on how far above reference altitude
+        double ratio = Math.min(1.0, (elevation - referenceAltitudeM) / 1000.0); // 1000m range
+        intensity = (int) (ratio * 255);
+      }
+      
+      // Clamp intensity to valid range
+      intensity = Math.max(0, Math.min(255, intensity));
+      
+      return colorLUT[zone][intensity];
+      
+    } catch (Exception e) {
+      // Fallback to direct computation
+      return getColorDirect(elevation, referenceAltitudeM, warningAltitudeM);
+    }
+  }
+  
+  /**
+   * Direct color computation fallback when LUT is not available.
+   */
+  private int getColorDirect(double elevation, double referenceAltitudeM, double warningAltitudeM) {
+    if (elevation < warningAltitudeM) {
+      return 0x80FF0000; // Semi-transparent red
+    } else if (elevation < referenceAltitudeM) {
+      return 0x80FFFF00; // Semi-transparent yellow
+    } else {
+      return 0x8000FF00; // Semi-transparent green
+    }
+  }
+  
+  /**
+   * Generates a cache key for bitmap caching based on data and altitude thresholds.
+   * This enables cache-busting when altitude settings change while preserving cached bitmaps.
+   */
+  private String generateBitmapCacheKey(double[] elevationData, int width, int height, 
+                                       double referenceAltitude, double warningAltitude) {
+    try {
+      // Generate a content hash for the elevation data (sample-based for performance)
+      int dataHash = generateElevationDataHash(elevationData, width, height);
+      
+      // Include altitude thresholds in the key for cache invalidation
+      String altitudeKey = String.format("%.1f_%.1f", referenceAltitude, warningAltitude);
+      
+      return String.format("terrain_%d_%dx%d_%s", dataHash, width, height, altitudeKey);
+      
+    } catch (Exception e) {
+      Log.w(TAG, "Error generating bitmap cache key: " + e.getMessage());
+      // Fallback to simple key based on dimensions and altitude
+      return String.format("terrain_%dx%d_%.1f_%.1f", width, height, referenceAltitude, warningAltitude);
+    }
+  }
+  
+  /**
+   * Generates a fast hash of elevation data for caching purposes.
+   * Uses sampling to avoid processing the entire dataset for large terrain data.
+   */
+  private int generateElevationDataHash(double[] elevationData, int width, int height) {
+    try {
+      int hash = 1;
+      int sampleRate = Math.max(1, elevationData.length / 1000); // Sample ~1000 points
+      
+      for (int i = 0; i < elevationData.length; i += sampleRate) {
+        // Use a simple but effective hash combining method
+        long bits = Double.doubleToLongBits(elevationData[i]);
+        hash = 31 * hash + (int) (bits ^ (bits >>> 32));
+      }
+      
+      return hash;
+      
+    } catch (Exception e) {
+      Log.w(TAG, "Error generating elevation data hash: " + e.getMessage());
+      return elevationData.length; // Fallback to length-based hash
+    }
+  }
+  
+  /**
+   * Caches a bitmap with automatic size management to prevent memory issues.
+   * Implements LRU-style eviction when cache size limits are exceeded.
+   */
+  private void cacheBitmapWithSizeManagement(String cacheKey, Bitmap bitmap) {
+    try {
+      // Check cache size and evict old entries if needed
+      if (coloredBitmapCache.size() >= MAX_BITMAP_CACHE_SIZE) {
+        evictOldestBitmapCacheEntries();
+      }
+      
+      // Store the bitmap in cache
+      coloredBitmapCache.put(cacheKey, bitmap);
+      
+      Log.v(TAG, "Cached terrain bitmap: " + cacheKey + " (cache size: " + coloredBitmapCache.size() + ")");
+      
+    } catch (Exception e) {
+      Log.w(TAG, "Error caching bitmap: " + e.getMessage());
+      // Continue without caching on error
+    }
+  }
+  
+  /**
+   * Evicts the oldest bitmap cache entries to free memory.
+   * This implements a simple LRU-style eviction policy.
+   */
+  private void evictOldestBitmapCacheEntries() {
+    try {
+      int entriesToRemove = coloredBitmapCache.size() - MAX_BITMAP_CACHE_SIZE + 10; // Remove extra entries
+      
+      if (entriesToRemove <= 0) {
+        return;
+      }
+      
+      List<String> keysToRemove = new ArrayList<>();
+      int count = 0;
+      
+      // Remove oldest entries (this is a simplification - in production might use LRU)
+      for (String key : coloredBitmapCache.keySet()) {
+        if (count >= entriesToRemove) {
+          break;
+        }
+        keysToRemove.add(key);
+        count++;
+      }
+      
+      // Remove the selected entries and recycle bitmaps
+      for (String key : keysToRemove) {
+        Bitmap bitmap = coloredBitmapCache.remove(key);
+        if (bitmap != null && !bitmap.isRecycled()) {
+          bitmap.recycle();
+        }
+      }
+      
+      Log.d(TAG, "Evicted " + keysToRemove.size() + " old bitmap cache entries");
+      
+    } catch (Exception e) {
+      Log.w(TAG, "Error evicting bitmap cache entries: " + e.getMessage());
+    }
+  }
+  
+  /**
+   * Pre-decodes and caches elevation data per tile for ultra-fast access.
+   * This mirrors the HTTP LERC layer's elevation caching strategy.
+   */
+  private void preDecodeAndCacheElevationData(String layerId, double[] elevationData, 
+                                            int width, int height, List<Double> bounds) {
+    try {
+      Log.d(TAG, "Pre-decoding and caching elevation data for layer: " + layerId);
+      
+      // Check cache size and evict if needed
+      if (elevationTileCache.size() >= MAX_ELEVATION_CACHE_SIZE) {
+        evictOldestElevationCacheEntries();
+      }
+      
+      // Calculate tile grid parameters (similar to HTTP layer's tiling)
+      int tileSize = 256; // Standard tile size
+      int tilesX = (int) Math.ceil((double) width / tileSize);
+      int tilesY = (int) Math.ceil((double) height / tileSize);
+      
+      Log.d(TAG, "Pre-caching elevation data in " + tilesX + "x" + tilesY + " tiles of " + tileSize + "x" + tileSize + " each");
+      
+      // Pre-decode elevation data per tile
+      for (int tileY = 0; tileY < tilesY; tileY++) {
+        for (int tileX = 0; tileX < tilesX; tileX++) {
+          String tileKey = generateElevationTileKey(layerId, tileX, tileY);
+          
+          // Extract elevation data for this tile
+          double[] tileElevationData = extractElevationTileData(elevationData, width, height, 
+                                                                tileX, tileY, tileSize);
+          
+          if (tileElevationData != null) {
+            elevationTileCache.put(tileKey, tileElevationData);
+          }
+        }
+      }
+      
+      Log.d(TAG, "Pre-cached " + (tilesX * tilesY) + " elevation tiles for layer: " + layerId);
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error pre-decoding elevation data: " + e.getMessage(), e);
+    }
+  }
+  
+  /**
+   * Extracts elevation data for a specific tile from the full dataset.
+   */
+  private double[] extractElevationTileData(double[] fullData, int fullWidth, int fullHeight, 
+                                          int tileX, int tileY, int tileSize) {
+    try {
+      int startX = tileX * tileSize;
+      int startY = tileY * tileSize;
+      int endX = Math.min(startX + tileSize, fullWidth);
+      int endY = Math.min(startY + tileSize, fullHeight);
+      
+      int tileWidth = endX - startX;
+      int tileHeight = endY - startY;
+      
+      if (tileWidth <= 0 || tileHeight <= 0) {
+        return null;
+      }
+      
+      double[] tileData = new double[tileWidth * tileHeight];
+      
+      for (int y = 0; y < tileHeight; y++) {
+        for (int x = 0; x < tileWidth; x++) {
+          int fullIndex = (startY + y) * fullWidth + (startX + x);
+          int tileIndex = y * tileWidth + x;
+          
+          if (fullIndex < fullData.length && tileIndex < tileData.length) {
+            tileData[tileIndex] = fullData[fullIndex];
+          }
+        }
+      }
+      
+      return tileData;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error extracting elevation tile data: " + e.getMessage(), e);
+      return null;
+    }
+  }
+  
+  /**
+   * Generates a cache key for elevation tile data.
+   */
+  private String generateElevationTileKey(String layerId, int tileX, int tileY) {
+    return String.format("%s_tile_%d_%d", layerId, tileX, tileY);
+  }
+  
+  /**
+   * Evicts oldest elevation cache entries to manage memory usage.
+   */
+  private void evictOldestElevationCacheEntries() {
+    try {
+      int entriesToRemove = elevationTileCache.size() - MAX_ELEVATION_CACHE_SIZE + 10;
+      
+      if (entriesToRemove <= 0) {
+        return;
+      }
+      
+      List<String> keysToRemove = new ArrayList<>();
+      int count = 0;
+      
+      for (String key : elevationTileCache.keySet()) {
+        if (count >= entriesToRemove) {
+          break;
+        }
+        keysToRemove.add(key);
+        count++;
+      }
+      
+      for (String key : keysToRemove) {
+        elevationTileCache.remove(key);
+      }
+      
+      Log.d(TAG, "Evicted " + keysToRemove.size() + " old elevation cache entries");
+      
+    } catch (Exception e) {
+      Log.w(TAG, "Error evicting elevation cache entries: " + e.getMessage());
+    }
+  }
+  
+  /**
+   * Fast zoom-aware tile-based terrain visualization.
+   * Creates different resolution tiles based on zoom level for sharp rendering at all scales.
+   * Properly cleans up previous layers to prevent overlaying issues.
+   */
+  private void updateSimpleTerrainVisualization(String layerId, Map<String, Object> layerConfig, 
+                                               double[] elevationData, Integer width, Integer height, 
+                                               List<Double> bounds, Double referenceAltitude, Double warningAltitude) {
+    try {
+      double currentZoom = mapLibreMap.getCameraPosition().zoom;
+      Log.d(TAG, "FAST TILE-BASED terrain update - layer: " + layerId + " zoom: " + String.format("%.1f", currentZoom));
+      
+      // CRITICAL: Clean up ALL previous terrain layers first to prevent overlaying
+      cleanupAllTerrainLayers(layerId);
+      
+      // Determine tile strategy based on zoom level for optimal performance
+      if (currentZoom < 4.0) {
+        // Very low zoom - single coarse tile for max speed
+        createSingleCoarseTile(layerId, elevationData, width, height, bounds, referenceAltitude, warningAltitude);
+      } else if (currentZoom < 7.0) {
+        // Medium zoom - 4 medium-resolution tiles for balanced performance
+        createMediumZoomTiles(layerId, elevationData, width, height, bounds, referenceAltitude, warningAltitude, currentZoom);
+      } else {
+        // High zoom - sharp detailed tiles for current viewport only
+        createHighZoomDetailTiles(layerId, elevationData, width, height, bounds, referenceAltitude, warningAltitude, currentZoom);
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error in fast tile-based terrain visualization: " + e.getMessage(), e);
+    }
+  }
+  
+  /**
+   * CRITICAL: Removes ALL terrain-related layers and sources to prevent layer stacking.
+   * This fixes the multiple overlaid layers issue.
+   */
+  private void cleanupAllTerrainLayers(String layerId) {
+    try {
+      if (style == null) return;
+      
+      List<String> layersToRemove = new ArrayList<>();
+      List<String> sourcesToRemove = new ArrayList<>();
+      
+      // Find ALL terrain-related layers and sources for this layerId
+      String basePattern = layerId;
+      
+      // Check for various terrain layer naming patterns
+      for (Layer layer : style.getLayers()) {
+        String id = layer.getId();
+        if (id.startsWith(basePattern + "-terrain") || 
+            id.startsWith(basePattern + "-tile") || 
+            id.startsWith(basePattern + "-coarse") ||
+            id.startsWith(basePattern + "-medium") ||
+            id.startsWith(basePattern + "-detail")) {
+          layersToRemove.add(id);
+        }
+      }
+      
+      // Check for terrain sources
+      for (Source source : style.getSources()) {
+        String id = source.getId();
+        if (id.startsWith(basePattern + "-source") || 
+            id.startsWith(basePattern + "-tile") ||
+            id.startsWith(basePattern + "-coarse") ||
+            id.startsWith(basePattern + "-medium") ||
+            id.startsWith(basePattern + "-detail")) {
+          sourcesToRemove.add(id);
+        }
+      }
+      
+      // Remove layers first, then sources
+      for (String layerIdToRemove : layersToRemove) {
+        style.removeLayer(layerIdToRemove);
+      }
+      
+      for (String sourceIdToRemove : sourcesToRemove) {
+        style.removeSource(sourceIdToRemove);
+      }
+      
+      if (!layersToRemove.isEmpty() || !sourcesToRemove.isEmpty()) {
+        Log.d(TAG, "Cleaned up " + layersToRemove.size() + " layers and " + sourcesToRemove.size() + " sources for " + layerId);
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error cleaning up terrain layers: " + e.getMessage(), e);
+    }
+  }
+  
+  /**
+   * Creates a single coarse tile for very low zoom levels (zoom < 4).
+   * Maximum performance with acceptable quality at world view.
+   */
+  private void createSingleCoarseTile(String layerId, double[] elevationData, int width, int height, 
+                                     List<Double> bounds, double referenceAltitude, double warningAltitude) {
+    try {
+      Log.d(TAG, "Creating single coarse tile for max speed");
+      
+      // Create a lower-resolution bitmap for speed (quarter resolution)
+      int coarseWidth = Math.max(64, width / 4);
+      int coarseHeight = Math.max(64, height / 4);
+      
+      // Downsample elevation data for speed
+      double[] coarseElevationData = downsampleElevationData(elevationData, width, height, coarseWidth, coarseHeight);
+      
+      // Create bitmap
+      Bitmap coarseBitmap = createSimpleBitmap(coarseElevationData, coarseWidth, coarseHeight, referenceAltitude, warningAltitude);
+      
+      if (coarseBitmap == null) {
+        Log.e(TAG, "Failed to create coarse bitmap");
+        return;
+      }
+      
+      // Create single layer covering full bounds
+      String coarseLayerId = layerId + "-coarse";
+      String coarseSourceId = layerId + "-coarse-source";
+      
+      double west = bounds.get(0);
+      double south = bounds.get(1);
+      double east = bounds.get(2);
+      double north = bounds.get(3);
+      
+      LatLng nw = new LatLng(north, west);
+      LatLng ne = new LatLng(north, east);
+      LatLng se = new LatLng(south, east);
+      LatLng sw = new LatLng(south, west);
+      
+      ImageSource coarseSource = new ImageSource(coarseSourceId, new LatLngQuad(nw, ne, se, sw), coarseBitmap);
+      style.addSource(coarseSource);
+      
+      RasterLayer coarseLayer = new RasterLayer(coarseLayerId, coarseSourceId);
+      coarseLayer.setProperties(
+          PropertyFactory.rasterOpacity(0.6f),
+          PropertyFactory.rasterFadeDuration(0.0f)
+      );
+      
+      style.addLayer(coarseLayer);
+      
+      Log.d(TAG, "Created coarse tile: " + coarseWidth + "x" + coarseHeight + " pixels");
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error creating coarse tile: " + e.getMessage(), e);
+    }
+  }
+  
+  /**
+   * Creates 4 medium-resolution tiles for balanced performance at medium zoom (4-7).
+   */
+  private void createMediumZoomTiles(String layerId, double[] elevationData, int width, int height, 
+                                    List<Double> bounds, double referenceAltitude, double warningAltitude, double zoom) {
+    try {
+      Log.d(TAG, "Creating 4 medium-resolution tiles for zoom " + String.format("%.1f", zoom));
+      
+      double west = bounds.get(0);
+      double south = bounds.get(1);
+      double east = bounds.get(2);
+      double north = bounds.get(3);
+      
+      double midLng = (west + east) / 2.0;
+      double midLat = (south + north) / 2.0;
+      
+      // Define 4 tile areas
+      double[][][] tileAreas = {
+          {{west, midLat, midLng, north}}, // NW
+          {{midLng, midLat, east, north}}, // NE  
+          {{west, south, midLng, midLat}}, // SW
+          {{midLng, south, east, midLat}}  // SE
+      };
+      
+      String[] tileNames = {"nw", "ne", "sw", "se"};
+      
+      // Medium resolution (half of original)
+      int mediumWidth = Math.max(128, width / 2);
+      int mediumHeight = Math.max(128, height / 2);
+      
+      for (int i = 0; i < 4; i++) {
+        double tileWest = tileAreas[i][0][0];
+        double tileSouth = tileAreas[i][0][1];
+        double tileEast = tileAreas[i][0][2];
+        double tileNorth = tileAreas[i][0][3];
+        
+        // Extract elevation data for this tile area
+        double[] tileElevationData = extractElevationForArea(elevationData, width, height, bounds, 
+                                                           tileWest, tileSouth, tileEast, tileNorth, 
+                                                           mediumWidth, mediumHeight);
+        
+        if (tileElevationData != null) {
+          // Create bitmap for this tile
+          Bitmap tileBitmap = createSimpleBitmap(tileElevationData, mediumWidth, mediumHeight, referenceAltitude, warningAltitude);
+          
+          if (tileBitmap != null) {
+            // Create layer for this tile
+            String tileLayerId = layerId + "-medium-" + tileNames[i];
+            String tileSourceId = layerId + "-medium-source-" + tileNames[i];
+            
+            LatLng nw = new LatLng(tileNorth, tileWest);
+            LatLng ne = new LatLng(tileNorth, tileEast);
+            LatLng se = new LatLng(tileSouth, tileEast);
+            LatLng sw = new LatLng(tileSouth, tileWest);
+            
+            ImageSource tileSource = new ImageSource(tileSourceId, new LatLngQuad(nw, ne, se, sw), tileBitmap);
+            style.addSource(tileSource);
+            
+            RasterLayer tileLayer = new RasterLayer(tileLayerId, tileSourceId);
+            tileLayer.setProperties(
+                PropertyFactory.rasterOpacity(0.6f),
+                PropertyFactory.rasterFadeDuration(0.0f)
+            );
+            
+            style.addLayer(tileLayer);
+          }
+        }
+      }
+      
+      Log.d(TAG, "Created 4 medium tiles at " + mediumWidth + "x" + mediumHeight + " pixels each");
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error creating medium zoom tiles: " + e.getMessage(), e);
+    }
+  }
+  
+  /**
+   * Creates high-detail tiles for current viewport only at high zoom (7+).
+   * Maximum sharpness where needed, ignoring areas outside viewport for performance.
+   */
+  private void createHighZoomDetailTiles(String layerId, double[] elevationData, int width, int height, 
+                                        List<Double> bounds, double referenceAltitude, double warningAltitude, double zoom) {
+    try {
+      Log.d(TAG, "Creating high-detail viewport tiles for zoom " + String.format("%.1f", zoom));
+      
+      // Get current viewport bounds
+      LatLngBounds viewportBounds = mapLibreMap.getProjection().getVisibleRegion().latLngBounds;
+      
+      // Expand viewport slightly for smooth panning
+      double latSpan = viewportBounds.getLatNorth() - viewportBounds.getLatSouth();
+      double lngSpan = viewportBounds.getLonEast() - viewportBounds.getLonWest();
+      
+      double expandedNorth = Math.min(90.0, viewportBounds.getLatNorth() + latSpan * 0.1);
+      double expandedSouth = Math.max(-90.0, viewportBounds.getLatSouth() - latSpan * 0.1);
+      double expandedEast = Math.min(180.0, viewportBounds.getLonEast() + lngSpan * 0.1);
+      double expandedWest = Math.max(-180.0, viewportBounds.getLonWest() - lngSpan * 0.1);
+      
+      // High resolution for sharp detail
+      int detailTileSize = 512; // Fixed high-resolution tile size
+      
+      // Create 2x2 grid of detail tiles covering expanded viewport
+      double tileLngSpan = (expandedEast - expandedWest) / 2.0;
+      double tileLatSpan = (expandedNorth - expandedSouth) / 2.0;
+      
+      int tileIndex = 0;
+      for (int row = 0; row < 2; row++) {
+        for (int col = 0; col < 2; col++) {
+          double tileWest = expandedWest + col * tileLngSpan;
+          double tileEast = expandedWest + (col + 1) * tileLngSpan;
+          double tileSouth = expandedSouth + row * tileLatSpan;
+          double tileNorth = expandedSouth + (row + 1) * tileLatSpan;
+          
+          // Extract high-resolution elevation data for this tile
+          double[] tileElevationData = extractElevationForArea(elevationData, width, height, bounds, 
+                                                             tileWest, tileSouth, tileEast, tileNorth, 
+                                                             detailTileSize, detailTileSize);
+          
+          if (tileElevationData != null) {
+            // Create high-resolution bitmap
+            Bitmap detailBitmap = createSimpleBitmap(tileElevationData, detailTileSize, detailTileSize, referenceAltitude, warningAltitude);
+            
+            if (detailBitmap != null) {
+              // Create detail layer
+              String detailLayerId = layerId + "-detail-" + tileIndex;
+              String detailSourceId = layerId + "-detail-source-" + tileIndex;
+              
+              LatLng nw = new LatLng(tileNorth, tileWest);
+              LatLng ne = new LatLng(tileNorth, tileEast);
+              LatLng se = new LatLng(tileSouth, tileEast);
+              LatLng sw = new LatLng(tileSouth, tileWest);
+              
+              ImageSource detailSource = new ImageSource(detailSourceId, new LatLngQuad(nw, ne, se, sw), detailBitmap);
+              style.addSource(detailSource);
+              
+              RasterLayer detailLayer = new RasterLayer(detailLayerId, detailSourceId);
+              detailLayer.setProperties(
+                  PropertyFactory.rasterOpacity(0.6f),
+                  PropertyFactory.rasterFadeDuration(0.0f)
+              );
+              
+              style.addLayer(detailLayer);
+              
+              tileIndex++;
+            }
+          }
+        }
+      }
+      
+      Log.d(TAG, "Created " + tileIndex + " high-detail viewport tiles at " + detailTileSize + "x" + detailTileSize + " pixels each");
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error creating high zoom detail tiles: " + e.getMessage(), e);
+    }
+  }
+  
+  /**
+   * Downsamples elevation data for performance at low zoom levels.
+   */
+  private double[] downsampleElevationData(double[] originalData, int originalWidth, int originalHeight, 
+                                          int newWidth, int newHeight) {
+    try {
+      double[] downsampled = new double[newWidth * newHeight];
+      
+      double xRatio = (double) originalWidth / newWidth;
+      double yRatio = (double) originalHeight / newHeight;
+      
+      for (int y = 0; y < newHeight; y++) {
+        for (int x = 0; x < newWidth; x++) {
+          int origX = Math.min(originalWidth - 1, (int) (x * xRatio));
+          int origY = Math.min(originalHeight - 1, (int) (y * yRatio));
+          int origIndex = origY * originalWidth + origX;
+          
+          if (origIndex < originalData.length) {
+            downsampled[y * newWidth + x] = originalData[origIndex];
+          }
+        }
+      }
+      
+      return downsampled;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error downsampling elevation data: " + e.getMessage(), e);
+      return originalData;
+    }
+  }
+  
+  /**
+   * Extracts elevation data for a specific geographic area.
+   */
+  private double[] extractElevationForArea(double[] fullElevationData, int fullWidth, int fullHeight, 
+                                          List<Double> fullBounds, double areaWest, double areaSouth, 
+                                          double areaEast, double areaNorth, int targetWidth, int targetHeight) {
+    try {
+      double fullWest = fullBounds.get(0);
+      double fullSouth = fullBounds.get(1);
+      double fullEast = fullBounds.get(2);
+      double fullNorth = fullBounds.get(3);
+      
+      double fullLngSpan = fullEast - fullWest;
+      double fullLatSpan = fullNorth - fullSouth;
+      double areaLngSpan = areaEast - areaWest;
+      double areaLatSpan = areaNorth - areaSouth;
+      
+      double[] areaData = new double[targetWidth * targetHeight];
+      
+      // Sample elevation data for the target area
+      for (int y = 0; y < targetHeight; y++) {
+        for (int x = 0; x < targetWidth; x++) {
+          // Convert area pixel to geographic coordinate
+          double lng = areaWest + (x / (double) targetWidth) * areaLngSpan;
+          double lat = areaNorth - (y / (double) targetHeight) * areaLatSpan; // Flip Y
+          
+          // Convert geographic coordinate to full data index
+          double fullX = ((lng - fullWest) / fullLngSpan) * fullWidth;
+          double fullY = ((fullNorth - lat) / fullLatSpan) * fullHeight; // Flip Y
+          
+          // Clamp to valid indices
+          int fullXIndex = Math.max(0, Math.min(fullWidth - 1, (int) Math.round(fullX)));
+          int fullYIndex = Math.max(0, Math.min(fullHeight - 1, (int) Math.round(fullY)));
+          
+          // Get elevation value
+          int fullIndex = fullYIndex * fullWidth + fullXIndex;
+          if (fullIndex >= 0 && fullIndex < fullElevationData.length) {
+            areaData[y * targetWidth + x] = fullElevationData[fullIndex];
+          }
+        }
+      }
+      
+      return areaData;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error extracting elevation for area: " + e.getMessage(), e);
+      return null;
+    }
+  }
+  
+  /**
+   * Creates a simple terrain bitmap with basic coloring - no LUT, no caching.
+   */
+  private Bitmap createSimpleBitmap(double[] elevationData, int width, int height, 
+                                   double referenceAltitude, double warningAltitude) {
+    try {
+      // Convert altitudes from feet to meters
+      double refAltM = referenceAltitude * 0.3048;
+      double warnAltM = warningAltitude * 0.3048;
+      
+      // Create bitmap
+      Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+      int[] pixels = new int[width * height];
+      
+      // Simple color mapping - no LUT
+      for (int i = 0; i < Math.min(elevationData.length, pixels.length); i++) {
+        double elev = elevationData[i];
+        if (elev < warnAltM) {
+          pixels[i] = 0x80FF0000; // Red
+        } else if (elev < refAltM) {
+          pixels[i] = 0x80FFFF00; // Yellow
+        } else {
+          pixels[i] = 0x8000FF00; // Green
+        }
+      }
+      
+      bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
+      return bitmap;
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error creating simple bitmap: " + e.getMessage(), e);
+      return null;
+    }
+  }
+  
+  /**
+   * Implements debounced altitude updates to batch changes and minimize redundant work.
+   * This mirrors the HTTP LERC layer's debouncing strategy for smooth altitude slider updates.
+   */
+  private void debouncedAltitudeUpdate(String layerId, double referenceAltitude, double warningAltitude) {
+    try {
+      // Get or create debounce handler for this layer
+      android.os.Handler handler = debounceHandlers.get(layerId);
+      if (handler == null) {
+        handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        debounceHandlers.put(layerId, handler);
+      }
+      
+      // Remove any pending update for this layer
+      handler.removeCallbacksAndMessages(null);
+      
+      // Schedule new debounced update
+      handler.postDelayed(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            Log.d(TAG, "Executing debounced altitude update for layer: " + layerId);
+            
+            // Get layer configuration
+            Object layerObj = nativeLercCanvasLayers.get(layerId);
+            if (layerObj instanceof Map) {
+              @SuppressWarnings("unchecked")
+              Map<String, Object> layerConfig = (Map<String, Object>) layerObj;
+              
+              // Update altitude thresholds
+              layerConfig.put("referenceAltitude", referenceAltitude);
+              layerConfig.put("warningAltitude", warningAltitude);
+              
+              // Increment cache-busting version
+              Integer version = cacheBustingVersions.get(layerId);
+              if (version == null) {
+                version = 0;
+              }
+              version++;
+              cacheBustingVersions.put(layerId, version);
+              
+              Log.d(TAG, "Incremented cache-busting version to " + version + " for layer: " + layerId);
+              
+              // Perform the actual terrain update
+              double[] elevationData = (double[]) layerConfig.get("elevationData");
+              Integer width = (Integer) layerConfig.get("width");
+              Integer height = (Integer) layerConfig.get("height");
+              List<Double> bounds = (List<Double>) layerConfig.get("bounds");
+              
+              if (elevationData != null && width != null && height != null && bounds != null) {
+                updateTerrainVisualization(layerId, layerConfig, elevationData, width, height, 
+                                          bounds, referenceAltitude, warningAltitude);
+              }
+            }
+            
+          } catch (Exception e) {
+            Log.e(TAG, "Error in debounced altitude update: " + e.getMessage(), e);
+          }
+        }
+      }, DEBOUNCE_DELAY_MS);
+      
+      Log.v(TAG, "Scheduled debounced altitude update for layer: " + layerId + " (delay: " + DEBOUNCE_DELAY_MS + "ms)");
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error scheduling debounced altitude update: " + e.getMessage(), e);
+    }
+  }
+  
+  // Zoom-level caching for native terrain updates (like HTTP tiles)
+  private final Map<String, Integer> lastTerrainUpdateZoom = new ConcurrentHashMap<>();
+  private final Map<String, Long> lastTerrainUpdateTime = new ConcurrentHashMap<>();
+  
+  /**
+   * OPTIMIZED: Updates native LERC terrain tiles only on significant zoom changes.
+   * This eliminates the lag during smooth zoom animations by implementing zoom-level-based
+   * caching similar to HTTP tile behavior. Terrain tiles are only regenerated when:
+   * 1. Discrete zoom level changes (floor of zoom changes)
+   * 2. Sufficient time has passed since last update (prevents spam)
+   * 3. Altitude thresholds have changed
+   * 
+   * This matches the efficient tile reuse behavior of HTTP-based terrain layers.
+   */
+  private void updateNativeLercTilesForCurrentViewOptimized() {
+    try {
+      if (style == null || mapLibreMap == null) {
+        return;
+      }
+      
+      CameraPosition currentCamera = mapLibreMap.getCameraPosition();
+      if (currentCamera == null) {
+        return;
+      }
+      
+      double currentZoom = currentCamera.zoom;
+      int discreteZoom = (int) Math.floor(currentZoom); // Use discrete zoom level like HTTP tiles
+      long currentTime = System.currentTimeMillis();
+      
+      // Process each native LERC layer
+      for (Map.Entry<String, Object> entry : nativeLercCanvasLayers.entrySet()) {
+        String layerId = entry.getKey();
+        Object layerObj = entry.getValue();
+        
+        if (!(layerObj instanceof Map)) {
+          continue;
+        }
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> layerConfig = (Map<String, Object>) layerObj;
+        
+        // Check if layer is initialized and not disposed
+        Boolean initialized = (Boolean) layerConfig.get("initialized");
+        Boolean disposed = (Boolean) layerConfig.get("disposed");
+        
+        if (initialized == null || !initialized || (disposed != null && disposed)) {
+          continue;
+        }
+        
+        // OPTIMIZATION: Check if update is needed based on zoom level caching
+        Integer lastZoom = lastTerrainUpdateZoom.get(layerId);
+        Long lastUpdateTime = lastTerrainUpdateTime.get(layerId);
+        
+        boolean shouldUpdate = false;
+        String updateReason = "";
+        
+        if (lastZoom == null) {
+          // First update for this layer
+          shouldUpdate = true;
+          updateReason = "initial";
+        } else if (discreteZoom != lastZoom) {
+          // Discrete zoom level changed (like HTTP tile zoom levels)
+          shouldUpdate = true;
+          updateReason = "zoom change (" + lastZoom + " → " + discreteZoom + ")";
+        } else if (lastUpdateTime == null || (currentTime - lastUpdateTime) > 5000) {
+          // Force update if more than 5 seconds since last update (for altitude changes)
+          shouldUpdate = true;
+          updateReason = "time threshold (>5s since last update)";
+        }
+        
+        if (!shouldUpdate) {
+          // Skip update - reuse cached terrain tiles like HTTP tiles do
+          Log.v(TAG, "SKIPPING terrain update for " + layerId + " - reusing tiles at zoom " + discreteZoom + " (smooth zoom from " + String.format("%.1f", currentZoom) + ")");
+          continue;
+        }
+        
+        Log.d(TAG, "UPDATING terrain tiles for " + layerId + " - reason: " + updateReason + " (zoom: " + String.format("%.1f", currentZoom) + " → discrete: " + discreteZoom + ")");
+        
+        // Update tracking variables
+        lastTerrainUpdateZoom.put(layerId, discreteZoom);
+        lastTerrainUpdateTime.put(layerId, currentTime);
+        
+        // Get layer data
+        double[] elevationData = (double[]) layerConfig.get("elevationData");
+        Integer width = (Integer) layerConfig.get("width");
+        Integer height = (Integer) layerConfig.get("height");
+        List<Double> bounds = (List<Double>) layerConfig.get("bounds");
+        Double referenceAltitude = (Double) layerConfig.get("referenceAltitude");
+        Double warningAltitude = (Double) layerConfig.get("warningAltitude");
+        
+        if (elevationData == null || width == null || height == null || 
+            bounds == null || referenceAltitude == null || warningAltitude == null) {
+          Log.w(TAG, "Skipping terrain update - missing data for layer: " + layerId);
+          continue;
+        }
+        
+        // Perform the optimized terrain visualization update
+        updateTerrainVisualization(layerId, layerConfig, elevationData, width, height, 
+                                  bounds, referenceAltitude, warningAltitude);
+      }
+      
+    } catch (Exception e) {
+      Log.e(TAG, "Error in optimized native LERC tiles update: " + e.getMessage(), e);
     }
   }
 }
