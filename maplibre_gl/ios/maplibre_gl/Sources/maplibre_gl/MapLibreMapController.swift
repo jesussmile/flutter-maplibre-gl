@@ -39,9 +39,6 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
     private var polylineBreakPointSystem: PolylineBreakPointSystem?
     private var polylineRenderer: EditablePolylineRenderer?
     private var polylineGestureHandler: PolylineGestureHandler?
-    
-    // Native LERC Canvas Layer
-    private var nativeLercCanvasLayers: [String: MLNLercCanvasStyleLayer] = [:]
 
     func view() -> UIView {
         return mapView
@@ -1119,15 +1116,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         case "line#enableEditing", "line#setEditingStyle", "line#isEditable":
             handlePolylineEditingMethodCall(methodCall: methodCall, result: result)
             
-        // Native LERC Canvas Layer Methods
-        case "nativeLercCanvas#initialize":
-            handleNativeLercCanvasInitialize(methodCall: methodCall, result: result)
-            
-        case "nativeLercCanvas#updateAltitudes":
-            handleNativeLercCanvasUpdateAltitudes(methodCall: methodCall, result: result)
-            
-        case "nativeLercCanvas#dispose":
-            handleNativeLercCanvasDispose(methodCall: methodCall, result: result)
+        
 
         default:
             result(FlutterMethodNotImplemented)
@@ -3330,188 +3319,6 @@ extension MapLibreMapController: PolylineGestureHandlerDelegate {
         
         channel?.invokeMethod("polylineEditing#onError", arguments: arguments)
     }
-}
-
-// MARK: - Native LERC Canvas Layer Methods
-
-/**
- * Handles the nativeLercCanvas#initialize method call.
- */
-private func handleNativeLercCanvasInitialize(methodCall: FlutterMethodCall, result: @escaping FlutterResult) {
-    guard let arguments = methodCall.arguments as? [String: Any],
-          let layerId = arguments["layerId"] as? String,
-          let elevationDataList = arguments["elevationData"] as? [Double],
-          let width = arguments["width"] as? Int,
-          let height = arguments["height"] as? Int,
-          let boundsArray = arguments["bounds"] as? [Double],
-          let referenceAltitude = arguments["referenceAltitude"] as? Double,
-          let warningAltitude = arguments["warningAltitude"] as? Double else {
-        result(FlutterError(
-            code: "INVALID_ARGUMENTS",
-            message: "Required parameters missing: layerId, elevationData, width, height, bounds, referenceAltitude, warningAltitude",
-            details: nil
-        ))
-        return
-    }
-    
-    guard let style = mapView.style else {
-        result(FlutterError(
-            code: "STYLE_NOT_LOADED",
-            message: "Map style not loaded",
-            details: nil
-        ))
-        return
-    }
-    
-    // Check if layer already exists
-    if nativeLercCanvasLayers[layerId] != nil {
-        result(FlutterError(
-            code: "LAYER_ALREADY_EXISTS",
-            message: "Native LERC canvas layer already exists: \(layerId)",
-            details: nil
-        ))
-        return
-    }
-    
-    do {
-        // Convert elevation data from [Double] to [Float]
-        let elevationData = elevationDataList.map { Float($0) }
-        
-        // Extract bounds
-        guard boundsArray.count == 4 else {
-            result(FlutterError(
-                code: "INVALID_BOUNDS",
-                message: "Bounds array must contain 4 elements [minLat, maxLat, minLon, maxLon]",
-                details: nil
-            ))
-            return
-        }
-        
-        let bounds = (minLat: boundsArray[0], maxLat: boundsArray[1], minLon: boundsArray[2], maxLon: boundsArray[3])
-        
-        // Create native LERC canvas layer
-        let nativeLayer = MLNLercCanvasStyleLayer(identifier: layerId)
-        
-        // Initialize with elevation data
-        nativeLayer.initializeWithElevationData(
-            elevationData,
-            width: width,
-            height: height,
-            bounds: bounds
-        )
-        
-        // Set initial altitude thresholds
-        nativeLayer.updateAltitudes(
-            referenceAltitude: Float(referenceAltitude),
-            warningAltitude: Float(warningAltitude)
-        )
-        
-        // Add to map style
-        style.addLayer(nativeLayer)
-        
-        // Store reference
-        nativeLercCanvasLayers[layerId] = nativeLayer
-        
-        NSLog("✅ Native LERC Canvas Layer initialized: \(layerId)")
-        
-        // Return success with layer info
-        result([
-            "layerId": layerId,
-            "width": width,
-            "height": height,
-            "status": "initialized"
-        ])
-        
-    } catch {
-        result(FlutterError(
-            code: "INITIALIZATION_ERROR",
-            message: "Failed to initialize native LERC canvas layer: \(error.localizedDescription)",
-            details: nil
-        ))
-    }
-}
-
-/**
- * Handles the nativeLercCanvas#updateAltitudes method call.
- */
-private func handleNativeLercCanvasUpdateAltitudes(methodCall: FlutterMethodCall, result: @escaping FlutterResult) {
-    guard let arguments = methodCall.arguments as? [String: Any],
-          let layerId = arguments["layerId"] as? String,
-          let referenceAltitude = arguments["referenceAltitude"] as? Double,
-          let warningAltitude = arguments["warningAltitude"] as? Double else {
-        result(FlutterError(
-            code: "INVALID_ARGUMENTS",
-            message: "Required parameters missing: layerId, referenceAltitude, warningAltitude",
-            details: nil
-        ))
-        return
-    }
-    
-    guard let nativeLayer = nativeLercCanvasLayers[layerId] else {
-        result(FlutterError(
-            code: "LAYER_NOT_FOUND",
-            message: "Native LERC canvas layer not found: \(layerId)",
-            details: nil
-        ))
-        return
-    }
-    
-    // Update altitudes instantly (like HTML canvas)
-    nativeLayer.updateAltitudes(
-        referenceAltitude: Float(referenceAltitude),
-        warningAltitude: Float(warningAltitude)
-    )
-    
-    NSLog("⚡ Native LERC Canvas altitude updated: \(layerId) - ref: \(referenceAltitude)ft, warn: \(warningAltitude)ft")
-    
-    result([
-        "layerId": layerId,
-        "referenceAltitude": referenceAltitude,
-        "warningAltitude": warningAltitude,
-        "status": "updated"
-    ])
-}
-
-/**
- * Handles the nativeLercCanvas#dispose method call.
- */
-private func handleNativeLercCanvasDispose(methodCall: FlutterMethodCall, result: @escaping FlutterResult) {
-    guard let arguments = methodCall.arguments as? [String: Any],
-          let layerId = arguments["layerId"] as? String else {
-        result(FlutterError(
-            code: "INVALID_ARGUMENTS",
-            message: "Required parameter missing: layerId",
-            details: nil
-        ))
-        return
-    }
-    
-    guard let nativeLayer = nativeLercCanvasLayers[layerId] else {
-        result(FlutterError(
-            code: "LAYER_NOT_FOUND",
-            message: "Native LERC canvas layer not found: \(layerId)",
-            details: nil
-        ))
-        return
-    }
-    
-    // Remove from map style
-    if let style = mapView.style {
-        style.removeLayer(nativeLayer)
-    }
-    
-    // Dispose native resources
-    nativeLayer.dispose()
-    
-    // Remove from tracking
-    nativeLercCanvasLayers.removeValue(forKey: layerId)
-    
-    NSLog("🗑️ Native LERC Canvas Layer disposed: \(layerId)")
-    
-    result([
-        "layerId": layerId,
-        "status": "disposed"
-    ])
 }
 
 extension String {

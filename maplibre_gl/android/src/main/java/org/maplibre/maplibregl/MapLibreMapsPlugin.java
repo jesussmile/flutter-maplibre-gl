@@ -13,6 +13,7 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.embedding.engine.plugins.lifecycle.HiddenLifecycleReference;
 import io.flutter.plugin.common.MethodChannel;
 
+
 /**
  * Plugin for controlling a set of MapLibreMap views to be shown as overlays on top of the Flutter
  * view. The overlay should be hidden during transformations or while Flutter is rendering on top of
@@ -24,9 +25,20 @@ public class MapLibreMapsPlugin implements FlutterPlugin, ActivityAware {
   static FlutterAssets flutterAssets;
   private Lifecycle lifecycle;
 
+  private static MapLibreMapsPlugin instance;
+
   public MapLibreMapsPlugin() {
-    // no-op
+    instance = this;
   }
+
+  /**
+   * Get the singleton instance of MapLibreMapsPlugin
+   */
+  public static MapLibreMapsPlugin getInstance() {
+    return instance;
+  }
+
+
 
   // New Plugin APIs
 
@@ -38,9 +50,7 @@ public class MapLibreMapsPlugin implements FlutterPlugin, ActivityAware {
         new MethodChannel(binding.getBinaryMessenger(), "plugins.flutter.io/maplibre_gl");
     methodChannel.setMethodCallHandler(new GlobalMethodHandler(binding));
 
-    // Register the LERC decoder plugin
-    // LercDecoderPlugin lercDecoderPlugin = new LercDecoderPlugin();
-    // lercDecoderPlugin.onAttachedToEngine(binding);
+
 
     binding
         .getPlatformViewRegistry()
@@ -59,7 +69,7 @@ public class MapLibreMapsPlugin implements FlutterPlugin, ActivityAware {
 
   @Override
   public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-    // no-op
+
   }
 
   @Override

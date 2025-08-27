@@ -279,23 +279,6 @@ abstract class MapLibrePlatform {
   Future<void> setLineEditingStyle(Map<String, dynamic> style);
   Future<bool> isLineEditable(String lineId);
 
-  // Native LERC Canvas methods
-  Future<void> initializeNativeLercCanvas({
-    required String layerId,
-    required List<double> elevationData,
-    required int width,
-    required int height,
-    required List<double> bounds,
-    required double referenceAltitude,
-    required double warningAltitude,
-  });
-  Future<void> updateNativeLercCanvasAltitudes({
-    required String layerId,
-    required double referenceAltitude,
-    required double warningAltitude,
-  });
-  Future<void> disposeNativeLercCanvas(String layerId);
-
   @mustCallSuper
   void dispose() {
     // clear all callbacks to avoid cyclic refs
