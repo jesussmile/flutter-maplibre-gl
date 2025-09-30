@@ -4409,16 +4409,15 @@ final class MapLibreMapController
    * Creates both up and down arrow versions for all proximity colors (red, yellow, blue, green).
    */
   private void loadColoredArrowPngAssets() {
-    Log.d(TAG, "Loading colored arrow PNG assets for all proximity colors");
+  Log.d(TAG, "Loading colored arrow PNG assets for red, yellow, and green proximity colors");
     
-    // Define all arrow color variants
-    String[] arrowColors = {"red", "yellow", "blue", "green"};
-    String[] arrowAssetPaths = {
-        "arrow_red.png",
-        "arrow_yellow.png", 
-        "arrow_blue.png",
-        "arrow_green.png"
-    };
+  // Define supported arrow color variants
+  String[] arrowColors = {"red", "yellow", "green"};
+  String[] arrowAssetPaths = {
+    "arrow_red.png",
+    "arrow_yellow.png", 
+    "arrow_green.png"
+  };
     
     try {
       for (int i = 0; i < arrowColors.length; i++) {
@@ -4436,8 +4435,8 @@ final class MapLibreMapController
             Log.d(TAG, "Added " + color + " up arrow icon: " + upArrowId);
           }
           
-          // Create down arrow (rotate 180 degrees)
-          String downArrowId = "arrow-" + color + "-down";
+    // Create down arrow (rotate 180 degrees)
+    String downArrowId = "arrow-" + color + "-down";
           if (style != null && style.getImage(downArrowId) == null) {
             Bitmap downBitmap = rotateBitmap(baseBitmap, 180);
             style.addImage(downArrowId, downBitmap, false); // false = not SDF to preserve colors
@@ -4507,15 +4506,14 @@ final class MapLibreMapController
   /**
    * Adds rotatable symbol layers using PNG assets with dynamic swapping.
    * This method creates aviation symbols with:
-   * - Dynamic PNG swapping based on proximity distance (for traffic icons)
-   * - Center aircraft symbol that can rotate freely
-   * - Right-side arrow symbol for altitude indication
-   * 
-   * Aviation TCAS color coding:
-   * - Red: Critical (<2nm)
-   * - Yellow: Warning (2-5nm) 
-   * - Blue: Caution (5-10nm)
-   * - Green: Safe (>10nm)
+  * - Dynamic PNG swapping based on proximity distance (for traffic icons)
+  * - Center aircraft symbol that can rotate freely
+  * - Right-side arrow symbol for altitude indication
+  * 
+  * Aviation TCAS color coding:
+  * - Red: Critical (<2nm)
+  * - Yellow: Warning (2-5nm)
+  * - Green: Safe (>5nm)
    */
   public void addRotatableSymbolPngLayers(
       String sourceId,
@@ -4543,19 +4541,17 @@ final class MapLibreMapController
       double arrowOffsetX = ((Number) config.getOrDefault("arrowOffsetX", 25.0)).doubleValue();
       
       // Define PNG assets for traffic icons (4 colored variants)
-      String[] trafficAssetPaths = {
-          "traffic_red.png",
-          "traffic_yellow.png", 
-          "traffic_blue.png",
-          "traffic_green.png"
-      };
+    String[] trafficAssetPaths = {
+      "traffic_red.png",
+      "traffic_yellow.png",
+      "traffic_green.png"
+    };
       
-      String[] trafficIconIds = {
-          "aircraft-red",
-          "aircraft-yellow",
-          "aircraft-blue", 
-          "aircraft-green"
-      };
+    String[] trafficIconIds = {
+      "aircraft-red",
+      "aircraft-yellow",
+      "aircraft-green"
+    };
       
       // Load PNG assets for traffic icons
       loadMultiplePngAssets(trafficAssetPaths, trafficIconIds);
@@ -4573,17 +4569,15 @@ final class MapLibreMapController
       SymbolLayer aircraftLayer = new SymbolLayer(aircraftLayerId, sourceId);
       aircraftLayer.setProperties(
           // Dynamic icon selection based on proximity distance
-          PropertyFactory.iconImage(
-              Expression.switchCase(
-                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(2.0)),
-                  Expression.literal("aircraft-red"),
-                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(5.0)),
-                  Expression.literal("aircraft-yellow"),
-                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(10.0)),
-                  Expression.literal("aircraft-blue"),
-                  Expression.literal("aircraft-green")
-              )
-          ),
+      PropertyFactory.iconImage(
+        Expression.switchCase(
+          Expression.lt(Expression.get("proximityDistance"), Expression.literal(2.0)),
+          Expression.literal("aircraft-red"),
+          Expression.lt(Expression.get("proximityDistance"), Expression.literal(5.0)),
+          Expression.literal("aircraft-yellow"),
+          Expression.literal("aircraft-green")
+        )
+      ),
           PropertyFactory.iconSize(((Number) aircraftIconSize).floatValue()),
           PropertyFactory.iconRotate(Expression.get("rotation")),
           PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP), // Rotates with map
@@ -4628,38 +4622,31 @@ final class MapLibreMapController
       SymbolLayer arrowLayer = new SymbolLayer(arrowLayerId, sourceId);
       arrowLayer.setProperties(
           // Use conditional arrow color and direction based on proximity distance and climbing state
-          PropertyFactory.iconImage(
-              Expression.switchCase(
-                  // First determine color based on proximity (same logic as aircraft)
-                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(2.0)),
-                  // Red arrows for critical proximity (<2nm)
-                  Expression.switchCase(
-                      Expression.get("isClimbing"),
-                      Expression.literal("arrow-red-up"),
-                      Expression.literal("arrow-red-down")
-                  ),
-                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(5.0)),
-                  // Yellow arrows for warning proximity (2-5nm)
-                  Expression.switchCase(
-                      Expression.get("isClimbing"),
-                      Expression.literal("arrow-yellow-up"),
-                      Expression.literal("arrow-yellow-down")
-                  ),
-                  Expression.lt(Expression.get("proximityDistance"), Expression.literal(10.0)),
-                  // Blue arrows for caution proximity (5-10nm)
-                  Expression.switchCase(
-                      Expression.get("isClimbing"),
-                      Expression.literal("arrow-blue-up"),
-                      Expression.literal("arrow-blue-down")
-                  ),
-                  // Green arrows for safe distance (>10nm)
-                  Expression.switchCase(
-                      Expression.get("isClimbing"),
-                      Expression.literal("arrow-green-up"),
-                      Expression.literal("arrow-green-down")
-                  )
-              )
+      PropertyFactory.iconImage(
+        Expression.switchCase(
+          // First determine color based on proximity (same logic as aircraft)
+          Expression.lt(Expression.get("proximityDistance"), Expression.literal(2.0)),
+          // Red arrows for critical proximity (<2nm)
+          Expression.switchCase(
+            Expression.get("isClimbing"),
+            Expression.literal("arrow-red-up"),
+            Expression.literal("arrow-red-down")
           ),
+          Expression.lt(Expression.get("proximityDistance"), Expression.literal(5.0)),
+          // Yellow arrows for warning proximity (2-5nm)
+          Expression.switchCase(
+            Expression.get("isClimbing"),
+            Expression.literal("arrow-yellow-up"),
+            Expression.literal("arrow-yellow-down")
+          ),
+          // Green arrows for safe distance (>5nm)
+          Expression.switchCase(
+            Expression.get("isClimbing"),
+            Expression.literal("arrow-green-up"),
+            Expression.literal("arrow-green-down")
+          )
+        )
+      ),
           PropertyFactory.iconSize(((Number) arrowIconSize).floatValue()),
           PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT), // Always upright
           PropertyFactory.iconOffset(new Float[]{(float) arrowOffsetX, 0.0f}), // Fixed to right side

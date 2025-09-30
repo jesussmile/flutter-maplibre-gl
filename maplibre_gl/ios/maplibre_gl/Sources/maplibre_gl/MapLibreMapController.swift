@@ -2359,7 +2359,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             
             // Dynamic icon selection based on proximity distance (matching Android implementation)
             let iconImageExpression = NSExpression(
-            format: "TERNARY(proximityDistance < 2.0, 'aircraft-red', TERNARY(proximityDistance < 5.0, 'aircraft-yellow', TERNARY(proximityDistance < 10.0, 'aircraft-blue', 'aircraft-green')))"
+                format: "TERNARY(proximityDistance < 2.0, 'aircraft-red', TERNARY(proximityDistance < 5.0, 'aircraft-yellow', 'aircraft-green'))"
             )
             aircraftLayer.iconImageName = iconImageExpression
             aircraftLayer.iconScale = NSExpression(forConstantValue: aircraftIconSize)
@@ -2406,9 +2406,9 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             // For now, use a static arrow icon (TODO: implement dynamic switching)
             // Dynamic arrow switching will be implemented using style updates in real-time  
             // Dynamic arrow selection based on proximity distance and climb state (matching Android implementation)
-            // Red: Critical (<2nm), Yellow: Warning (2-5nm), Blue: Caution (5-10nm), Green: Safe (>10nm)
+            // Red: Critical (<2nm), Yellow: Warning (2-5nm), Green: Safe (>=5nm)
             let arrowImageExpression = NSExpression(
-                format: "TERNARY(proximityDistance < 2.0, TERNARY(isClimbing == YES, 'arrow-red-up', 'arrow-red-down'), TERNARY(proximityDistance < 5.0, TERNARY(isClimbing == YES, 'arrow-yellow-up', 'arrow-yellow-down'), TERNARY(proximityDistance < 10.0, TERNARY(isClimbing == YES, 'arrow-blue-up', 'arrow-blue-down'), TERNARY(isClimbing == YES, 'arrow-green-up', 'arrow-green-down'))))"
+                format: "TERNARY(proximityDistance < 2.0, TERNARY(isClimbing == YES, 'arrow-red-up', 'arrow-red-down'), TERNARY(proximityDistance < 5.0, TERNARY(isClimbing == YES, 'arrow-yellow-up', 'arrow-yellow-down'), TERNARY(isClimbing == YES, 'arrow-green-up', 'arrow-green-down')))"
             )
             arrowLayer.iconImageName = arrowImageExpression
             arrowLayer.iconScale = NSExpression(forConstantValue: arrowIconSize)
@@ -2498,7 +2498,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
     
     /**
      * Loads all colored traffic PNG assets for proximity-based aircraft icons.
-     * Loads red, yellow, blue, and green aircraft variants matching Android implementation.
+     * Loads red, yellow, and green aircraft variants matching Android implementation.
      */
     private func loadColoredTrafficPngAssets() throws {
         NSLog("Loading colored traffic PNG assets for proximity-based aircraft icons")
@@ -2507,14 +2507,12 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         let trafficAssetPaths = [
             "traffic_red.png",
             "traffic_yellow.png", 
-            "traffic_blue.png",
             "traffic_green.png"
         ]
         
         let trafficIconIds = [
             "aircraft-red",
             "aircraft-yellow", 
-            "aircraft-blue",
             "aircraft-green"
         ]
         
@@ -2550,17 +2548,16 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
     
     /**
      * Loads all colored arrow PNG assets and creates rotated variants.
-     * Creates both up and down arrow versions for all proximity colors (red, yellow, blue, green).
+     * Creates both up and down arrow versions for all proximity colors (red, yellow, green).
      */
     private func loadColoredArrowPngAssets() throws {
         NSLog("Loading colored arrow PNG assets for all proximity colors")
         
         // Define all arrow color variants
-        let arrowColors = ["red", "yellow", "blue", "green"]
+        let arrowColors = ["red", "yellow", "green"]
         let arrowAssetPaths = [
             "arrow_red.png",
             "arrow_yellow.png", 
-            "arrow_blue.png",
             "arrow_green.png"
         ]
         
