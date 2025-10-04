@@ -493,6 +493,62 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
+  Future<void> createPillLabel({
+    required String name,
+    required String text,
+    String backgroundColor = '#0066FF',
+    String textColor = '#FFFFFF',
+    double textSize = 14.0,
+    double paddingHorizontal = 12.0,
+    double paddingVertical = 6.0,
+    double cornerRadius = 8.0,
+  }) async {
+    try {
+      return await _channel
+          .invokeMethod('style#createPillLabel', <String, Object>{
+        'name': name,
+        'text': text,
+        'backgroundColor': backgroundColor,
+        'textColor': textColor,
+        'textSize': textSize,
+        'paddingHorizontal': paddingHorizontal,
+        'paddingVertical': paddingVertical,
+        'cornerRadius': cornerRadius,
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    }
+  }
+
+  @override
+  Future<void> createCircleLabel({
+    required String name,
+    required String text,
+    double radius = 40.0,
+    String circleColor = '#0066FF',
+    double circleStrokeWidth = 2.0,
+    String textColor = '#FFFFFF',
+    double textSize = 16.0,
+    bool topArc = true,
+  }) async {
+    try {
+      return await _channel
+          .invokeMethod('style#createCircleLabel', <String, Object>{
+        'name': name,
+        'text': text,
+        'radius': radius,
+        'circleColor': circleColor,
+        'circleStrokeWidth': circleStrokeWidth,
+        'textColor': textColor,
+        'textSize': textSize,
+        'topArc': topArc,
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    }
+  }
+
+  @override
   Future<void> addImageSource(
       String imageSourceId, Uint8List bytes, LatLngQuad coordinates) async {
     try {
@@ -1109,7 +1165,8 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     required bool enableInteraction,
     required Map<String, dynamic> config,
   }) async {
-    await _channel.invokeMethod('map#addRotatableSymbolPngLayers', <String, dynamic>{
+    await _channel
+        .invokeMethod('map#addRotatableSymbolPngLayers', <String, dynamic>{
       'sourceId': sourceId,
       'baseLayerId': baseLayerId,
       'belowLayerId': belowLayerId,

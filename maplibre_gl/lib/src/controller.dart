@@ -1610,6 +1610,131 @@ class MapLibreMapController extends ChangeNotifier {
     return _maplibrePlatform.addImage(name, bytes, sdf);
   }
 
+  /// Creates a pill/lozenge style label bitmap natively and adds it to the map style.
+  ///
+  /// This method generates professional aviation-style labels with unified rounded
+  /// rectangle backgrounds on the native side, solving MapLibre GL's limitation
+  /// where textHaloWidth creates per-glyph halos (blocky individual letters)
+  /// instead of a unified background.
+  ///
+  /// The bitmap is generated using native Canvas API (Android) or CoreGraphics (iOS)
+  /// and added to the map style so it can be referenced in SymbolLayer iconImage.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // Create pill label for airspace
+  /// await controller.createPillLabel(
+  ///   name: 'airspace-label-dallas',
+  ///   text: 'DALLAS B: 11000-0',
+  ///   backgroundColor: '#0066FF',
+  ///   textColor: '#FFFFFF',
+  ///   textSize: 14.0,
+  ///   paddingHorizontal: 12.0,
+  ///   paddingVertical: 6.0,
+  ///   cornerRadius: 8.0,
+  /// );
+  ///
+  /// // Reference in symbol layer
+  /// await controller.addSymbolLayer(
+  ///   'source-id',
+  ///   'layer-id',
+  ///   SymbolLayerProperties(
+  ///     iconImage: 'airspace-label-dallas',
+  ///     iconSize: 1.0,
+  ///   ),
+  /// );
+  /// ```
+  ///
+  /// Parameters:
+  /// - [name]: Unique identifier for the image (used in iconImage property)
+  /// - [text]: The text to display in the label
+  /// - [backgroundColor]: Hex color string (e.g., "#0066FF") for the pill background
+  /// - [textColor]: Hex color string (e.g., "#FFFFFF") for the text
+  /// - [textSize]: Text size in dp/pt (default: 14.0)
+  /// - [paddingHorizontal]: Horizontal padding in dp/pt (default: 12.0)
+  /// - [paddingVertical]: Vertical padding in dp/pt (default: 6.0)
+  /// - [cornerRadius]: Corner radius for the rounded rectangle in dp/pt (default: 8.0)
+  Future<void> createPillLabel({
+    required String name,
+    required String text,
+    String backgroundColor = '#0066FF',
+    String textColor = '#FFFFFF',
+    double textSize = 14.0,
+    double paddingHorizontal = 12.0,
+    double paddingVertical = 6.0,
+    double cornerRadius = 8.0,
+  }) {
+    return _maplibrePlatform.createPillLabel(
+      name: name,
+      text: text,
+      backgroundColor: backgroundColor,
+      textColor: textColor,
+      textSize: textSize,
+      paddingHorizontal: paddingHorizontal,
+      paddingVertical: paddingVertical,
+      cornerRadius: cornerRadius,
+    );
+  }
+
+  /// Creates a circular label with text curved around the circle's circumference using native Android Canvas APIs.
+  /// This method generates a bitmap with a circle and curved text, which is then registered
+  /// and added to the map style so it can be referenced in SymbolLayer iconImage.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // Create circular label for airspace
+  /// await controller.createCircleLabel(
+  ///   name: 'circular-airspace-label',
+  ///   text: 'RESTRICTED AREA R-2508',
+  ///   radius: 30.0,
+  ///   circleColor: '#FF0000',
+  ///   circleStrokeWidth: 2.0,
+  ///   textColor: '#FFFFFF',
+  ///   textSize: 12.0,
+  ///   topArc: true,  // Text on top arc
+  /// );
+  ///
+  /// // Reference in symbol layer
+  /// await controller.addSymbol(
+  ///   SymbolOptions(
+  ///     geometry: LatLng(lat, lon),
+  ///     iconImage: 'circular-airspace-label',
+  ///     iconSize: 0.5,
+  ///   ),
+  /// );
+  /// ```
+  ///
+  /// Parameters:
+  /// - [name]: Unique identifier for the image (used in iconImage property)
+  /// - [text]: The text to display curved along the circle
+  /// - [radius]: Circle radius in dp/pt (default: 40.0)
+  /// - [circleColor]: Hex color string (e.g., "#0066FF") for circle outline and pill background
+  /// - [circleStrokeWidth]: Circle stroke width in dp/pt (default: 2.0)
+  /// - [textColor]: Hex color string (e.g., "#FFFFFF") for the text
+  /// - [textSize]: Text size in dp/pt (default: 16.0)
+  /// - [topArc]: If true, text is on top arc; if false, text is on bottom arc (default: true)
+  Future<void> createCircleLabel({
+    required String name,
+    required String text,
+    double radius = 40.0,
+    String circleColor = '#0066FF',
+    double circleStrokeWidth = 2.0,
+    String textColor = '#FFFFFF',
+    double textSize = 16.0,
+    bool topArc = true,
+  }) {
+    return _maplibrePlatform.createCircleLabel(
+      name: name,
+      text: text,
+      radius: radius,
+      circleColor: circleColor,
+      circleStrokeWidth: circleStrokeWidth,
+      textColor: textColor,
+      textSize: textSize,
+      topArc: topArc,
+    );
+  }
+
   /// If true, the icon will be visible even if it collides with other previously drawn symbols.
   Future<void> setSymbolIconAllowOverlap(bool enable) async {
     await symbolManager?.setIconAllowOverlap(enable);

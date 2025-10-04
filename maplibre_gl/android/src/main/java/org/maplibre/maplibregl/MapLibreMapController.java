@@ -1761,6 +1761,91 @@ final class MapLibreMapController
           result.success(null);
           break;
         }
+      case "style#createPillLabel":
+        {
+          if (style == null) {
+            result.error(
+                "STYLE IS NULL",
+                "The style is null. Has onStyleLoaded() already been invoked?",
+                null);
+            break;
+          }
+          try {
+            String imageName = call.argument("name");
+            String labelText = call.argument("text");
+            String backgroundColor = call.argument("backgroundColor"); // e.g., "#0066FF"
+            String textColor = call.argument("textColor"); // e.g., "#FFFFFF"
+            Double textSize = call.argument("textSize"); // e.g., 14.0
+            Double paddingHorizontal = call.argument("paddingHorizontal"); // e.g., 12.0
+            Double paddingVertical = call.argument("paddingVertical"); // e.g., 6.0
+            Double cornerRadius = call.argument("cornerRadius"); // e.g., 8.0
+            
+            // Generate the pill/lozenge bitmap
+            Bitmap pillBitmap = createPillLabelBitmap(
+                labelText,
+                backgroundColor != null ? backgroundColor : "#0066FF",
+                textColor != null ? textColor : "#FFFFFF",
+                textSize != null ? textSize.floatValue() : 14.0f,
+                paddingHorizontal != null ? paddingHorizontal.floatValue() : 12.0f,
+                paddingVertical != null ? paddingVertical.floatValue() : 6.0f,
+                cornerRadius != null ? cornerRadius.floatValue() : 8.0f
+            );
+            
+            // Add the bitmap to the map style
+            // Note: Bitmap is density-scaled, so iconSize in Flutter should be adjusted (1.0/density)
+            style.addImage(imageName, pillBitmap, false); // false = not SDF (signed distance field)
+            
+            // DEBUG: Log image addition
+            android.util.Log.d("MapLibreMapController", "✅ Added image to style: " + imageName + " (" + pillBitmap.getWidth() + "x" + pillBitmap.getHeight() + " px)");
+            
+            result.success(null);
+          } catch (Exception e) {
+            result.error("CREATE_PILL_LABEL_ERROR", e.getMessage(), null);
+          }
+          break;
+        }
+      case "style#createCircleLabel":
+        {
+          if (style == null) {
+            result.error(
+                "STYLE IS NULL",
+                "The style is null. Has onStyleLoaded() already been invoked?",
+                null);
+            break;
+          }
+          try {
+            String imageName = call.argument("name");
+            String labelText = call.argument("text");
+            Double radius = call.argument("radius"); // Circle radius in dp
+            String circleColor = call.argument("circleColor"); // e.g., "#0066FF"
+            Double circleStrokeWidth = call.argument("circleStrokeWidth"); // e.g., 2.0
+            String textColor = call.argument("textColor"); // e.g., "#FFFFFF"
+            Double textSize = call.argument("textSize"); // e.g., 14.0
+            Boolean topArc = call.argument("topArc"); // true = text on top arc, false = bottom arc
+            
+            // Generate the circular label bitmap
+            Bitmap circleBitmap = createCircleLabelBitmap(
+                labelText,
+                radius != null ? radius.floatValue() : 30.0f,
+                circleColor != null ? circleColor : "#0066FF",
+                circleStrokeWidth != null ? circleStrokeWidth.floatValue() : 2.0f,
+                textColor != null ? textColor : "#FFFFFF",
+                textSize != null ? textSize.floatValue() : 14.0f,
+                topArc != null ? topArc : true
+            );
+            
+            // Add the bitmap to the map style
+            style.addImage(imageName, circleBitmap, false);
+            
+            // DEBUG: Log image addition
+            android.util.Log.d("MapLibreMapController", "✅ Added circle label to style: " + imageName + " (" + circleBitmap.getWidth() + "x" + circleBitmap.getHeight() + " px)");
+            
+            result.success(null);
+          } catch (Exception e) {
+            result.error("CREATE_CIRCLE_LABEL_ERROR", e.getMessage(), null);
+          }
+          break;
+        }
       case "style#addImageSource":
         {
           if (style == null) {
@@ -4401,6 +4486,233 @@ final class MapLibreMapController
     } catch (Exception e) {
       Log.e(TAG, "createFallbackColorBitmap: Error creating fallback bitmap: " + e.getMessage(), e);
       return null;
+    }
+  }
+
+  /**
+   * Creates a pill/lozenge style label bitmap with rounded rectangle background.
+   * This method generates a professional aviation-style label with:
+   * - Rounded rectangle background (pill/lozenge shape)
+   * - Custom background color
+   * - Custom text color
+   * - Configurable padding and corner radius
+   * 
+   * Use case: Airspace labels, airport labels, or any text that needs a unified background.
+   * 
+   * @param text The text to display in the label
+   * @param backgroundColor Hex color string for background (e.g., "#0066FF")
+   * @param textColor Hex color string for text (e.g., "#FFFFFF")
+   * @param textSize Text size in pixels (e.g., 14.0f)
+   * @param paddingHorizontal Horizontal padding in pixels (e.g., 12.0f)
+   * @param paddingVertical Vertical padding in pixels (e.g., 6.0f)
+   * @param cornerRadius Corner radius for rounded rectangle in pixels (e.g., 8.0f)
+   * @return Bitmap of the pill/lozenge label
+   */
+  private Bitmap createPillLabelBitmap(
+      String text,
+      String backgroundColor,
+      String textColor,
+      float textSize,
+      float paddingHorizontal,
+      float paddingVertical,
+      float cornerRadius) {
+    
+    try {
+      // Create Paint for text measurement
+      Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      textPaint.setTextSize(textSize * density);
+      textPaint.setColor(android.graphics.Color.parseColor(textColor));
+      textPaint.setTextAlign(Paint.Align.LEFT);
+      textPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+      
+      // Measure text dimensions
+      Paint.FontMetrics fontMetrics = textPaint.getFontMetrics();
+      float textWidth = textPaint.measureText(text);
+      float textHeight = fontMetrics.descent - fontMetrics.ascent;
+      
+      // Calculate bitmap dimensions with padding
+      float densityFactor = density;
+      float scaledPaddingH = paddingHorizontal * densityFactor;
+      float scaledPaddingV = paddingVertical * densityFactor;
+      float scaledCornerRadius = cornerRadius * densityFactor;
+      
+      int bitmapWidth = (int) Math.ceil(textWidth + (2 * scaledPaddingH));
+      int bitmapHeight = (int) Math.ceil(textHeight + (2 * scaledPaddingV));
+      
+      // Create bitmap and canvas
+      Bitmap bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(bitmap);
+      
+      // Draw rounded rectangle background (pill/lozenge shape)
+      Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      backgroundPaint.setColor(android.graphics.Color.parseColor(backgroundColor));
+      backgroundPaint.setStyle(Paint.Style.FILL);
+      
+      RectF rect = new RectF(0, 0, bitmapWidth, bitmapHeight);
+      canvas.drawRoundRect(rect, scaledCornerRadius, scaledCornerRadius, backgroundPaint);
+      
+      // Draw optional border/stroke for better visibility
+      Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      borderPaint.setColor(android.graphics.Color.parseColor(backgroundColor));
+      borderPaint.setStyle(Paint.Style.STROKE);
+      borderPaint.setStrokeWidth(2.0f * densityFactor);
+      canvas.drawRoundRect(rect, scaledCornerRadius, scaledCornerRadius, borderPaint);
+      
+      // Draw text centered in the pill
+      float textX = scaledPaddingH;
+      float textY = scaledPaddingV - fontMetrics.ascent;
+      canvas.drawText(text, textX, textY, textPaint);
+      
+      Log.d(TAG, String.format("createPillLabelBitmap: Created pill label '%s' (%dx%d px)", 
+          text, bitmapWidth, bitmapHeight));
+      
+      return bitmap;
+    } catch (Exception e) {
+      Log.e(TAG, "createPillLabelBitmap: Error creating pill label: " + e.getMessage(), e);
+      // Return a simple fallback bitmap
+      Bitmap fallback = Bitmap.createBitmap(100, 40, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(fallback);
+      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      paint.setColor(0xFF0066FF);
+      canvas.drawRect(0, 0, 100, 40, paint);
+      return fallback;
+    }
+  }
+
+  /**
+   * Creates a circular label bitmap with text curved around the circle's circumference.
+   * This method generates aviation-style circular labels with:
+   * - Circle outline (customizable color and stroke width)
+   * - Pill-shaped background arc following the circle contour
+   * - Text curved along the pill background (top or bottom arc)
+   * - Configurable radius and text size
+   * 
+   * Use case: Circular airspace boundaries with readable labels following the contour.
+   * 
+   * @param text The text to display along the circle
+   * @param radius Circle radius in dp (e.g., 30.0f)
+   * @param circleColor Hex color string for circle outline (e.g., "#0066FF")
+   * @param circleStrokeWidth Circle stroke width in dp (e.g., 2.0f)
+   * @param textColor Hex color string for text (e.g., "#FFFFFF")
+   * @param textSize Text size in pixels (e.g., 14.0f)
+   * @param topArc If true, text is on top arc; if false, text is on bottom arc
+   * @return Bitmap of the circular label with pill background
+   */
+  private Bitmap createCircleLabelBitmap(
+      String text,
+      float radius,
+      String circleColor,
+      float circleStrokeWidth,
+      String textColor,
+      float textSize,
+      boolean topArc) {
+    
+    try {
+      // Scale parameters by density first
+      float scaledRadius = radius * density;
+      float scaledStrokeWidth = circleStrokeWidth * density;
+      float scaledTextSize = textSize * density;
+      
+      // Create Paint for text measurement
+      Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      textPaint.setTextSize(scaledTextSize);
+      textPaint.setColor(android.graphics.Color.parseColor(textColor));
+      textPaint.setTextAlign(Paint.Align.CENTER);
+      textPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+      
+      // Measure text height for pill background sizing
+      Paint.FontMetrics fontMetrics = textPaint.getFontMetrics();
+      float textHeight = fontMetrics.descent - fontMetrics.ascent;
+      
+      // Calculate pill background stroke width (text height + padding)
+      float pillPadding = 8 * density; // 8dp padding
+      float pillStrokeWidth = textHeight + (pillPadding * 2);
+      
+      // Calculate bitmap dimensions (circle diameter + padding for pill)
+      int bitmapSize = (int) Math.ceil((scaledRadius * 2) + (pillStrokeWidth * 2) + 40 * density);
+      
+      // Create bitmap and canvas
+      Bitmap bitmap = Bitmap.createBitmap(bitmapSize, bitmapSize, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(bitmap);
+      
+      // Calculate center point
+      float centerX = bitmapSize / 2f;
+      float centerY = bitmapSize / 2f;
+      
+      // Draw circle outline
+      Paint circlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      circlePaint.setColor(android.graphics.Color.parseColor(circleColor));
+      circlePaint.setStyle(Paint.Style.STROKE);
+      circlePaint.setStrokeWidth(scaledStrokeWidth);
+      canvas.drawCircle(centerX, centerY, scaledRadius, circlePaint);
+      
+      // Calculate text radius (offset from circle)
+      float textRadius = scaledRadius + scaledStrokeWidth + pillStrokeWidth / 2 + 5 * density;
+      
+      // Create path for the pill background arc
+      Path pillPath = new Path();
+      
+      // Measure text width to calculate arc sweep angle
+      float textWidth = textPaint.measureText(text);
+      // Calculate arc length needed for text
+      float arcLength = textWidth * 1.1f; // 10% extra for spacing
+      // Convert arc length to degrees: arcLength = radius × angle_in_radians
+      float sweepAngle = (float) Math.toDegrees(arcLength / textRadius);
+      // Limit sweep angle to reasonable range
+      sweepAngle = Math.min(sweepAngle, 160f);
+      
+      float startAngle;
+      if (topArc) {
+        // Center the arc on top (270° = top of circle)
+        startAngle = 270f - (sweepAngle / 2f);
+      } else {
+        // Center the arc on bottom (90° = bottom of circle)
+        startAngle = 90f - (sweepAngle / 2f);
+      }
+      
+      pillPath.addArc(
+          centerX - textRadius,
+          centerY - textRadius,
+          centerX + textRadius,
+          centerY + textRadius,
+          startAngle,
+          sweepAngle
+      );
+      
+      // Draw pill-shaped background (thick arc with rounded caps)
+      Paint pillBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      pillBackgroundPaint.setColor(android.graphics.Color.parseColor(circleColor));
+      pillBackgroundPaint.setStyle(Paint.Style.STROKE);
+      pillBackgroundPaint.setStrokeWidth(pillStrokeWidth);
+      pillBackgroundPaint.setStrokeCap(Paint.Cap.ROUND); // Rounded caps create pill effect
+      canvas.drawPath(pillPath, pillBackgroundPaint);
+      
+      // Draw border/outline for pill (optional, for better definition)
+      Paint pillBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      pillBorderPaint.setColor(android.graphics.Color.parseColor(circleColor));
+      pillBorderPaint.setStyle(Paint.Style.STROKE);
+      pillBorderPaint.setStrokeWidth(2 * density);
+      pillBorderPaint.setStrokeCap(Paint.Cap.ROUND);
+      canvas.drawPath(pillPath, pillBorderPaint);
+      
+      // Draw text along the same path
+      canvas.drawTextOnPath(text, pillPath, 0, textHeight / 4, textPaint);
+      
+      Log.d(TAG, String.format("createCircleLabelBitmap: Created circle label with pill background '%s' (%dx%d px, radius=%.1f, pillWidth=%.1f)", 
+          text, bitmapSize, bitmapSize, scaledRadius, pillStrokeWidth));
+      
+      return bitmap;
+    } catch (Exception e) {
+      Log.e(TAG, "createCircleLabelBitmap: Error creating circle label: " + e.getMessage(), e);
+      // Return a simple fallback bitmap
+      Bitmap fallback = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(fallback);
+      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      paint.setColor(0xFF0066FF);
+      paint.setStyle(Paint.Style.STROKE);
+      paint.setStrokeWidth(4);
+      canvas.drawCircle(50, 50, 40, paint);
+      return fallback;
     }
   }
 

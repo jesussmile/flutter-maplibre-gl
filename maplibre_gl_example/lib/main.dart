@@ -17,6 +17,7 @@ import 'package:maplibre_gl_example/no_location_permission_page.dart';
 import 'package:maplibre_gl_example/pmtiles.dart';
 import 'package:maplibre_gl_example/presentation/gps_location/gps_location_page.dart';
 import 'package:maplibre_gl_example/stratux_traffic.dart';
+import 'package:maplibre_gl_example/pill_label_example.dart';
 
 import 'adsb_traffic_page.dart';
 
@@ -78,6 +79,7 @@ final List<ExamplePage> _allPages = <ExamplePage>[
   const StratuxTrafficPage(),
   ADSBTrafficPage(),
   const SimpleStateLabelsPage(),
+  const PillLabelExample(),
 ];
 
 class MapsDemo extends StatefulWidget {

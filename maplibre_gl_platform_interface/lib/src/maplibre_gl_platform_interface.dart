@@ -95,6 +95,28 @@ abstract class MapLibrePlatform {
 
   Future<void> addImage(String name, Uint8List bytes, [bool sdf = false]);
 
+  Future<void> createPillLabel({
+    required String name,
+    required String text,
+    String backgroundColor = '#0066FF',
+    String textColor = '#FFFFFF',
+    double textSize = 14.0,
+    double paddingHorizontal = 12.0,
+    double paddingVertical = 6.0,
+    double cornerRadius = 8.0,
+  });
+
+  Future<void> createCircleLabel({
+    required String name,
+    required String text,
+    double radius = 40.0,
+    String circleColor = '#0066FF',
+    double circleStrokeWidth = 2.0,
+    String textColor = '#FFFFFF',
+    double textSize = 16.0,
+    bool topArc = true,
+  });
+
   Future<void> addImageSource(
       String imageSourceId, Uint8List bytes, LatLngQuad coordinates);
 
