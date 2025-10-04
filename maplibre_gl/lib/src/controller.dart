@@ -1713,6 +1713,7 @@ class MapLibreMapController extends ChangeNotifier {
   /// - [textColor]: Hex color string (e.g., "#FFFFFF") for the text
   /// - [textSize]: Text size in dp/pt (default: 16.0)
   /// - [topArc]: If true, text is on top arc; if false, text is on bottom arc (default: true)
+  /// - [roundedEdges]: If true, pill edges are rounded; if false, edges are straight (default: true)
   Future<void> createCircleLabel({
     required String name,
     required String text,
@@ -1722,6 +1723,7 @@ class MapLibreMapController extends ChangeNotifier {
     String textColor = '#FFFFFF',
     double textSize = 16.0,
     bool topArc = true,
+    bool roundedEdges = true,
   }) {
     return _maplibrePlatform.createCircleLabel(
       name: name,
@@ -1732,6 +1734,7 @@ class MapLibreMapController extends ChangeNotifier {
       textColor: textColor,
       textSize: textSize,
       topArc: topArc,
+      roundedEdges: roundedEdges,
     );
   }
 

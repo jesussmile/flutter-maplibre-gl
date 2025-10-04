@@ -530,6 +530,7 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     String textColor = '#FFFFFF',
     double textSize = 16.0,
     bool topArc = true,
+    bool roundedEdges = true,
   }) async {
     try {
       return await _channel
@@ -542,6 +543,7 @@ class MapLibreMethodChannel extends MapLibrePlatform {
         'textColor': textColor,
         'textSize': textSize,
         'topArc': topArc,
+        'roundedEdges': roundedEdges,
       });
     } on PlatformException catch (e) {
       return Future.error(e);

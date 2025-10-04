@@ -204,6 +204,7 @@ class PillLabelBodyState extends State<PillLabelBody> {
           'radius': 40.0,
           'color': '#FF0000', // Red for restricted areas
           'topArc': true,
+          'roundedEdges': false, // Straight edges for restricted areas
         },
         {
           'text': 'MOA WHISKEY 174',
@@ -211,6 +212,7 @@ class PillLabelBodyState extends State<PillLabelBody> {
           'radius': 45.0,
           'color': '#0066FF', // Blue for MOAs
           'topArc': false, // Text on bottom
+          'roundedEdges': true, // Rounded edges for MOAs
         },
         {
           'text': 'PROHIBITED P-40',
@@ -218,6 +220,7 @@ class PillLabelBodyState extends State<PillLabelBody> {
           'radius': 35.0,
           'color': '#990000', // Dark red for prohibited
           'topArc': true,
+          'roundedEdges': false, // Straight edges for prohibited
         },
         {
           'text': 'ALERT AREA A-632',
@@ -225,6 +228,7 @@ class PillLabelBodyState extends State<PillLabelBody> {
           'radius': 50.0,
           'color': '#FF6600', // Orange for alert areas
           'topArc': false,
+          'roundedEdges': true, // Rounded edges for alert areas
         },
       ];
 
@@ -241,6 +245,7 @@ class PillLabelBodyState extends State<PillLabelBody> {
           textColor: '#FFFFFF',
           textSize: 16.0, // Increased from 12.0 for better visibility
           topArc: data['topArc'],
+          roundedEdges: data['roundedEdges'], // Control pill edge style
         );
       }
 

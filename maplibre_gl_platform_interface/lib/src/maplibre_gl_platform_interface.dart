@@ -115,6 +115,7 @@ abstract class MapLibrePlatform {
     String textColor = '#FFFFFF',
     double textSize = 16.0,
     bool topArc = true,
+    bool roundedEdges = true,
   });
 
   Future<void> addImageSource(

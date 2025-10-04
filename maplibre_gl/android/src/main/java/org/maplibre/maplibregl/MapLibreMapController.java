@@ -1822,6 +1822,7 @@ final class MapLibreMapController
             String textColor = call.argument("textColor"); // e.g., "#FFFFFF"
             Double textSize = call.argument("textSize"); // e.g., 14.0
             Boolean topArc = call.argument("topArc"); // true = text on top arc, false = bottom arc
+            Boolean roundedEdges = call.argument("roundedEdges"); // true = rounded caps, false = straight edges
             
             // Generate the circular label bitmap
             Bitmap circleBitmap = createCircleLabelBitmap(
@@ -1831,7 +1832,8 @@ final class MapLibreMapController
                 circleStrokeWidth != null ? circleStrokeWidth.floatValue() : 2.0f,
                 textColor != null ? textColor : "#FFFFFF",
                 textSize != null ? textSize.floatValue() : 14.0f,
-                topArc != null ? topArc : true
+                topArc != null ? topArc : true,
+                roundedEdges != null ? roundedEdges : true
             );
             
             // Add the bitmap to the map style
@@ -4596,6 +4598,7 @@ final class MapLibreMapController
    * @param textColor Hex color string for text (e.g., "#FFFFFF")
    * @param textSize Text size in pixels (e.g., 14.0f)
    * @param topArc If true, text is on top arc; if false, text is on bottom arc
+   * @param roundedEdges If true, pill edges are rounded; if false, edges are straight (butt cap)
    * @return Bitmap of the circular label with pill background
    */
   private Bitmap createCircleLabelBitmap(
@@ -4605,7 +4608,8 @@ final class MapLibreMapController
       float circleStrokeWidth,
       String textColor,
       float textSize,
-      boolean topArc) {
+      boolean topArc,
+      boolean roundedEdges) {
     
     try {
       // Scale parameters by density first
@@ -4679,12 +4683,13 @@ final class MapLibreMapController
           sweepAngle
       );
       
-      // Draw pill-shaped background (thick arc with rounded caps)
+      // Draw pill-shaped background (thick arc with configurable cap style)
       Paint pillBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
       pillBackgroundPaint.setColor(android.graphics.Color.parseColor(circleColor));
       pillBackgroundPaint.setStyle(Paint.Style.STROKE);
       pillBackgroundPaint.setStrokeWidth(pillStrokeWidth);
-      pillBackgroundPaint.setStrokeCap(Paint.Cap.ROUND); // Rounded caps create pill effect
+      // Use ROUND for pill-shaped ends, BUTT for straight edges
+      pillBackgroundPaint.setStrokeCap(roundedEdges ? Paint.Cap.ROUND : Paint.Cap.BUTT);
       canvas.drawPath(pillPath, pillBackgroundPaint);
       
       // Draw border/outline for pill (optional, for better definition)
@@ -4692,7 +4697,7 @@ final class MapLibreMapController
       pillBorderPaint.setColor(android.graphics.Color.parseColor(circleColor));
       pillBorderPaint.setStyle(Paint.Style.STROKE);
       pillBorderPaint.setStrokeWidth(2 * density);
-      pillBorderPaint.setStrokeCap(Paint.Cap.ROUND);
+      pillBorderPaint.setStrokeCap(roundedEdges ? Paint.Cap.ROUND : Paint.Cap.BUTT);
       canvas.drawPath(pillPath, pillBorderPaint);
       
       // Draw text along the same path
