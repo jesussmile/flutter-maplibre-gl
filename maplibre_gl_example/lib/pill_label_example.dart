@@ -355,6 +355,7 @@ class PillLabelBodyState extends State<PillLabelBody> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 FloatingActionButton.extended(
+                  heroTag: 'pillLabelToggleButton', // Unique hero tag
                   onPressed: _togglePillLabels,
                   backgroundColor:
                       _labelsVisible ? Colors.red[600] : Colors.blue[600],
@@ -365,6 +366,7 @@ class PillLabelBodyState extends State<PillLabelBody> {
                 ),
                 const SizedBox(height: 12),
                 FloatingActionButton.extended(
+                  heroTag: 'circleLabelAddButton', // Unique hero tag
                   onPressed: _addCircleLabels,
                   backgroundColor: Colors.green[600],
                   icon: const Icon(Icons.circle_outlined),

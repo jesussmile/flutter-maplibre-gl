@@ -728,6 +728,105 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             }
             result(nil)
 
+        case "style#createPillLabel":
+            guard let arguments = methodCall.arguments as? [String: Any] else { 
+                result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments", details: nil))
+                return 
+            }
+            guard let name = arguments["name"] as? String else {
+                result(FlutterError(code: "MISSING_NAME", message: "Name is required", details: nil))
+                return
+            }
+            guard let text = arguments["text"] as? String else {
+                result(FlutterError(code: "MISSING_TEXT", message: "Text is required", details: nil))
+                return
+            }
+            guard let backgroundColorHex = arguments["backgroundColor"] as? String else {
+                result(FlutterError(code: "MISSING_BG_COLOR", message: "Background color is required", details: nil))
+                return
+            }
+            guard let textColorHex = arguments["textColor"] as? String else {
+                result(FlutterError(code: "MISSING_TEXT_COLOR", message: "Text color is required", details: nil))
+                return
+            }
+            let textSize = arguments["textSize"] as? Double ?? 24.0
+            let padding = arguments["padding"] as? Double ?? 12.0
+            let cornerRadius = arguments["cornerRadius"] as? Double ?? 15.0
+            
+            // Convert hex colors to UIColor
+            let backgroundColor = hexToUIColor(hex: backgroundColorHex)
+            let textColor = hexToUIColor(hex: textColorHex)
+            
+            // Create the pill label image
+            guard let image = createPillLabelImage(
+                text: text,
+                textSize: CGFloat(textSize),
+                textColor: textColor,
+                backgroundColor: backgroundColor,
+                padding: CGFloat(padding),
+                cornerRadius: CGFloat(cornerRadius)
+            ) else {
+                result(FlutterError(code: "IMAGE_CREATION_FAILED", message: "Failed to create pill label image", details: nil))
+                return
+            }
+            
+            // Add to map style
+            mapView.style?.setImage(image, forName: name)
+            result(nil)
+
+        case "style#createCircleLabel":
+            guard let arguments = methodCall.arguments as? [String: Any] else { 
+                result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments", details: nil))
+                return 
+            }
+            guard let name = arguments["name"] as? String else {
+                result(FlutterError(code: "MISSING_NAME", message: "Name is required", details: nil))
+                return
+            }
+            guard let text = arguments["text"] as? String else {
+                result(FlutterError(code: "MISSING_TEXT", message: "Text is required", details: nil))
+                return
+            }
+            guard let radius = arguments["radius"] as? Double else {
+                result(FlutterError(code: "MISSING_RADIUS", message: "Radius is required", details: nil))
+                return
+            }
+            guard let circleColorHex = arguments["circleColor"] as? String else {
+                result(FlutterError(code: "MISSING_CIRCLE_COLOR", message: "Circle color is required", details: nil))
+                return
+            }
+            guard let textColorHex = arguments["textColor"] as? String else {
+                result(FlutterError(code: "MISSING_TEXT_COLOR", message: "Text color is required", details: nil))
+                return
+            }
+            let strokeWidth = arguments["strokeWidth"] as? Double ?? 4.0
+            let textSize = arguments["textSize"] as? Double ?? 24.0
+            let topArc = arguments["topArc"] as? Bool ?? true
+            let roundedEdges = arguments["roundedEdges"] as? Bool ?? true
+            
+            // Convert hex colors to UIColor
+            let circleColor = hexToUIColor(hex: circleColorHex)
+            let textColor = hexToUIColor(hex: textColorHex)
+            
+            // Create the circular label image
+            guard let image = createCircleLabelImage(
+                text: text,
+                radius: CGFloat(radius),
+                textSize: CGFloat(textSize),
+                textColor: textColor,
+                circleColor: circleColor,
+                strokeWidth: CGFloat(strokeWidth),
+                topArc: topArc,
+                roundedEdges: roundedEdges
+            ) else {
+                result(FlutterError(code: "IMAGE_CREATION_FAILED", message: "Failed to create circle label image", details: nil))
+                return
+            }
+            
+            // Add to map style
+            mapView.style?.setImage(image, forName: name)
+            result(nil)
+
         case "style#addImageSource":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let imageSourceId = arguments["imageSourceId"] as? String else { return }
@@ -3315,6 +3414,230 @@ extension MapLibreMapController: PolylineGestureHandlerDelegate {
         ]
         
         channel?.invokeMethod("polylineEditing#onError", arguments: arguments)
+    }
+}
+
+// MARK: - Label Image Creation Helpers
+extension MapLibreMapController {
+    
+    /// Convert hex color string to UIColor
+    private func hexToUIColor(hex: String) -> UIColor {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
+        
+        var rgb: UInt64 = 0
+        Scanner(string: hexSanitized).scanHexInt64(&rgb)
+        
+        let red = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
+        let green = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
+        let blue = CGFloat(rgb & 0x0000FF) / 255.0
+        
+        return UIColor(red: red, green: green, blue: blue, alpha: 1.0)
+    }
+    
+    /// Create a pill-shaped label image
+    private func createPillLabelImage(
+        text: String,
+        textSize: CGFloat,
+        textColor: UIColor,
+        backgroundColor: UIColor,
+        padding: CGFloat,
+        cornerRadius: CGFloat
+    ) -> UIImage? {
+        // Set up text attributes
+        let font = UIFont.boldSystemFont(ofSize: textSize)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor
+        ]
+        
+        // Calculate text size
+        let textString = text as NSString
+        let textRect = textString.boundingRect(
+            with: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude),
+            options: .usesLineFragmentOrigin,
+            attributes: attributes,
+            context: nil
+        )
+        
+        // Calculate image dimensions with padding
+        let imageWidth = textRect.width + (padding * 2)
+        let imageHeight = textRect.height + (padding * 2)
+        let imageSize = CGSize(width: imageWidth, height: imageHeight)
+        
+        // Use screen scale for retina displays
+        let scale = UIScreen.main.scale
+        UIGraphicsBeginImageContextWithOptions(imageSize, false, scale)
+        
+        guard let context = UIGraphicsGetCurrentContext() else {
+            UIGraphicsEndImageContext()
+            return nil
+        }
+        
+        // Draw rounded rectangle background
+        let backgroundRect = CGRect(origin: .zero, size: imageSize)
+        let backgroundPath = UIBezierPath(roundedRect: backgroundRect, cornerRadius: cornerRadius)
+        context.setFillColor(backgroundColor.cgColor)
+        backgroundPath.fill()
+        
+        // Draw text centered
+        let textX = padding
+        let textY = padding
+        textString.draw(at: CGPoint(x: textX, y: textY), withAttributes: attributes)
+        
+        // Get the image
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return image
+    }
+    
+    /// Create a circular label image with text following the contour
+    private func createCircleLabelImage(
+        text: String,
+        radius: CGFloat,
+        textSize: CGFloat,
+        textColor: UIColor,
+        circleColor: UIColor,
+        strokeWidth: CGFloat,
+        topArc: Bool,
+        roundedEdges: Bool
+    ) -> UIImage? {
+        // Set up text attributes for measurement
+        let font = UIFont.boldSystemFont(ofSize: textSize)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor
+        ]
+        
+        // Measure text height for pill background sizing
+        let textString = text as NSString
+        let textRect = textString.boundingRect(
+            with: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude),
+            options: .usesLineFragmentOrigin,
+            attributes: attributes,
+            context: nil
+        )
+        let textHeight = textRect.height
+        
+        // Calculate pill background stroke width (text height + padding)
+        let pillPadding: CGFloat = 8.0
+        let pillStrokeWidth = textHeight + (pillPadding * 2)
+        
+        // Calculate image size with padding for pill background
+        let imageSize = (radius * 2) + (pillStrokeWidth * 2) + 40
+        let size = CGSize(width: imageSize, height: imageSize)
+        let center = CGPoint(x: imageSize / 2, y: imageSize / 2)
+        
+        // Use screen scale for retina displays
+        let scale = UIScreen.main.scale
+        UIGraphicsBeginImageContextWithOptions(size, false, scale)
+        
+        guard let context = UIGraphicsGetCurrentContext() else {
+            UIGraphicsEndImageContext()
+            return nil
+        }
+        
+        // Draw circle outline
+        let circlePath = UIBezierPath(
+            arcCenter: center,
+            radius: radius,
+            startAngle: 0,
+            endAngle: CGFloat.pi * 2,
+            clockwise: true
+        )
+        context.setStrokeColor(circleColor.cgColor)
+        context.setLineWidth(strokeWidth)
+        context.addPath(circlePath.cgPath)
+        context.strokePath()
+        
+        // Calculate text radius (offset from circle for pill background)
+        let textRadius = radius + strokeWidth + pillStrokeWidth / 2 + 5
+        
+        // Measure text width to calculate arc sweep angle
+        let textWidth = textRect.width
+        let arcLength = textWidth * 1.1 // 10% extra for spacing
+        let sweepAngle = arcLength / textRadius // In radians
+        let sweepAngleLimited = min(sweepAngle, CGFloat.pi * 0.89) // Limit to 160°
+        
+        // Calculate start angle to center the arc
+        let startAngle: CGFloat
+        if topArc {
+            // Center on top (270° = 3π/2 = top of circle)
+            startAngle = (3 * CGFloat.pi / 2) - (sweepAngleLimited / 2)
+        } else {
+            // Center on bottom (90° = π/2 = bottom of circle)
+            startAngle = (CGFloat.pi / 2) - (sweepAngleLimited / 2)
+        }
+        
+        // Create path for the pill background arc
+        let pillPath = UIBezierPath(
+            arcCenter: center,
+            radius: textRadius,
+            startAngle: startAngle,
+            endAngle: startAngle + sweepAngleLimited,
+            clockwise: true
+        )
+        
+        // CRITICAL: Configure context BEFORE adding path
+        context.setStrokeColor(circleColor.cgColor)
+        context.setLineWidth(pillStrokeWidth)
+        context.setLineCap(roundedEdges ? .round : .butt)
+        context.setLineJoin(.round)
+        
+        // Add path to context and stroke it
+        context.addPath(pillPath.cgPath)
+        context.strokePath()
+        
+        // Draw border/outline for pill (for better definition)
+        context.setStrokeColor(circleColor.cgColor)
+        context.setLineWidth(2.0)
+        context.setLineCap(roundedEdges ? .round : .butt)
+        context.addPath(pillPath.cgPath)
+        context.strokePath()
+        
+        
+        // Draw text along the pill path (character by character)
+        let totalArcLength = sweepAngleLimited * textRadius
+        if totalArcLength > 0 && text.count > 0 {
+            let scaledTextWidth = max(textRect.width, 0.001)
+            let spacingScale = totalArcLength / scaledTextWidth
+            var accumulatedLength: CGFloat = 0
+
+            for char in text {
+                let charString = String(char) as NSString
+                let charSize = charString.size(withAttributes: attributes)
+                let scaledCharWidth = max(charSize.width, 0.001) * spacingScale
+                let charCenterLength = accumulatedLength + (scaledCharWidth / 2)
+                let charAngle = startAngle + (charCenterLength / textRadius)
+
+                let position = CGPoint(
+                    x: center.x + cos(charAngle) * textRadius,
+                    y: center.y + sin(charAngle) * textRadius
+                )
+                let rotationAngle: CGFloat = topArc
+                    ? charAngle + (CGFloat.pi / 2)
+                    : charAngle - (CGFloat.pi / 2)
+
+                context.saveGState()
+                context.translateBy(x: position.x, y: position.y)
+                context.rotate(by: rotationAngle)
+
+                charString.draw(
+                    at: CGPoint(x: -charSize.width / 2, y: -charSize.height / 2),
+                    withAttributes: attributes
+                )
+
+                context.restoreGState()
+                accumulatedLength += scaledCharWidth
+            }
+        }
+        
+        // Get the image
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return image
     }
 }
 
