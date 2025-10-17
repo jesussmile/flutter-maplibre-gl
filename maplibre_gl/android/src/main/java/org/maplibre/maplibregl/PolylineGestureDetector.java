@@ -21,6 +21,7 @@ import org.maplibre.geojson.Point;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Detects long press and drag gestures on polylines for interactive editing.
@@ -376,23 +377,27 @@ public class PolylineGestureDetector {
     @Nullable
     private String findEditablePolylineAtPoint(@NonNull PointF screenPoint) {
         try {
-            // Query rendered features at the touch point
+            String lineId = findPolylineFromStoredCoordinates(screenPoint);
+            if (lineId != null) {
+                return lineId;
+            }
+
+            // Fallback to rendered feature query if no stored geometry matched
             List<Feature> features = mapLibreMap.queryRenderedFeatures(screenPoint, (String[]) null);
-            
+
             for (Feature feature : features) {
                 if (feature.geometry() instanceof LineString) {
-                    // Check if this feature represents an editable polyline
-                    String lineId = getLineIdFromFeature(feature);
-                    if (lineId != null && polylineEditingManager.isLineEditable(lineId)) {
-                        Log.d(TAG, "Found editable polyline: " + lineId);
-                        return lineId;
+                    String candidateId = getLineIdFromFeature(feature);
+                    if (candidateId != null && polylineEditingManager.isLineEditable(candidateId)) {
+                        Log.d(TAG, "Found editable polyline via fallback query: " + candidateId);
+                        return candidateId;
                     }
                 }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error finding polyline at point: " + e.getMessage(), e);
         }
-        
+
         return null;
     }
     
@@ -450,6 +455,104 @@ public class PolylineGestureDetector {
             errorHandler.cleanup();
         }
         Log.d(TAG, "PolylineGestureDetector cleanup complete");
+    }
+
+    /**
+     * Attempts to find an editable polyline by manually hit-testing stored coordinates.
+     */
+    @Nullable
+    private String findPolylineFromStoredCoordinates(@NonNull PointF screenPoint) {
+    if (polylineEditingManager == null || breakPointSystem == null) {
+            return null;
+        }
+
+        Map<String, PolylineEditingManager.PolylineEditingConfig> editablePolylines =
+            polylineEditingManager.getEditablePolylines();
+        if (editablePolylines.isEmpty()) {
+            return null;
+        }
+
+        Map<String, List<LatLng>> storedCoordinates =
+            breakPointSystem.getStoredPolylineCoordinatesSnapshot();
+        if (storedCoordinates.isEmpty()) {
+            return null;
+        }
+
+        float closestDistance = Float.MAX_VALUE;
+        String closestLineId = null;
+
+        for (String lineId : editablePolylines.keySet()) {
+            List<LatLng> coordinates = storedCoordinates.get(lineId);
+            if (coordinates == null || coordinates.size() < 2) {
+                continue;
+            }
+
+            float candidateDistance = distanceToPolyline(screenPoint, coordinates);
+            if (candidateDistance < closestDistance && candidateDistance <= HIT_TEST_RADIUS_PX) {
+                closestDistance = candidateDistance;
+                closestLineId = lineId;
+            }
+        }
+
+        if (closestLineId != null) {
+            Log.d(TAG, "Manual hit-test found editable polyline: " + closestLineId
+                    + " (distance=" + closestDistance + ")");
+        }
+
+        return closestLineId;
+    }
+
+    private float distanceToPolyline(@NonNull PointF touchPoint, @NonNull List<LatLng> coordinates) {
+        float minDistance = Float.MAX_VALUE;
+        PointF previousPoint = null;
+
+        for (LatLng location : coordinates) {
+            PointF screenLocation;
+            try {
+                screenLocation = mapLibreMap.getProjection().toScreenLocation(location);
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to project coordinate during hit test: " + e.getMessage());
+                continue;
+            }
+
+            if (previousPoint != null) {
+                float segmentDistance = distanceToSegment(touchPoint, previousPoint, screenLocation);
+                if (segmentDistance < minDistance) {
+                    minDistance = segmentDistance;
+                    if (minDistance == 0f) {
+                        // Perfect hit; no need to examine remaining segments.
+                        break;
+                    }
+                }
+            }
+
+            previousPoint = screenLocation;
+        }
+
+        return minDistance;
+    }
+
+    private float distanceToSegment(@NonNull PointF p, @NonNull PointF v, @NonNull PointF w) {
+        float dx = w.x - v.x;
+        float dy = w.y - v.y;
+        float lengthSquared = dx * dx + dy * dy;
+
+        if (lengthSquared == 0f) {
+            return distanceBetweenPoints(p, v);
+        }
+
+        float t = ((p.x - v.x) * dx + (p.y - v.y) * dy) / lengthSquared;
+        t = Math.max(0f, Math.min(1f, t));
+
+        float projectionX = v.x + t * dx;
+        float projectionY = v.y + t * dy;
+        return distanceBetweenPoints(p, new PointF(projectionX, projectionY));
+    }
+
+    private float distanceBetweenPoints(@NonNull PointF a, @NonNull PointF b) {
+        float diffX = a.x - b.x;
+        float diffY = a.y - b.y;
+        return (float) Math.sqrt(diffX * diffX + diffY * diffY);
     }
 
 }

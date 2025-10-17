@@ -252,6 +252,8 @@ public class PolylineBreakPointSystem {
             List<LatLng> finalCoordinates = session.getCombinedCoordinates();
             Log.d(TAG, "Finalized break point for line " + lineId + 
                       " with " + finalCoordinates.size() + " coordinates");
+            // Persist the finalized coordinates so future hit testing uses the updated geometry
+            subdivisionTracker.put(lineId, new ArrayList<>(finalCoordinates));
             return finalCoordinates;
             
         } catch (Exception e) {
@@ -570,5 +572,31 @@ public class PolylineBreakPointSystem {
             Log.d(TAG, "    " + entry.getKey() + ": session=" + session.sessionId + 
                       ", duration=" + duration + "ms, breakPoint=" + session.breakPointLocation);
         }
+    }
+
+    /**
+     * Returns a snapshot of all stored polyline coordinates currently available for editing.
+     *
+     * @return Map of line IDs to a copy of their stored coordinates.
+     */
+    @NonNull
+    public Map<String, List<LatLng>> getStoredPolylineCoordinatesSnapshot() {
+        Map<String, List<LatLng>> snapshot = new HashMap<>();
+        for (Map.Entry<String, List<LatLng>> entry : subdivisionTracker.entrySet()) {
+            snapshot.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        return snapshot;
+    }
+
+    /**
+     * Returns the stored coordinates for a single polyline, if available.
+     *
+     * @param lineId The polyline identifier.
+     * @return Copy of the stored coordinates or {@code null} when not tracked.
+     */
+    @Nullable
+    public List<LatLng> getStoredPolylineCoordinates(@NonNull String lineId) {
+        List<LatLng> coordinates = subdivisionTracker.get(lineId);
+        return coordinates != null ? new ArrayList<>(coordinates) : null;
     }
 }
