@@ -16,7 +16,7 @@ import io.flutter.plugin.common.BinaryMessenger;
 class MapLibreMapBuilder implements MapLibreMapOptionsSink {
   public final String TAG = getClass().getSimpleName();
   private final MapLibreMapOptions options =
-      new MapLibreMapOptions().attributionEnabled(true).logoEnabled(false).textureMode(true);
+    new MapLibreMapOptions().attributionEnabled(true).logoEnabled(false);
   private boolean trackCameraPosition = false;
   private boolean myLocationEnabled = false;
   private boolean dragEnabled = true;
@@ -25,12 +25,20 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
   private String styleString = "";
   private LatLngBounds bounds = null;
   private LocationEngineRequest locationEngineRequest = null;
+  private boolean textureMode = true;
+  private boolean textureModeExplicitlySet = false;
 
   MapLibreMapController build(
       int id,
       Context context,
       BinaryMessenger messenger,
       MapLibreMapsPlugin.LifecycleProvider lifecycleProvider) {
+
+    if (textureModeExplicitlySet) {
+      options.textureMode(textureMode);
+    } else {
+      options.textureMode(true);
+    }
 
     final MapLibreMapController controller =
         new MapLibreMapController(
@@ -104,6 +112,12 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
   @Override
   public void setZoomGesturesEnabled(boolean zoomGesturesEnabled) {
     options.zoomGesturesEnabled(zoomGesturesEnabled);
+  }
+
+  @Override
+  public void setTextureMode(boolean textureMode) {
+    this.textureMode = textureMode;
+    this.textureModeExplicitlySet = true;
   }
 
   @Override

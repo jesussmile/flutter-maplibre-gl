@@ -132,10 +132,10 @@ class MapLibreMap extends StatefulWidget {
   final String styleString;
 
   /// Configuration for experimental features.
-  /// 
+  ///
   /// Allows enabling/disabling experimental features that may not be fully stable
   /// or supported across all platforms. Use with caution in production.
-  /// 
+  ///
   /// Example:
   /// ```dart
   /// MapLibreMap(
@@ -382,6 +382,7 @@ class _MapLibreMapOptions {
       required this.tiltGesturesEnabled,
       required this.zoomGesturesEnabled,
       required this.doubleClickZoomEnabled,
+      this.textureMode,
       this.trackCameraPosition,
       this.myLocationEnabled,
       this.myLocationTrackingMode,
@@ -403,6 +404,7 @@ class _MapLibreMapOptions {
           rotateGesturesEnabled: map.rotateGesturesEnabled,
           scrollGesturesEnabled: map.scrollGesturesEnabled,
           tiltGesturesEnabled: map.tiltGesturesEnabled,
+          textureMode: !MapLibreMap.useHybridComposition,
           trackCameraPosition: map.trackCameraPosition,
           zoomGesturesEnabled: map.zoomGesturesEnabled,
           doubleClickZoomEnabled:
@@ -434,6 +436,8 @@ class _MapLibreMapOptions {
   final bool zoomGesturesEnabled;
 
   final bool doubleClickZoomEnabled;
+
+  final bool? textureMode;
 
   final bool? trackCameraPosition;
 
@@ -490,6 +494,7 @@ class _MapLibreMapOptions {
     addIfNonNull('tiltGesturesEnabled', tiltGesturesEnabled);
     addIfNonNull('zoomGesturesEnabled', zoomGesturesEnabled);
     addIfNonNull('doubleClickZoomEnabled', doubleClickZoomEnabled);
+    addIfNonNull('textureMode', textureMode);
 
     addIfNonNull('trackCameraPosition', trackCameraPosition);
     addIfNonNull('myLocationEnabled', myLocationEnabled);

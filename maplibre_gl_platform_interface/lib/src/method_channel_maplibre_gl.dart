@@ -242,20 +242,19 @@ class MapLibreMethodChannel extends MapLibrePlatform {
             PlatformViewController controller,
           ) {
             return AndroidViewSurface(
-              controller: controller as AndroidViewController,
+              controller: controller as SurfaceAndroidViewController,
               gestureRecognizers: gestureRecognizers ??
                   const <Factory<OneSequenceGestureRecognizer>>{},
               hitTestBehavior: PlatformViewHitTestBehavior.opaque,
             );
           },
           onCreatePlatformView: (PlatformViewCreationParams params) {
-            final controller = PlatformViewsService.initAndroidView(
+            final controller = PlatformViewsService.initSurfaceAndroidView(
               id: params.id,
               viewType: 'plugins.flutter.io/maplibre_gl',
               layoutDirection: TextDirection.ltr,
               creationParams: creationParams,
               creationParamsCodec: const StandardMessageCodec(),
-              onFocus: () => params.onFocusChanged(true),
             );
 
             controller.addOnPlatformViewCreatedListener(

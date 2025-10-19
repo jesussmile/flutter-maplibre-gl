@@ -566,16 +566,43 @@ final class MapLibreMapController
 
   private void addGeoJsonSource(String sourceName, String source) {
     FeatureCollection featureCollection = FeatureCollection.fromJson(source);
-    GeoJsonSource geoJsonSource = new GeoJsonSource(sourceName, featureCollection);
     addedFeaturesByLayer.put(sourceName, featureCollection);
 
+    Source existingSource = style.getSource(sourceName);
+    if (existingSource instanceof GeoJsonSource) {
+      ((GeoJsonSource) existingSource).setGeoJson(featureCollection);
+      return;
+    }
+
+    if (existingSource != null) {
+      Log.w(
+          TAG,
+          "Attempted to add GeoJSON source '" + sourceName + "' but an incompatible source exists.");
+      return;
+    }
+
+    GeoJsonSource geoJsonSource = new GeoJsonSource(sourceName, featureCollection);
     style.addSource(geoJsonSource);
   }
 
   private void setGeoJsonSource(String sourceName, String geojson) {
     FeatureCollection featureCollection = FeatureCollection.fromJson(geojson);
-    GeoJsonSource geoJsonSource = style.getSourceAs(sourceName);
     addedFeaturesByLayer.put(sourceName, featureCollection);
+
+    GeoJsonSource geoJsonSource = style.getSourceAs(sourceName);
+    if (geoJsonSource == null) {
+      Source existingSource = style.getSource(sourceName);
+      if (existingSource != null) {
+        Log.w(
+            TAG,
+            "Attempted to update GeoJSON source '" + sourceName + "' but an incompatible source exists.");
+        return;
+      }
+
+      geoJsonSource = new GeoJsonSource(sourceName, featureCollection);
+      style.addSource(geoJsonSource);
+      return;
+    }
 
     geoJsonSource.setGeoJson(featureCollection);
   }
@@ -1391,6 +1418,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
 
           Layer layer = style.getLayer(layerId);
@@ -1753,6 +1781,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           style.addImage(
               call.argument("name"),
@@ -1855,6 +1884,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           List<LatLng> coordinates = Convert.toLatLngList(call.argument("coordinates"), false);
           style.addSource(
@@ -1877,6 +1907,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           ImageSource imageSource = style.getSourceAs(call.argument("imageSourceId"));
           List<LatLng> coordinates = Convert.toLatLngList(call.argument("coordinates"), false);
@@ -1911,6 +1942,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           style.removeSource((String) call.argument("sourceId"));
           result.success(null);
@@ -1923,6 +1955,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           addRasterLayer(
               call.argument("imageLayerId"),
@@ -1946,6 +1979,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           addRasterLayer(
               call.argument("imageLayerId"),
@@ -1969,6 +2003,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           String layerId = call.argument("layerId");
           style.removeLayer(layerId);
@@ -2004,6 +2039,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           String layerId = call.argument("layerId");
           String filter = call.argument("filter");
@@ -2044,6 +2080,7 @@ final class MapLibreMapController
                     "STYLE IS NULL",
                     "The style is null. Has onStyleLoaded() already been invoked?",
                     null);
+            return;
           }
           Map<String, Object> reply = new HashMap<>();
           String layerId = call.argument("layerId");
@@ -2082,6 +2119,7 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            return;
           }
           String layerId = call.argument("layerId");
           boolean visible = call.argument("visible");
@@ -2141,6 +2179,7 @@ final class MapLibreMapController
                     "STYLE IS NULL",
                     "The style is null. Has onStyleLoaded() already been invoked?",
                     null);
+            return;
           }
           Map<String, Object> reply = new HashMap<>();
 
@@ -2160,6 +2199,7 @@ final class MapLibreMapController
                   "STYLE IS NULL",
                   "The style is null. Has onStyleLoaded() already been invoked?",
                   null);
+          return;
         }
         Map<String, Object> reply = new HashMap<>();
 
@@ -2690,6 +2730,11 @@ final class MapLibreMapController
   @Override
   public void setTiltGesturesEnabled(boolean tiltGesturesEnabled) {
     mapLibreMap.getUiSettings().setTiltGesturesEnabled(tiltGesturesEnabled);
+  }
+
+  @Override
+  public void setTextureMode(boolean textureMode) {
+    // Texture mode can only be set during map creation; runtime updates are ignored.
   }
 
   @Override

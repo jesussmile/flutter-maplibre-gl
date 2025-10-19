@@ -263,6 +263,10 @@ static LocationEngineRequest toLocationEngineRequest(Object o) {
     if (trackCameraPosition != null) {
       sink.setTrackCameraPosition(toBoolean(trackCameraPosition));
     }
+    final Object textureMode = data.get("textureMode");
+    if (textureMode != null) {
+      sink.setTextureMode(toBoolean(textureMode));
+    }
     final Object zoomGesturesEnabled = data.get("zoomGesturesEnabled");
     if (zoomGesturesEnabled != null) {
       sink.setZoomGesturesEnabled(toBoolean(zoomGesturesEnabled));
