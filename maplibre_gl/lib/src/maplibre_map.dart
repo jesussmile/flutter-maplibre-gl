@@ -30,6 +30,7 @@ class MapLibreMap extends StatefulWidget {
     this.scrollGesturesEnabled = true,
     this.zoomGesturesEnabled = true,
     this.tiltGesturesEnabled = true,
+    this.textureMode,
     this.doubleClickZoomEnabled,
     this.dragEnabled = true,
     this.trackCameraPosition = false,
@@ -161,6 +162,11 @@ class MapLibreMap extends StatefulWidget {
 
   /// True if the map view should respond to tilt gestures.
   final bool tiltGesturesEnabled;
+
+  /// Controls whether the map renders into an Android [TextureView] (true) or [SurfaceView] (false).
+  /// The default follows [MapLibreMap.useHybridComposition], disabling texture mode when hybrid
+  /// composition is enabled so the platform can back the map with a SurfaceView.
+  final bool? textureMode;
 
   /// Set to true to forcefully disable/enable if map should respond to double
   /// click to zoom.
@@ -404,7 +410,7 @@ class _MapLibreMapOptions {
           rotateGesturesEnabled: map.rotateGesturesEnabled,
           scrollGesturesEnabled: map.scrollGesturesEnabled,
           tiltGesturesEnabled: map.tiltGesturesEnabled,
-          textureMode: !MapLibreMap.useHybridComposition,
+          textureMode: map.textureMode ?? !MapLibreMap.useHybridComposition,
           trackCameraPosition: map.trackCameraPosition,
           zoomGesturesEnabled: map.zoomGesturesEnabled,
           doubleClickZoomEnabled:
