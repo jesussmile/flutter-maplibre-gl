@@ -16,10 +16,11 @@ import 'package:maplibre_gl_example/localized_map.dart';
 import 'package:maplibre_gl_example/no_location_permission_page.dart';
 import 'package:maplibre_gl_example/pmtiles.dart';
 import 'package:maplibre_gl_example/presentation/gps_location/gps_location_page.dart';
-import 'package:maplibre_gl_example/stratux_traffic.dart';
 import 'package:maplibre_gl_example/pill_label_example.dart';
+import 'package:maplibre_gl_example/stratux_traffic.dart';
 
 import 'adsb_traffic_page.dart';
+import 'sentry_traffic.dart';
 
 import 'animate_camera.dart';
 import 'annotation_order_maps.dart';
@@ -77,6 +78,7 @@ final List<ExamplePage> _allPages = <ExamplePage>[
   const AttributionPage(),
   const GpsLocationPage(),
   const StratuxTrafficPage(),
+  const SentryTrafficPage(),
   ADSBTrafficPage(),
   const SimpleStateLabelsPage(),
   const PillLabelExample(),
