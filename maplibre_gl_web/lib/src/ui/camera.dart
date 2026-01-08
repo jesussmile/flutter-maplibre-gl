@@ -1,5 +1,5 @@
-import 'package:js/js_util.dart';
 import 'package:maplibre_gl_web/src/geo/lng_lat.dart';
+import 'package:maplibre_gl_web/src/js_util_compat.dart';
 import 'package:maplibre_gl_web/src/geo/lng_lat_bounds.dart';
 import 'package:maplibre_gl_web/src/geo/point.dart';
 import 'package:maplibre_gl_web/src/interop/interop.dart';

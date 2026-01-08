@@ -1,5 +1,5 @@
-import 'package:js/js_util.dart' as util;
 import 'interop/js.dart' as js;
+import 'js_util_compat.dart' as util;
 
 /// Returns Dart representation from JS Object.
 dynamic dartify(Object? jsObject) {
@@ -29,7 +29,7 @@ Map<String, dynamic> dartifyMap(Object? jsObject) {
   final keys = js.objectKeys(jsObject);
   final map = <String, dynamic>{};
   for (final key in keys) {
-    map[key] = dartify(util.getProperty(jsObject!, key));
+    map[key] = dartify(util.getProperty(jsObject, key));
   }
   return map;
 }
