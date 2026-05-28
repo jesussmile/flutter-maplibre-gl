@@ -27,8 +27,9 @@ import static org.maplibre.android.style.layers.PropertyFactory.*;
  */
 public class NativeMeasurementDetector {
     private static final String TAG = "NativeMeasurementDetector";
-    private static final long HOLD_DURATION_MS = 500; // 500ms hold duration
-    private static final float MOVEMENT_THRESHOLD = 50f; // pixels
+    private static final long HOLD_DURATION_MS = 300; // Short hold before a stable two-finger gesture becomes measurement.
+    private static final float PINCH_SPAN_THRESHOLD = 28f; // pixels
+    private static final float PINCH_SCALE_THRESHOLD = 0.08f; // 8% span change
     
     // MapLibre style constants for measurement rendering
     private static final String MEASUREMENT_SOURCE_ID = "measurement-source";
@@ -55,6 +56,8 @@ public class NativeMeasurementDetector {
     private PointF initialPoint2;
     private PointF currentPoint1;
     private PointF currentPoint2;
+    private float initialSpan = 0f;
+    private boolean measurementCandidateCanceled = false;
     private long gestureStartTime;
     private Runnable holdRunnable;
     
@@ -98,6 +101,7 @@ public class NativeMeasurementDetector {
     public NativeMeasurementDetector(MapLibreMap mapLibreMap, OnNativeMeasurementListener listener) {
         this.mapLibreMap = mapLibreMap;
         this.listener = listener;
+        Log.d(TAG, "Native measurement detector initialized");
         
         // Initialize measurement style layers
         initializeMeasurementLayers();
@@ -118,14 +122,22 @@ public class NativeMeasurementDetector {
                 if (event.getPointerCount() == 1) {
                     initialPoint1 = new PointF(event.getX(), event.getY());
                     currentPoint1 = new PointF(event.getX(), event.getY());
+                    initialSpan = 0f;
+                    measurementCandidateCanceled = false;
                 }
                 break;
                 
             case MotionEvent.ACTION_POINTER_DOWN:
                 // Second finger down
                 if (event.getPointerCount() == 2) {
+                    initialPoint1 = new PointF(event.getX(0), event.getY(0));
                     initialPoint2 = new PointF(event.getX(1), event.getY(1));
-                    currentPoint2 = new PointF(event.getX(1), event.getY(1));
+                    currentPoint1 = new PointF(initialPoint1.x, initialPoint1.y);
+                    currentPoint2 = new PointF(initialPoint2.x, initialPoint2.y);
+                    initialSpan = calculateDistance(
+                            initialPoint1.x, initialPoint1.y,
+                            initialPoint2.x, initialPoint2.y);
+                    measurementCandidateCanceled = false;
                     
                     isTwoFingerDown = true;
                     gestureStartTime = System.currentTimeMillis();
@@ -136,7 +148,7 @@ public class NativeMeasurementDetector {
                     holdRunnable = new Runnable() {
                         @Override
                         public void run() {
-                            if (isTwoFingerDown && !isMeasuring && listener != null) {
+                            if (isTwoFingerDown && !isMeasuring && !measurementCandidateCanceled && listener != null) {
                                 startMeasurement();
                             }
                         }
@@ -162,11 +174,18 @@ public class NativeMeasurementDetector {
                         updateMeasurement();
                         return true; // Consume the event to prevent map interaction during measurement
                     } else {
-                        // Check if fingers moved too much during initial hold
-                        float distance1 = calculateDistance(currentX1, currentY1, initialPoint1.x, initialPoint1.y);
-                        float distance2 = calculateDistance(currentX2, currentY2, initialPoint2.x, initialPoint2.y);
+                        // Before the hold commits, distinguish pinch zoom from a stable
+                        // two-finger measurement hold. Parallel drift is allowed so a
+                        // user's hands do not cancel the measurement candidate.
+                        float currentSpan = calculateDistance(currentX1, currentY1, currentX2, currentY2);
+                        float spanDelta = Math.abs(currentSpan - initialSpan);
+                        float scaleDelta = initialSpan > 0f ? spanDelta / initialSpan : 0f;
                         
-                        if (distance1 > MOVEMENT_THRESHOLD || distance2 > MOVEMENT_THRESHOLD) {
+                        if (spanDelta > PINCH_SPAN_THRESHOLD && scaleDelta > PINCH_SCALE_THRESHOLD) {
+                            measurementCandidateCanceled = true;
+                            Log.d(TAG, String.format(
+                                    "Measurement candidate canceled for pinch: spanDelta=%.1fpx scaleDelta=%.2f",
+                                    spanDelta, scaleDelta));
                             cancelGesture();
                         }
                         return false; // Allow pinch/pan until the hold becomes a measurement.
@@ -194,6 +213,11 @@ public class NativeMeasurementDetector {
         if (currentPoint1 == null || currentPoint2 == null) return;
         
         try {
+            if (holdRunnable != null) {
+                handler.removeCallbacks(holdRunnable);
+                holdRunnable = null;
+            }
+
             startLatLng = mapLibreMap.getProjection().fromScreenLocation(currentPoint1);
             endLatLng = mapLibreMap.getProjection().fromScreenLocation(currentPoint2);
             
@@ -207,7 +231,9 @@ public class NativeMeasurementDetector {
             Log.d(TAG, String.format("Measurement started: distance=%.2f nm, bearing=%.1f°", distance, bearing));
             
             // Render measurement line on map
+            ensureMeasurementLayersOnTop();
             renderMeasurementLine(startLatLng, endLatLng);
+            ensureMeasurementLayersOnTop();
             
             if (listener != null) {
                 listener.onMeasurementStart(currentPoint1, currentPoint2, startLatLng, endLatLng, 
@@ -289,6 +315,8 @@ public class NativeMeasurementDetector {
             initialPoint2 = null;
             currentPoint1 = null;
             currentPoint2 = null;
+            initialSpan = 0f;
+            measurementCandidateCanceled = false;
         }
     }
     
@@ -310,6 +338,8 @@ public class NativeMeasurementDetector {
         initialPoint2 = null;
         currentPoint1 = null;
         currentPoint2 = null;
+        initialSpan = 0f;
+        measurementCandidateCanceled = false;
         
         // Reset dragging state
         isDraggingStart = false;
