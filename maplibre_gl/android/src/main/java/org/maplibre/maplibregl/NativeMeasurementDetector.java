@@ -38,7 +38,6 @@ public class NativeMeasurementDetector {
     private static final String MEASUREMENT_POINTS_LAYER_ID = "measurement-points-layer";
     private static final String MEASUREMENT_DISTANCE_LAYER_ID = "measurement-distance-layer";
     private static final String MEASUREMENT_BEARING_LAYER_ID = "measurement-bearing-layer";
-    private static final String MEASUREMENT_ARROWS_LAYER_ID = "measurement-arrows-layer";
     private static final String[] MEASUREMENT_COMPAT_SOURCE_IDS = new String[] {
             "measurement-line-source",
             "measurement-points-source",
@@ -46,6 +45,10 @@ public class NativeMeasurementDetector {
             "measurement-bearing-source",
             "measurement-arrows-source"
     };
+    private static final String MEASUREMENT_CASING_COLOR = "#0B1220";
+    private static final String MEASUREMENT_LABEL_COLOR = "#F8FAFC";
+    private static final String MEASUREMENT_LABEL_ACCENT_COLOR = "#FFE8A3";
+    private static final String MEASUREMENT_FONT_REGULAR = "Open Sans Regular";
     
     private final MapLibreMap mapLibreMap;
     private final OnNativeMeasurementListener listener;
@@ -83,12 +86,12 @@ public class NativeMeasurementDetector {
     private PointF initialTouchPoint;
     private static final float TAP_MOVEMENT_THRESHOLD = 20f; // pixels - max movement for tap vs pan
     
-    // Measurement style configuration - Aviation-friendly colors
-    private String lineColor = "#00BFFF";        // Deep sky blue - highly visible on most map backgrounds
-    private double lineWidth = 4.0;              // Slightly thicker for better visibility
-    private double lineOpacity = 0.9;            // Higher opacity for better contrast
-    private String endpointColor = "#FF4500";    // Orange red - aviation standard for important markers
-    private double endpointRadius = 14.0;        // Larger for better touch targeting and visibility
+    // Measurement style configuration - warm utility overlay, distinct from blue airspace.
+    private String lineColor = "#FFB000";
+    private double lineWidth = 4.25;
+    private double lineOpacity = 0.96;
+    private String endpointColor = "#FFB000";
+    private double endpointRadius = 12.0;
     
     public interface OnNativeMeasurementListener {
         void onMeasurementStart(PointF point1, PointF point2, LatLng latLng1, LatLng latLng2, 
@@ -566,7 +569,6 @@ public class NativeMeasurementDetector {
                 actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_POINTS_LAYER_ID, MEASUREMENT_LINE_LAYER_ID);
                 actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_POINTS_LAYER_ID);
                 actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_BEARING_LAYER_ID, MEASUREMENT_DISTANCE_LAYER_ID);
-                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_ARROWS_LAYER_ID, MEASUREMENT_BEARING_LAYER_ID);
                 
                 if (actuallyRepositioned) {
                     Log.d(TAG, "Repositioned measurement layers on top");
@@ -674,9 +676,9 @@ public class NativeMeasurementDetector {
             if (mapLibreMap.getStyle().getLayer(MEASUREMENT_LINE_CASING_LAYER_ID) == null) {
                 LineLayer casingLayer = new LineLayer(MEASUREMENT_LINE_CASING_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 casingLayer.setProperties(
-                    lineColor("#001018"),
-                    lineWidth((float) lineWidth + 4f),
-                    lineOpacity(0.95f),
+                    lineColor(MEASUREMENT_CASING_COLOR),
+                    lineWidth((float) lineWidth + 3.5f),
+                    lineOpacity(0.92f),
                     lineCap("round"),
                     lineJoin("round")
                 );
@@ -719,9 +721,9 @@ public class NativeMeasurementDetector {
                     circleColor(endpointColor),
                     circleRadius((float) endpointRadius),
                     circleOpacity((float) lineOpacity),
-                    circleStrokeColor("#FFFFFF"),      // White border for better contrast
-                    circleStrokeWidth(2f),             // Border width
-                    circleStrokeOpacity(0.9f)          // Border opacity
+                    circleStrokeColor(MEASUREMENT_LABEL_COLOR),
+                    circleStrokeWidth(2.5f),
+                    circleStrokeOpacity(0.95f)
                 );
                 // Filter to only show circles for endpoint features
                 circleLayer.setFilter(eq(get("type"), literal("endpoint")));
@@ -741,17 +743,17 @@ public class NativeMeasurementDetector {
                 SymbolLayer distanceLayer = new SymbolLayer(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 distanceLayer.setProperties(
                     textField(get("distance-text")),
-                    textSize(16f),                     // Larger text for better readability
-                    textColor("#FFFFFF"),
-                    textHaloColor("#000000"),
-                    textHaloWidth(2f),
+                    textSize(15f),
+                    textColor(MEASUREMENT_LABEL_COLOR),
+                    textHaloColor(MEASUREMENT_CASING_COLOR),
+                    textHaloWidth(2.75f),
                     textAnchor("center"),
-                    textOffset(new Float[]{0f, -2f}),  // Offset text above the line
-                    textFont(new String[]{"Noto Sans Bold"}),
-                    textRotationAlignment("map"),       // Rotate with map
-                    textPitchAlignment("map"),          // Align with map pitch
-                    textAllowOverlap(true),            // Allow overlap for better visibility
-                    textIgnorePlacement(true)          // Ignore placement conflicts
+                    textOffset(new Float[]{0f, -1.7f}),
+                    textFont(new String[]{MEASUREMENT_FONT_REGULAR}),
+                    textRotationAlignment("map"),
+                    textPitchAlignment("map"),
+                    textAllowOverlap(true),
+                    textIgnorePlacement(true)
                 );
                 distanceLayer.setFilter(eq(get("type"), literal("distance")));
                 // Add above user marker layers to ensure measurement appears on top
@@ -770,19 +772,19 @@ public class NativeMeasurementDetector {
                 SymbolLayer bearingLayer = new SymbolLayer(MEASUREMENT_BEARING_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 bearingLayer.setProperties(
                     textField(get("bearing-text")),
-                    textSize(14f),                     // Slightly larger for better readability
-                    textColor("#00FF00"),              // Bright green for bearing (aviation standard)
-                    textHaloColor("#000000"),
-                    textHaloWidth(2f),
+                    textSize(12.5f),
+                    textColor(MEASUREMENT_LABEL_ACCENT_COLOR),
+                    textHaloColor(MEASUREMENT_CASING_COLOR),
+                    textHaloWidth(2.3f),
                     textAnchor("center"),
-                    textOffset(new Float[]{0f, 2f}),   // Position below the endpoints
-                    textFont(new String[]{"Noto Sans Regular"}),
-                    textRotate(get("text-rotation")),  // Dynamic rotation based on line bearing
-                    textRotationAlignment("map"),       // Rotate with map
-                    textPitchAlignment("map"),          // Align with map pitch
-                    textAllowOverlap(true),            // Allow overlap for better visibility
-                    textIgnorePlacement(true),         // Ignore placement conflicts
-                    textKeepUpright(true)              // Keep text readable (flip if upside down)
+                    textOffset(new Float[]{0f, 2.05f}),
+                    textFont(new String[]{MEASUREMENT_FONT_REGULAR}),
+                    textRotate(get("text-rotation")),
+                    textRotationAlignment("map"),
+                    textPitchAlignment("map"),
+                    textAllowOverlap(true),
+                    textIgnorePlacement(true),
+                    textKeepUpright(true)
                 );
                 bearingLayer.setFilter(eq(get("type"), literal("bearing")));
                 // Add above user marker layers to ensure measurement appears on top
@@ -793,35 +795,6 @@ public class NativeMeasurementDetector {
                     // Fallback: add normally if user marker layer doesn't exist yet
                     mapLibreMap.getStyle().addLayer(bearingLayer);
                     Log.d(TAG, "Added measurement bearing layer (user marker not found, will be repositioned later)");
-                }
-            }
-            
-            // Add directional arrows layer if it doesn't exist
-            if (mapLibreMap.getStyle().getLayer(MEASUREMENT_ARROWS_LAYER_ID) == null) {
-                SymbolLayer arrowLayer = new SymbolLayer(MEASUREMENT_ARROWS_LAYER_ID, MEASUREMENT_SOURCE_ID);
-                arrowLayer.setProperties(
-                    textField(">"),                    // ASCII avoids external glyph range failures
-                    textSize(20f),                     // Large arrow for visibility
-                    textColor("#FF6600"),              // Orange color for direction indicators
-                    textHaloColor("#000000"),
-                    textHaloWidth(1.5f),
-                    textAnchor("center"),
-                    textFont(new String[]{"Noto Sans Regular"}),
-                    textRotate(get("arrow-rotation")), // Dynamic rotation for arrow direction
-                    textRotationAlignment("map"),       // Rotate with map
-                    textPitchAlignment("map"),          // Align with map pitch
-                    textAllowOverlap(true),            // Allow overlap for better visibility
-                    textIgnorePlacement(true)          // Ignore placement conflicts
-                );
-                arrowLayer.setFilter(eq(get("type"), literal("arrow")));
-                // Add above user marker layers to ensure measurement appears on top
-                try {
-                    mapLibreMap.getStyle().addLayerAbove(arrowLayer, "user-marker-layer");
-                    Log.d(TAG, "Added measurement arrows layer above user marker");
-                } catch (Exception e) {
-                    // Fallback: add normally if user marker layer doesn't exist yet
-                    mapLibreMap.getStyle().addLayer(arrowLayer);
-                    Log.d(TAG, "Added measurement arrows layer (user marker not found, will be repositioned later)");
                 }
             }
             
@@ -901,7 +874,7 @@ public class NativeMeasurementDetector {
             // Create distance label feature at midpoint
             Feature distanceFeature = Feature.fromGeometry(midPoint);
             distanceFeature.addStringProperty("type", "distance");
-            distanceFeature.addStringProperty("distance-text", String.format("%.1f nm", distance));
+            distanceFeature.addStringProperty("distance-text", String.format("%.1f NM", distance));
             
             // Create bearing label features at endpoints with rotation
             Feature startBearingFeature = Feature.fromGeometry(startPoint);
@@ -914,25 +887,6 @@ public class NativeMeasurementDetector {
             endBearingFeature.addStringProperty("bearing-text", String.format("%.0f°", reverseBearing));
             endBearingFeature.addNumberProperty("text-rotation", reverseTextRotation);
             
-            // Create directional arrow features at line endpoints
-            // Calculate positions along the line for arrow placement (slightly inside the endpoints)
-            double arrowOffset = 0.15; // 15% from each endpoint
-            double startArrowLat = start.getLatitude() + arrowOffset * (end.getLatitude() - start.getLatitude());
-            double startArrowLng = start.getLongitude() + arrowOffset * (end.getLongitude() - start.getLongitude());
-            double endArrowLat = end.getLatitude() - arrowOffset * (end.getLatitude() - start.getLatitude());
-            double endArrowLng = end.getLongitude() - arrowOffset * (end.getLongitude() - start.getLongitude());
-            
-            Point startArrowPoint = Point.fromLngLat(startArrowLng, startArrowLat);
-            Point endArrowPoint = Point.fromLngLat(endArrowLng, endArrowLat);
-            
-            Feature startArrowFeature = Feature.fromGeometry(startArrowPoint);
-            startArrowFeature.addStringProperty("type", "arrow");
-            startArrowFeature.addNumberProperty("arrow-rotation", forwardBearing);
-            
-            Feature endArrowFeature = Feature.fromGeometry(endArrowPoint);
-            endArrowFeature.addStringProperty("type", "arrow");
-            endArrowFeature.addNumberProperty("arrow-rotation", reverseBearing);
-            
             java.util.List<Feature> features = new java.util.ArrayList<>();
             features.add(lineFeature);
             features.add(startPointFeature);
@@ -940,8 +894,6 @@ public class NativeMeasurementDetector {
             features.add(distanceFeature);
             features.add(startBearingFeature);
             features.add(endBearingFeature);
-            features.add(startArrowFeature);
-            features.add(endArrowFeature);
 
             FeatureCollection featureCollection = FeatureCollection.fromFeatures(features);
 
@@ -997,9 +949,9 @@ public class NativeMeasurementDetector {
                 LineLayer casingLayer = mapLibreMap.getStyle().getLayerAs(MEASUREMENT_LINE_CASING_LAYER_ID);
                 if (casingLayer != null) {
                     casingLayer.setProperties(
-                        lineColor("#001018"),
-                        lineWidth((float) lineWidth + 4f),
-                        lineOpacity(0.95f),
+                        lineColor(MEASUREMENT_CASING_COLOR),
+                        lineWidth((float) lineWidth + 3.5f),
+                        lineOpacity(0.92f),
                         lineCap("round"),
                         lineJoin("round")
                     );
@@ -1025,12 +977,43 @@ public class NativeMeasurementDetector {
                         circleColor(endpointColor),
                         circleRadius((float) endpointRadius),
                         circleOpacity((float) lineOpacity),
-                        circleStrokeColor("#FFFFFF"),
-                        circleStrokeWidth(2f),
-                        circleStrokeOpacity(0.9f)
+                        circleStrokeColor(MEASUREMENT_LABEL_COLOR),
+                        circleStrokeWidth(2.5f),
+                        circleStrokeOpacity(0.95f)
                     );
                     // Ensure filter is applied to only show endpoint circles
                     circleLayer.setFilter(eq(get("type"), literal("endpoint")));
+                }
+
+                SymbolLayer distanceLayer = mapLibreMap.getStyle().getLayerAs(MEASUREMENT_DISTANCE_LAYER_ID);
+                if (distanceLayer != null) {
+                    distanceLayer.setProperties(
+                        textSize(15f),
+                        textColor(MEASUREMENT_LABEL_COLOR),
+                        textHaloColor(MEASUREMENT_CASING_COLOR),
+                        textHaloWidth(2.75f),
+                        textOffset(new Float[]{0f, -1.7f}),
+                        textFont(new String[]{MEASUREMENT_FONT_REGULAR}),
+                        textAllowOverlap(true),
+                        textIgnorePlacement(true)
+                    );
+                    distanceLayer.setFilter(eq(get("type"), literal("distance")));
+                }
+
+                SymbolLayer bearingLayer = mapLibreMap.getStyle().getLayerAs(MEASUREMENT_BEARING_LAYER_ID);
+                if (bearingLayer != null) {
+                    bearingLayer.setProperties(
+                        textSize(12.5f),
+                        textColor(MEASUREMENT_LABEL_ACCENT_COLOR),
+                        textHaloColor(MEASUREMENT_CASING_COLOR),
+                        textHaloWidth(2.3f),
+                        textOffset(new Float[]{0f, 2.05f}),
+                        textFont(new String[]{MEASUREMENT_FONT_REGULAR}),
+                        textAllowOverlap(true),
+                        textIgnorePlacement(true),
+                        textKeepUpright(true)
+                    );
+                    bearingLayer.setFilter(eq(get("type"), literal("bearing")));
                 }
                 
                 Log.d(TAG, "Updated measurement layer styles");
