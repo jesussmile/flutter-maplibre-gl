@@ -14,19 +14,38 @@ import java.util.Map;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
 import static org.maplibre.maplibregl.Convert.toMap;
 
 class LayerPropertyConverter {
+  private static final Gson GSON = new Gson();
+  private static final JsonParser JSON_PARSER = new JsonParser();
+
+  private static JsonElement toJsonElement(Object value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value instanceof String) {
+      try {
+        return JSON_PARSER.parse((String) value);
+      } catch (Exception ignored) {
+        return new JsonPrimitive((String) value);
+      }
+    }
+
+    return GSON.toJsonTree(value);
+  }
+
 {{#layerTypes}}
   static PropertyValue[] interpret{{typePascal}}LayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         {{#paint_properties}}

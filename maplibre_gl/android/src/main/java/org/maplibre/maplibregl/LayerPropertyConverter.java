@@ -20,13 +20,31 @@ import com.google.gson.JsonPrimitive;
 import static org.maplibre.maplibregl.Convert.toMap;
 
 class LayerPropertyConverter {
+  private static final Gson GSON = new Gson();
+  private static final JsonParser JSON_PARSER = new JsonParser();
+
+  private static JsonElement toJsonElement(Object value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value instanceof String) {
+      try {
+        return JSON_PARSER.parse((String) value);
+      } catch (Exception ignored) {
+        return new JsonPrimitive((String) value);
+      }
+    }
+
+    return GSON.toJsonTree(value);
+  }
+
   static PropertyValue[] interpretSymbolLayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         case "icon-opacity":
@@ -272,10 +290,9 @@ class LayerPropertyConverter {
   static PropertyValue[] interpretCircleLayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         case "circle-radius":
@@ -427,10 +444,9 @@ class LayerPropertyConverter {
   static PropertyValue[] interpretLineLayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         case "line-opacity":
@@ -519,10 +535,9 @@ class LayerPropertyConverter {
   static PropertyValue[] interpretFillLayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         case "fill-antialias":
@@ -578,10 +593,9 @@ class LayerPropertyConverter {
   static PropertyValue[] interpretFillExtrusionLayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         case "fill-extrusion-opacity":
@@ -637,10 +651,9 @@ class LayerPropertyConverter {
   static PropertyValue[] interpretRasterLayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         case "raster-opacity":
@@ -683,10 +696,9 @@ class LayerPropertyConverter {
   static PropertyValue[] interpretHillshadeLayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         case "hillshade-illumination-direction":
@@ -723,10 +735,9 @@ class LayerPropertyConverter {
   static PropertyValue[] interpretHeatmapLayerProperties(Object o) {
     final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final Gson gson = new Gson();
 
     for (Map.Entry<String, Object> entry : data.entrySet()) {
-      final JsonElement jsonElement = entry.getValue() != null ? gson.toJsonTree(entry.getValue()) : null;
+      final JsonElement jsonElement = toJsonElement(entry.getValue());
       Expression expression = jsonElement != null ? Expression.Converter.convert(jsonElement) : null;
       switch (entry.getKey()) {
         case "heatmap-radius":
