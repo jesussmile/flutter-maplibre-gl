@@ -130,7 +130,9 @@ public class NativeMeasurementDetector {
                     isTwoFingerDown = true;
                     gestureStartTime = System.currentTimeMillis();
                     
-                    // Schedule the hold detection for measurement start
+                    // Schedule the hold detection for measurement start. Do not
+                    // consume this pointer event yet; a moving two-finger
+                    // gesture should stay available to MapLibre for pinch zoom.
                     holdRunnable = new Runnable() {
                         @Override
                         public void run() {
@@ -140,7 +142,7 @@ public class NativeMeasurementDetector {
                         }
                     };
                     handler.postDelayed(holdRunnable, HOLD_DURATION_MS);
-                    return true;
+                    return false;
                 }
                 break;
                 
@@ -167,7 +169,7 @@ public class NativeMeasurementDetector {
                         if (distance1 > MOVEMENT_THRESHOLD || distance2 > MOVEMENT_THRESHOLD) {
                             cancelGesture();
                         }
-                        return true; // Keep the map fixed while waiting for the hold to become a measurement.
+                        return false; // Allow pinch/pan until the hold becomes a measurement.
                     }
                 }
                 break;
@@ -180,8 +182,8 @@ public class NativeMeasurementDetector {
                     return true; // Consume the event when ending measurement
                 } else {
                     cancelGesture();
+                    return false;
                 }
-                break;
         }
         
         // Return true if we're actively measuring or dragging to consume touch events
@@ -691,7 +693,7 @@ public class NativeMeasurementDetector {
                     textHaloWidth(2f),
                     textAnchor("center"),
                     textOffset(new Float[]{0f, -2f}),  // Offset text above the line
-                    textFont(new String[]{"Open Sans Bold", "Arial Unicode MS Bold"}), // Bold font
+                    textFont(new String[]{"Noto Sans Bold"}),
                     textRotationAlignment("map"),       // Rotate with map
                     textPitchAlignment("map"),          // Align with map pitch
                     textAllowOverlap(true),            // Allow overlap for better visibility
@@ -720,7 +722,7 @@ public class NativeMeasurementDetector {
                     textHaloWidth(2f),
                     textAnchor("center"),
                     textOffset(new Float[]{0f, 2f}),   // Position below the endpoints
-                    textFont(new String[]{"Open Sans Semibold", "Arial Unicode MS Regular"}),
+                    textFont(new String[]{"Noto Sans Regular"}),
                     textRotate(get("text-rotation")),  // Dynamic rotation based on line bearing
                     textRotationAlignment("map"),       // Rotate with map
                     textPitchAlignment("map"),          // Align with map pitch
