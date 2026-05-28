@@ -2,10 +2,12 @@ package org.maplibre.maplibregl;
 
 import android.net.Uri;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import org.maplibre.geojson.FeatureCollection;
 import org.maplibre.android.geometry.LatLng;
 import org.maplibre.android.geometry.LatLngQuad;
 import org.maplibre.android.maps.Style;
+import org.maplibre.android.style.expressions.Expression;
 import org.maplibre.android.style.sources.GeoJsonOptions;
 import org.maplibre.android.style.sources.GeoJsonSource;
 import org.maplibre.android.style.sources.ImageSource;
@@ -22,6 +24,7 @@ import java.util.Map;
 
 class SourcePropertyConverter {
   private static final String TAG = "SourcePropertyConverter";
+  private static final Gson gson = new Gson();
 
   static TileSet buildTileset(Map<String, Object> data) {
     final Object tiles = data.get("tiles");
@@ -88,6 +91,29 @@ class SourcePropertyConverter {
       options = options.withClusterRadius(Convert.toInt(clusterRadius));
     }
 
+    final Object clusterProperties = data.get("clusterProperties");
+    if (clusterProperties instanceof Map) {
+      for (Map.Entry<?, ?> entry : ((Map<?, ?>) clusterProperties).entrySet()) {
+        if (!(entry.getKey() instanceof String) || !(entry.getValue() instanceof List)) {
+          continue;
+        }
+
+        final List<?> definition = (List<?>) entry.getValue();
+        if (definition.size() < 2) {
+          continue;
+        }
+
+        try {
+          final Expression operatorExpr = expressionFromJson(definition.get(0));
+          final Expression mapExpr = expressionFromJson(definition.get(1));
+          if (operatorExpr != null && mapExpr != null) {
+            options = options.withClusterProperty((String) entry.getKey(), operatorExpr, mapExpr);
+          }
+        } catch (Exception ignored) {
+        }
+      }
+    }
+
     final Object lineMetrics = data.get("lineMetrics");
     if (lineMetrics != null) {
       options = options.withLineMetrics(Convert.toBoolean(lineMetrics));
@@ -110,6 +136,19 @@ class SourcePropertyConverter {
     return options;
   }
 
+  private static Expression expressionFromJson(Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof String) {
+      return Expression.literal((String) value);
+    }
+    final JsonElement jsonElement = gson.toJsonTree(value);
+    return jsonElement == null || jsonElement.isJsonNull()
+        ? null
+        : Expression.Converter.convert(jsonElement);
+  }
+
   static GeoJsonSource buildGeojsonSource(String id, Map<String, Object> properties) {
     final Object data = properties.get("data");
     final GeoJsonOptions options = buildGeojsonOptions(properties);
@@ -121,7 +160,6 @@ class SourcePropertyConverter {
         } catch (URISyntaxException e) {
         }
       } else {
-        Gson gson = new Gson();
         String geojson = gson.toJson(data);
         final FeatureCollection featureCollection = FeatureCollection.fromJson(geojson);
         return new GeoJsonSource(id, featureCollection, options);

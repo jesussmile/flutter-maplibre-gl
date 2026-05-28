@@ -422,6 +422,29 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
+  Future<List> getGeoJsonClusterLeaves(
+    String sourceId,
+    Map<String, dynamic> cluster, {
+    required int limit,
+    int offset = 0,
+  }) async {
+    try {
+      final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
+        'source#getGeoJsonClusterLeaves',
+        <String, Object?>{
+          'sourceId': sourceId,
+          'cluster': jsonEncode(cluster),
+          'limit': limit,
+          'offset': offset,
+        },
+      );
+      return reply['features'].map((feature) => jsonDecode(feature)).toList();
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    }
+  }
+
+  @override
   Future invalidateAmbientCache() async {
     try {
       await _channel.invokeMethod('map#invalidateAmbientCache');

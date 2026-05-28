@@ -5,6 +5,7 @@ library;
 
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
+import 'dart:js_util' as js_util;
 
 // Re-export the jsify extension from dart:js_interop
 // which provides .jsify() on Map and List
@@ -38,10 +39,10 @@ dynamic jsify(Object? object) {
 }
 
 /// Wraps a Dart function for use as a JavaScript callback.
-/// This is a compatibility wrapper - in modern Dart, functions can be
-/// passed directly or use .toJS extension.
+/// Uses dart:js_util's allowInterop which properly wraps Dart closures
+/// into JavaScript-callable functions (required for dart2js).
 F allowInterop<F extends Function>(F function) {
-  return function;
+  return js_util.allowInterop(function);
 }
 
 /// Gets a property from a JavaScript object.

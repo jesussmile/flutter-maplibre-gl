@@ -87,6 +87,20 @@ abstract class MapLibrePlatform {
 
   Future<List> querySourceFeatures(
       String sourceId, String? sourceLayerId, List<Object>? filter);
+
+  Future<List> getGeoJsonClusterLeaves(
+    String sourceId,
+    Map<String, dynamic> cluster, {
+    required int limit,
+    int offset = 0,
+  }) {
+    return Future.error(
+      UnimplementedError(
+        'getGeoJsonClusterLeaves is not implemented on this platform',
+      ),
+    );
+  }
+
   Future invalidateAmbientCache();
   Future clearAmbientCache();
   Future<LatLng?> requestMyLocationLatLng();

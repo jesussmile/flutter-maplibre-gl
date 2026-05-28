@@ -2172,6 +2172,36 @@ final class MapLibreMapController
           result.success(reply);
           break;
         }
+        case "source#getGeoJsonClusterLeaves":
+        {
+          Map<String, Object> reply = new HashMap<>();
+          String sourceId = (String) call.argument("sourceId");
+          String clusterJson = (String) call.argument("cluster");
+          Number limitNumber = (Number) call.argument("limit");
+          Number offsetNumber = (Number) call.argument("offset");
+          long limit = limitNumber == null ? Long.MAX_VALUE : limitNumber.longValue();
+          long offset = offsetNumber == null ? 0L : offsetNumber.longValue();
+
+          Source source = style.getSource(sourceId);
+          if (!(source instanceof GeoJsonSource) || clusterJson == null) {
+            reply.put("features", Collections.emptyList());
+            result.success(reply);
+            break;
+          }
+
+          Feature cluster = Feature.fromJson(clusterJson);
+          FeatureCollection leaves =
+              ((GeoJsonSource) source).getClusterLeaves(cluster, limit, offset);
+          List<String> featuresJson = new ArrayList<>();
+          if (leaves.features() != null) {
+            for (Feature feature : leaves.features()) {
+              featuresJson.add(feature.toJson());
+            }
+          }
+          reply.put("features", featuresJson);
+          result.success(reply);
+          break;
+        }
         case "style#getLayerIds":
         {
           if (style == null) {
@@ -3452,21 +3482,21 @@ final class MapLibreMapController
     Map<String, Object> arguments = new HashMap<>();
     
     // Screen coordinates
-    arguments.put("screenPoint1X", (double) point1.x);
-    arguments.put("screenPoint1Y", (double) point1.y);
-    arguments.put("screenPoint2X", (double) point2.x);
-    arguments.put("screenPoint2Y", (double) point2.y);
-    
+    arguments.put("x1", (double) point1.x);
+    arguments.put("y1", (double) point1.y);
+    arguments.put("x2", (double) point2.x);
+    arguments.put("y2", (double) point2.y);
+
     // Geographic coordinates
-    arguments.put("latLng1Latitude", latLng1.getLatitude());
-    arguments.put("latLng1Longitude", latLng1.getLongitude());
-    arguments.put("latLng2Latitude", latLng2.getLatitude());
-    arguments.put("latLng2Longitude", latLng2.getLongitude());
-    
+    arguments.put("lat1", latLng1.getLatitude());
+    arguments.put("lng1", latLng1.getLongitude());
+    arguments.put("lat2", latLng2.getLatitude());
+    arguments.put("lng2", latLng2.getLongitude());
+
     // Measurement data
-    arguments.put("distanceNauticalMiles", distance);
-    arguments.put("bearingDegrees", bearing);
-    arguments.put("durationMs", (double) duration);
+    arguments.put("distance", distance);
+    arguments.put("bearing", bearing);
+    arguments.put("duration", (int) duration);
     
     methodChannel.invokeMethod(eventName, arguments);
   }

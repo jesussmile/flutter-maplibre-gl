@@ -1990,6 +1990,20 @@ class MapLibreMapController extends ChangeNotifier {
         .toList();
   }
 
+  Future<List> getGeoJsonClusterLeaves(
+    String sourceId,
+    Map<String, dynamic> cluster, {
+    required int limit,
+    int offset = 0,
+  }) {
+    return _maplibrePlatform.getGeoJsonClusterLeaves(
+      sourceId,
+      cluster,
+      limit: limit,
+      offset: offset,
+    );
+  }
+
   // ================================
   // Native Image Overlay Controls
   // ================================
