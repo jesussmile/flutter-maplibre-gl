@@ -181,6 +181,7 @@ final class MapLibreMapController
   private int myLocationRenderMode = 0;
   private boolean disposed = false;
   private boolean dragEnabled = true;
+  private boolean featureTapsTriggersMapClick = false;
   private MethodChannel.Result mapReadyResult;
   private LocationComponent locationComponent = null;
   private LocationEngineCallback<LocationEngineResult> locationEngineCallback = null;
@@ -258,11 +259,13 @@ final class MapLibreMapController
       MapLibreMapsPlugin.LifecycleProvider lifecycleProvider,
       MapLibreMapOptions options,
       String styleStringInitial,
-      boolean dragEnabled) {
+      boolean dragEnabled,
+      boolean featureTapsTriggersMapClick) {
     MapLibreUtils.getMapLibre(context);
     this.id = id;
     this.context = context;
     this.dragEnabled = dragEnabled;
+    this.featureTapsTriggersMapClick = featureTapsTriggersMapClick;
     this.styleStringInitial = styleStringInitial;
     this.mapViewContainer = new FrameLayout(context);
     this.mapView = new MapView(context, options);
@@ -2506,6 +2509,9 @@ final class MapLibreMapController
       arguments.put("layerId", featureLayerPair.second);
       arguments.put("id", featureLayerPair.first.id());
       methodChannel.invokeMethod("feature#onTap", arguments);
+      if (featureTapsTriggersMapClick) {
+        methodChannel.invokeMethod("map#onMapClick", arguments);
+      }
     } else {
       methodChannel.invokeMethod("map#onMapClick", arguments);
     }
@@ -2768,6 +2774,16 @@ final class MapLibreMapController
   }
 
   @Override
+  public void setUseHybridComposition(boolean useHybridComposition) {
+    // Hybrid composition is selected before the native map view is constructed.
+  }
+
+  @Override
+  public void setFeatureTapsTriggersMapClick(boolean triggers) {
+    this.featureTapsTriggersMapClick = triggers;
+  }
+
+  @Override
   public void setMinMaxZoomPreference(Float min, Float max) {
     mapLibreMap.setMinZoomPreference(min != null ? min : MapLibreConstants.MINIMUM_ZOOM);
     mapLibreMap.setMaxZoomPreference(max != null ? max : MapLibreConstants.MAXIMUM_ZOOM);
@@ -2812,6 +2828,30 @@ final class MapLibreMapController
     this.myLocationRenderMode = myLocationRenderMode;
     if (mapLibreMap != null && locationComponent != null) {
       updateMyLocationRenderMode();
+    }
+  }
+
+  @Override
+  public void setLogoEnabled(boolean logoEnabled) {
+    mapLibreMap.getUiSettings().setLogoEnabled(logoEnabled);
+  }
+
+  @Override
+  public void setLogoViewGravity(int gravity) {
+    switch (gravity) {
+      case 0:
+        mapLibreMap.getUiSettings().setLogoGravity(Gravity.TOP | Gravity.START);
+        break;
+      case 1:
+        mapLibreMap.getUiSettings().setLogoGravity(Gravity.TOP | Gravity.END);
+        break;
+      default:
+      case 2:
+        mapLibreMap.getUiSettings().setLogoGravity(Gravity.BOTTOM | Gravity.START);
+        break;
+      case 3:
+        mapLibreMap.getUiSettings().setLogoGravity(Gravity.BOTTOM | Gravity.END);
+        break;
     }
   }
 
@@ -2893,6 +2933,16 @@ final class MapLibreMapController
         mapLibreMap.getUiSettings().setAttributionMargins(0, 0, x, y);
         break;
     }
+  }
+
+  @Override
+  public void setForegroundLoadColor(int loadColor) {
+    // Foreground load color is only used during native map creation.
+  }
+
+  @Override
+  public void setTranslucentTextureSurface(boolean translucentTextureSurface) {
+    // The texture surface is fixed once the native map view has been created.
   }
 
   private void updateMyLocationEnabled() {

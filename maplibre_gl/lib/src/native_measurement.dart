@@ -1,7 +1,7 @@
 // Native MapLibre Measurement Tool Extension
 // This extends the existing two-finger hold gesture to include measurement functionality
 
-part of maplibre_gl;
+part of '../maplibre_gl.dart';
 
 /// Native measurement data from the platform
 class NativeMeasurementData {

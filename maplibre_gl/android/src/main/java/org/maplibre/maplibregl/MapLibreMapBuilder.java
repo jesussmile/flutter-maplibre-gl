@@ -20,6 +20,7 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
   private boolean trackCameraPosition = false;
   private boolean myLocationEnabled = false;
   private boolean dragEnabled = true;
+  private boolean featureTapsTriggersMapClick = false;
   private int myLocationTrackingMode = 0;
   private int myLocationRenderMode = 0;
   private String styleString = "";
@@ -42,7 +43,8 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
 
     final MapLibreMapController controller =
         new MapLibreMapController(
-            id, context, messenger, lifecycleProvider, options, styleString, dragEnabled);
+            id, context, messenger, lifecycleProvider, options, styleString, dragEnabled,
+            featureTapsTriggersMapClick);
     controller.init();
     controller.setMyLocationEnabled(myLocationEnabled);
     controller.setMyLocationTrackingMode(myLocationTrackingMode);
@@ -121,6 +123,13 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
   }
 
   @Override
+  public void setUseHybridComposition(boolean useHybridComposition) {
+    if (useHybridComposition && !textureModeExplicitlySet) {
+      options.textureMode(true);
+    }
+  }
+
+  @Override
   public void setMyLocationEnabled(boolean myLocationEnabled) {
     this.myLocationEnabled = myLocationEnabled;
   }
@@ -133,6 +142,29 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
   @Override
   public void setMyLocationRenderMode(int myLocationRenderMode) {
     this.myLocationRenderMode = myLocationRenderMode;
+  }
+
+  @Override
+  public void setLogoEnabled(boolean logoEnabled) {
+    options.logoEnabled(logoEnabled);
+  }
+
+  @Override
+  public void setLogoViewGravity(int gravity) {
+    switch (gravity) {
+      case 0:
+        options.logoGravity(Gravity.TOP | Gravity.START);
+        break;
+      case 1:
+        options.logoGravity(Gravity.TOP | Gravity.END);
+        break;
+      case 2:
+        options.logoGravity(Gravity.BOTTOM | Gravity.START);
+        break;
+      case 3:
+        options.logoGravity(Gravity.BOTTOM | Gravity.END);
+        break;
+    }
   }
 
   public void setLogoViewMargins(int x, int y) {
@@ -225,6 +257,24 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
 
   public void setDragEnabled(boolean enabled) {
     this.dragEnabled = enabled;
+  }
+
+  @Override
+  public void setFeatureTapsTriggersMapClick(boolean triggers) {
+    this.featureTapsTriggersMapClick = triggers;
+  }
+
+  @Override
+  public void setForegroundLoadColor(int loadColor) {
+    options.foregroundLoadColor(loadColor);
+  }
+
+  @Override
+  public void setTranslucentTextureSurface(boolean translucentTextureSurface) {
+    options.translucentTextureSurface(translucentTextureSurface);
+    if (translucentTextureSurface && !textureModeExplicitlySet) {
+      options.textureMode(true);
+    }
   }
 
   @Override

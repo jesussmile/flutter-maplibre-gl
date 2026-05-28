@@ -1023,7 +1023,8 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes with the added symbol once listeners have
   /// been notified.
-  Future<Symbol> addSymbol(SymbolOptions options, [Map? data]) async {
+  Future<Symbol> addSymbol(SymbolOptions options,
+      [Map<String, dynamic>? data]) async {
     final effectiveOptions = SymbolOptions.defaultOptions.copyWith(options);
     final symbol = Symbol(getRandomString(), effectiveOptions, data);
     await symbolManager!.add(symbol);
@@ -1040,7 +1041,7 @@ class MapLibreMapController extends ChangeNotifier {
   /// The returned [Future] completes with the added symbol once listeners have
   /// been notified.
   Future<List<Symbol>> addSymbols(List<SymbolOptions> options,
-      [List<Map>? data]) async {
+      [List<Map<String, dynamic>>? data]) async {
     final symbols = [
       for (var i = 0; i < options.length; i++)
         Symbol(getRandomString(),
@@ -1115,7 +1116,8 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes with the added line once listeners have
   /// been notified.
-  Future<Line> addLine(LineOptions options, [Map? data]) async {
+  Future<Line> addLine(LineOptions options,
+      [Map<String, dynamic>? data]) async {
     final effectiveOptions = LineOptions.defaultOptions.copyWith(options);
     final line = Line(getRandomString(), effectiveOptions, data);
     await lineManager!.add(line);
@@ -1131,7 +1133,7 @@ class MapLibreMapController extends ChangeNotifier {
   /// The returned [Future] completes with the added line once listeners have
   /// been notified.
   Future<List<Line>> addLines(List<LineOptions> options,
-      [List<Map>? data]) async {
+      [List<Map<String, dynamic>>? data]) async {
     final lines = [
       for (var i = 0; i < options.length; i++)
         Line(getRandomString(), LineOptions.defaultOptions.copyWith(options[i]),
@@ -1258,7 +1260,8 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes with the added circle once listeners have
   /// been notified.
-  Future<Circle> addCircle(CircleOptions options, [Map? data]) async {
+  Future<Circle> addCircle(CircleOptions options,
+      [Map<String, dynamic>? data]) async {
     final effectiveOptions = CircleOptions.defaultOptions.copyWith(options);
     final circle = Circle(getRandomString(), effectiveOptions, data);
     await circleManager!.add(circle);
@@ -1275,7 +1278,7 @@ class MapLibreMapController extends ChangeNotifier {
   /// The returned [Future] completes with the added circle once listeners have
   /// been notified.
   Future<List<Circle>> addCircles(List<CircleOptions> options,
-      [List<Map>? data]) async {
+      [List<Map<String, dynamic>>? data]) async {
     final cricles = [
       for (var i = 0; i < options.length; i++)
         Circle(getRandomString(),
@@ -1352,7 +1355,8 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes with the added triangle once listeners have
   /// been notified.
-  Future<Triangle> addTriangle(TriangleOptions options, [Map? data]) async {
+  Future<Triangle> addTriangle(TriangleOptions options,
+      [Map<String, dynamic>? data]) async {
     final effectiveOptions = TriangleOptions.defaultOptions.copyWith(options);
     final triangle = Triangle(getRandomString(), effectiveOptions, data);
     await triangleManager!.add(triangle);
@@ -1369,7 +1373,7 @@ class MapLibreMapController extends ChangeNotifier {
   /// The returned [Future] completes with the added triangles once listeners have
   /// been notified.
   Future<List<Triangle>> addTriangles(List<TriangleOptions> options,
-      [List<Map>? data]) async {
+      [List<Map<String, dynamic>>? data]) async {
     final triangles = [
       for (var i = 0; i < options.length; i++)
         Triangle(getRandomString(),
@@ -1447,7 +1451,8 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes with the added fill once listeners have
   /// been notified.
-  Future<Fill> addFill(FillOptions options, [Map? data]) async {
+  Future<Fill> addFill(FillOptions options,
+      [Map<String, dynamic>? data]) async {
     final effectiveOptions = FillOptions.defaultOptions.copyWith(options);
     final fill = Fill(getRandomString(), effectiveOptions, data);
     await fillManager!.add(fill);
@@ -1464,7 +1469,7 @@ class MapLibreMapController extends ChangeNotifier {
   /// The returned [Future] completes with the added fills once listeners have
   /// been notified.
   Future<List<Fill>> addFills(List<FillOptions> options,
-      [List<Map>? data]) async {
+      [List<Map<String, dynamic>>? data]) async {
     final fills = [
       for (var i = 0; i < options.length; i++)
         Fill(getRandomString(), FillOptions.defaultOptions.copyWith(options[i]),
