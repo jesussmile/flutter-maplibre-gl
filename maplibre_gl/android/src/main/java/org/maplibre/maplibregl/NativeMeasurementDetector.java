@@ -33,6 +33,7 @@ public class NativeMeasurementDetector {
     
     // MapLibre style constants for measurement rendering
     private static final String MEASUREMENT_SOURCE_ID = "measurement-source";
+    private static final String MEASUREMENT_LINE_CASING_LAYER_ID = "measurement-line-casing-layer";
     private static final String MEASUREMENT_LINE_LAYER_ID = "measurement-line-layer";
     private static final String MEASUREMENT_POINTS_LAYER_ID = "measurement-points-layer";
     private static final String MEASUREMENT_DISTANCE_LAYER_ID = "measurement-distance-layer";
@@ -560,7 +561,8 @@ public class NativeMeasurementDetector {
                 boolean actuallyRepositioned = false;
                 
                 // Reposition measurement layers in correct order (bottom to top)
-                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_LINE_LAYER_ID, topLayerId);
+                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_LINE_CASING_LAYER_ID, topLayerId);
+                actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_LINE_LAYER_ID, MEASUREMENT_LINE_CASING_LAYER_ID);
                 actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_POINTS_LAYER_ID, MEASUREMENT_LINE_LAYER_ID);
                 actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_POINTS_LAYER_ID);
                 actuallyRepositioned |= repositionLayerIfExists(MEASUREMENT_BEARING_LAYER_ID, MEASUREMENT_DISTANCE_LAYER_ID);
@@ -666,6 +668,27 @@ public class NativeMeasurementDetector {
     private void setupMeasurementLayers() {
         try {
             ensureGeoJsonSource(MEASUREMENT_SOURCE_ID);
+
+            // Add an outline below the primary line so the measurement remains
+            // visible over dense airport/community marker layers.
+            if (mapLibreMap.getStyle().getLayer(MEASUREMENT_LINE_CASING_LAYER_ID) == null) {
+                LineLayer casingLayer = new LineLayer(MEASUREMENT_LINE_CASING_LAYER_ID, MEASUREMENT_SOURCE_ID);
+                casingLayer.setProperties(
+                    lineColor("#001018"),
+                    lineWidth((float) lineWidth + 4f),
+                    lineOpacity(0.95f),
+                    lineCap("round"),
+                    lineJoin("round")
+                );
+                casingLayer.setFilter(eq(get("type"), literal("line")));
+                try {
+                    mapLibreMap.getStyle().addLayerAbove(casingLayer, "user-marker-layer");
+                    Log.d(TAG, "Added measurement casing layer above user marker");
+                } catch (Exception e) {
+                    mapLibreMap.getStyle().addLayer(casingLayer);
+                    Log.d(TAG, "Added measurement casing layer (user marker not found, will be repositioned later)");
+                }
+            }
             
             // Add measurement line layer if it doesn't exist
             if (mapLibreMap.getStyle().getLayer(MEASUREMENT_LINE_LAYER_ID) == null) {
@@ -677,10 +700,11 @@ public class NativeMeasurementDetector {
                     lineCap("round"),           // Rounded line caps for better appearance
                     lineJoin("round")          // Rounded line joins, solid line
                 );
+                lineLayer.setFilter(eq(get("type"), literal("line")));
                 // Add above user marker layers to ensure measurement appears on top
                 try {
-                    mapLibreMap.getStyle().addLayerAbove(lineLayer, "user-marker-layer");
-                    Log.d(TAG, "Added measurement line layer above user marker");
+                    mapLibreMap.getStyle().addLayerAbove(lineLayer, MEASUREMENT_LINE_CASING_LAYER_ID);
+                    Log.d(TAG, "Added measurement line layer above casing layer");
                 } catch (Exception e) {
                     // Fallback: add normally if user marker layer doesn't exist yet
                     mapLibreMap.getStyle().addLayer(lineLayer);
@@ -776,12 +800,13 @@ public class NativeMeasurementDetector {
             if (mapLibreMap.getStyle().getLayer(MEASUREMENT_ARROWS_LAYER_ID) == null) {
                 SymbolLayer arrowLayer = new SymbolLayer(MEASUREMENT_ARROWS_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 arrowLayer.setProperties(
-                    textField("➤"),                    // Arrow symbol (Unicode)
+                    textField(">"),                    // ASCII avoids external glyph range failures
                     textSize(20f),                     // Large arrow for visibility
                     textColor("#FF6600"),              // Orange color for direction indicators
                     textHaloColor("#000000"),
                     textHaloWidth(1.5f),
                     textAnchor("center"),
+                    textFont(new String[]{"Noto Sans Regular"}),
                     textRotate(get("arrow-rotation")), // Dynamic rotation for arrow direction
                     textRotationAlignment("map"),       // Rotate with map
                     textPitchAlignment("map"),          // Align with map pitch
@@ -811,7 +836,9 @@ public class NativeMeasurementDetector {
 
     private void ensureGeoJsonSource(String sourceId) {
         if (mapLibreMap.getStyle().getSource(sourceId) == null) {
-            mapLibreMap.getStyle().addSource(new GeoJsonSource(sourceId));
+            FeatureCollection emptyCollection =
+                    FeatureCollection.fromFeatures(new java.util.ArrayList<>());
+            mapLibreMap.getStyle().addSource(new GeoJsonSource(sourceId, emptyCollection));
             Log.d(TAG, "Added measurement source: " + sourceId);
         }
     }
@@ -967,6 +994,18 @@ public class NativeMeasurementDetector {
         try {
             if (mapLibreMap.getStyle() != null && mapLibreMap.getStyle().isFullyLoaded()) {
                 // Update line layer properties
+                LineLayer casingLayer = mapLibreMap.getStyle().getLayerAs(MEASUREMENT_LINE_CASING_LAYER_ID);
+                if (casingLayer != null) {
+                    casingLayer.setProperties(
+                        lineColor("#001018"),
+                        lineWidth((float) lineWidth + 4f),
+                        lineOpacity(0.95f),
+                        lineCap("round"),
+                        lineJoin("round")
+                    );
+                    casingLayer.setFilter(eq(get("type"), literal("line")));
+                }
+
                 LineLayer lineLayer = mapLibreMap.getStyle().getLayerAs(MEASUREMENT_LINE_LAYER_ID);
                 if (lineLayer != null) {
                     lineLayer.setProperties(
@@ -976,6 +1015,7 @@ public class NativeMeasurementDetector {
                         lineCap("round"),
                         lineJoin("round")
                     );
+                    lineLayer.setFilter(eq(get("type"), literal("line")));
                 }
                 
                 // Update points layer properties
