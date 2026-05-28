@@ -28,8 +28,8 @@ import static org.maplibre.android.style.layers.PropertyFactory.*;
 public class NativeMeasurementDetector {
     private static final String TAG = "NativeMeasurementDetector";
     private static final long HOLD_DURATION_MS = 220; // Short hold before a stable two-finger gesture becomes measurement.
-    private static final float PINCH_SPAN_THRESHOLD = 28f; // pixels
-    private static final float PINCH_SCALE_THRESHOLD = 0.08f; // 8% span change
+    private static final float PINCH_SPAN_THRESHOLD = 160f; // pixels
+    private static final float PINCH_SCALE_THRESHOLD = 0.22f; // 22% span change
     
     // MapLibre style constants for measurement rendering
     private static final String MEASUREMENT_SOURCE_ID = "measurement-source";
