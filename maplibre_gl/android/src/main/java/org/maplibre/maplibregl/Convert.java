@@ -283,6 +283,14 @@ static LocationEngineRequest toLocationEngineRequest(Object o) {
     if (myLocationRenderMode != null) {
       sink.setMyLocationRenderMode(toInt(myLocationRenderMode));
     }
+    final Object logoEnabled = data.get("logoEnabled");
+    if (logoEnabled != null) {
+      sink.setLogoEnabled(toBoolean(logoEnabled));
+    }
+    final Object logoViewGravity = data.get("logoViewPosition");
+    if (logoViewGravity != null) {
+      sink.setLogoViewGravity(toInt(logoViewGravity));
+    }
     final Object logoViewMargins = data.get("logoViewMargins");
     if (logoViewMargins != null) {
       final List logoViewMarginsData = toList(logoViewMargins);
@@ -308,6 +316,22 @@ static LocationEngineRequest toLocationEngineRequest(Object o) {
       final List attributionButtonMarginsData = toList(attributionButtonMargins);
       final Point point = toPoint(attributionButtonMarginsData, metrics.density);
       sink.setAttributionButtonMargins(point.x, point.y);
+    }
+    final Object foregroundLoadColor = data.get("foregroundLoadColor");
+    if (foregroundLoadColor != null) {
+      sink.setForegroundLoadColor(toInt(foregroundLoadColor));
+    }
+    final Object useHybridComposition = data.get("useHybridComposition");
+    if (useHybridComposition != null) {
+      sink.setUseHybridComposition(toBoolean(useHybridComposition));
+    }
+    final Object translucentTextureSurface = data.get("translucentTextureSurface");
+    if (translucentTextureSurface != null) {
+      sink.setTranslucentTextureSurface(toBoolean(translucentTextureSurface));
+    }
+    final Object featureTapsTriggersMapClick = data.get("featureTapsTriggersMapClick");
+    if (featureTapsTriggersMapClick != null) {
+      sink.setFeatureTapsTriggersMapClick(toBoolean(featureTapsTriggersMapClick));
     }
   }
 }

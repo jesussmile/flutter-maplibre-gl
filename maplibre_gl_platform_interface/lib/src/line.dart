@@ -17,9 +17,8 @@ class Line implements Annotation {
   @override
   String get id => _id;
 
-  final Map? _data;
-
-  Map? get data => _data;
+  final Map<String, dynamic>? _data;
+  Map<String, dynamic>? get data => _data;
 
   /// The line configuration options most recently applied programmatically
   /// via the map controller.
@@ -33,14 +32,18 @@ class Line implements Annotation {
     final geojson = options.toGeoJson();
     geojson["id"] = id;
     geojson["properties"]["id"] = id;
+    if (_data != null) {
+      geojson["properties"].addAll(_data);
+    }
 
     return geojson;
   }
 
   @override
   void translate(LatLng delta) {
-    options = options.copyWith(LineOptions(
-        geometry: options.geometry?.map((e) => e + delta).toList()));
+    options = options.copyWith(
+      LineOptions(geometry: options.geometry?.map((e) => e + delta).toList()),
+    );
   }
 }
 
@@ -160,8 +163,10 @@ class LineOptions {
     addIfPresent('lineBlur', lineBlur);
     addIfPresent('linePattern', linePattern);
     if (addGeometry) {
-      addIfPresent('geometry',
-          geometry?.map((LatLng latLng) => latLng.toJson()).toList());
+      addIfPresent(
+        'geometry',
+        geometry?.map((latLng) => latLng.toJson()).toList(),
+      );
     }
     addIfPresent('draggable', draggable);
     addIfPresent('editable', editable);
@@ -180,8 +185,8 @@ class LineOptions {
       "properties": toJson(false),
       "geometry": {
         "type": "LineString",
-        "coordinates": geometry!.map((c) => c.toGeoJsonCoordinates()).toList()
-      }
+        "coordinates": geometry!.map((c) => c.toGeoJsonCoordinates()).toList(),
+      },
     };
   }
 }
