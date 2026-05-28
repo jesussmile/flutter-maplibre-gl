@@ -48,7 +48,7 @@ public class NativeMeasurementDetector {
     private static final String MEASUREMENT_CASING_COLOR = "#0B1220";
     private static final String MEASUREMENT_LABEL_COLOR = "#F8FAFC";
     private static final String MEASUREMENT_LABEL_ACCENT_COLOR = "#FFE8A3";
-    private static final String MEASUREMENT_FONT_REGULAR = "Open Sans Regular";
+    private static final String MEASUREMENT_FONT_REGULAR = "Noto Sans Regular";
     
     private final MapLibreMap mapLibreMap;
     private final OnNativeMeasurementListener listener;
