@@ -27,7 +27,7 @@ import static org.maplibre.android.style.layers.PropertyFactory.*;
  */
 public class NativeMeasurementDetector {
     private static final String TAG = "NativeMeasurementDetector";
-    private static final long HOLD_DURATION_MS = 300; // Short hold before a stable two-finger gesture becomes measurement.
+    private static final long HOLD_DURATION_MS = 220; // Short hold before a stable two-finger gesture becomes measurement.
     private static final float PINCH_SPAN_THRESHOLD = 28f; // pixels
     private static final float PINCH_SCALE_THRESHOLD = 0.08f; // 8% span change
     
@@ -145,14 +145,19 @@ public class NativeMeasurementDetector {
                     
                     isTwoFingerDown = true;
                     gestureStartTime = System.currentTimeMillis();
+                    Log.d(TAG, String.format(
+                            "Measurement candidate started: span=%.1fpx", initialSpan));
                     
                     // Schedule the hold detection for measurement start. Do not
                     // consume this pointer event yet; a moving two-finger
                     // gesture should stay available to MapLibre for pinch zoom.
+                    if (holdRunnable != null) {
+                        handler.removeCallbacks(holdRunnable);
+                    }
                     holdRunnable = new Runnable() {
                         @Override
                         public void run() {
-                            if (isTwoFingerDown && !isMeasuring && !measurementCandidateCanceled && listener != null) {
+                            if (isTwoFingerDown && !isMeasuring && !measurementCandidateCanceled) {
                                 startMeasurement();
                             }
                         }
@@ -191,6 +196,13 @@ public class NativeMeasurementDetector {
                                     "Measurement candidate canceled for pinch: spanDelta=%.1fpx scaleDelta=%.2f",
                                     spanDelta, scaleDelta));
                             cancelGesture();
+                            return false;
+                        }
+
+                        long holdDuration = System.currentTimeMillis() - gestureStartTime;
+                        if (holdDuration >= HOLD_DURATION_MS) {
+                            startMeasurement();
+                            return isMeasuring;
                         }
                         return false; // Allow pinch/pan until the hold becomes a measurement.
                     }
