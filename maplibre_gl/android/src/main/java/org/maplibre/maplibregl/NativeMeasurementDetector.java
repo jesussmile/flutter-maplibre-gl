@@ -31,17 +31,19 @@ public class NativeMeasurementDetector {
     private static final float MOVEMENT_THRESHOLD = 50f; // pixels
     
     // MapLibre style constants for measurement rendering
-    private static final String MEASUREMENT_LEGACY_SOURCE_ID = "measurement-source";
-    private static final String MEASUREMENT_LINE_SOURCE_ID = "measurement-line-source";
-    private static final String MEASUREMENT_POINTS_SOURCE_ID = "measurement-points-source";
-    private static final String MEASUREMENT_DISTANCE_SOURCE_ID = "measurement-distance-source";
-    private static final String MEASUREMENT_BEARING_SOURCE_ID = "measurement-bearing-source";
-    private static final String MEASUREMENT_ARROWS_SOURCE_ID = "measurement-arrows-source";
+    private static final String MEASUREMENT_SOURCE_ID = "measurement-source";
     private static final String MEASUREMENT_LINE_LAYER_ID = "measurement-line-layer";
     private static final String MEASUREMENT_POINTS_LAYER_ID = "measurement-points-layer";
     private static final String MEASUREMENT_DISTANCE_LAYER_ID = "measurement-distance-layer";
     private static final String MEASUREMENT_BEARING_LAYER_ID = "measurement-bearing-layer";
     private static final String MEASUREMENT_ARROWS_LAYER_ID = "measurement-arrows-layer";
+    private static final String[] MEASUREMENT_COMPAT_SOURCE_IDS = new String[] {
+            "measurement-line-source",
+            "measurement-points-source",
+            "measurement-distance-source",
+            "measurement-bearing-source",
+            "measurement-arrows-source"
+    };
     
     private final MapLibreMap mapLibreMap;
     private final OnNativeMeasurementListener listener;
@@ -631,15 +633,11 @@ public class NativeMeasurementDetector {
      */
     private void setupMeasurementLayers() {
         try {
-            ensureGeoJsonSource(MEASUREMENT_LINE_SOURCE_ID);
-            ensureGeoJsonSource(MEASUREMENT_POINTS_SOURCE_ID);
-            ensureGeoJsonSource(MEASUREMENT_DISTANCE_SOURCE_ID);
-            ensureGeoJsonSource(MEASUREMENT_BEARING_SOURCE_ID);
-            ensureGeoJsonSource(MEASUREMENT_ARROWS_SOURCE_ID);
+            ensureGeoJsonSource(MEASUREMENT_SOURCE_ID);
             
             // Add measurement line layer if it doesn't exist
             if (mapLibreMap.getStyle().getLayer(MEASUREMENT_LINE_LAYER_ID) == null) {
-                LineLayer lineLayer = new LineLayer(MEASUREMENT_LINE_LAYER_ID, MEASUREMENT_LINE_SOURCE_ID);
+                LineLayer lineLayer = new LineLayer(MEASUREMENT_LINE_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 lineLayer.setProperties(
                     lineColor(lineColor),
                     lineWidth((float) lineWidth),
@@ -660,7 +658,7 @@ public class NativeMeasurementDetector {
             
             // Add measurement points layer if it doesn't exist
             if (mapLibreMap.getStyle().getLayer(MEASUREMENT_POINTS_LAYER_ID) == null) {
-                CircleLayer circleLayer = new CircleLayer(MEASUREMENT_POINTS_LAYER_ID, MEASUREMENT_POINTS_SOURCE_ID);
+                CircleLayer circleLayer = new CircleLayer(MEASUREMENT_POINTS_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 circleLayer.setProperties(
                     circleColor(endpointColor),
                     circleRadius((float) endpointRadius),
@@ -684,7 +682,7 @@ public class NativeMeasurementDetector {
             
             // Add distance label layer if it doesn't exist
             if (mapLibreMap.getStyle().getLayer(MEASUREMENT_DISTANCE_LAYER_ID) == null) {
-                SymbolLayer distanceLayer = new SymbolLayer(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_DISTANCE_SOURCE_ID);
+                SymbolLayer distanceLayer = new SymbolLayer(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 distanceLayer.setProperties(
                     textField(get("distance-text")),
                     textSize(16f),                     // Larger text for better readability
@@ -713,7 +711,7 @@ public class NativeMeasurementDetector {
             
             // Add bearing label layer if it doesn't exist
             if (mapLibreMap.getStyle().getLayer(MEASUREMENT_BEARING_LAYER_ID) == null) {
-                SymbolLayer bearingLayer = new SymbolLayer(MEASUREMENT_BEARING_LAYER_ID, MEASUREMENT_BEARING_SOURCE_ID);
+                SymbolLayer bearingLayer = new SymbolLayer(MEASUREMENT_BEARING_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 bearingLayer.setProperties(
                     textField(get("bearing-text")),
                     textSize(14f),                     // Slightly larger for better readability
@@ -744,7 +742,7 @@ public class NativeMeasurementDetector {
             
             // Add directional arrows layer if it doesn't exist
             if (mapLibreMap.getStyle().getLayer(MEASUREMENT_ARROWS_LAYER_ID) == null) {
-                SymbolLayer arrowLayer = new SymbolLayer(MEASUREMENT_ARROWS_LAYER_ID, MEASUREMENT_ARROWS_SOURCE_ID);
+                SymbolLayer arrowLayer = new SymbolLayer(MEASUREMENT_ARROWS_LAYER_ID, MEASUREMENT_SOURCE_ID);
                 arrowLayer.setProperties(
                     textField("➤"),                    // Arrow symbol (Unicode)
                     textSize(20f),                     // Large arrow for visibility
@@ -876,44 +874,33 @@ public class NativeMeasurementDetector {
             endArrowFeature.addStringProperty("type", "arrow");
             endArrowFeature.addNumberProperty("arrow-rotation", reverseBearing);
             
-            GeoJsonSource lineSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_LINE_SOURCE_ID);
-            GeoJsonSource pointsSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_POINTS_SOURCE_ID);
-            GeoJsonSource distanceSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_DISTANCE_SOURCE_ID);
-            GeoJsonSource bearingSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_BEARING_SOURCE_ID);
-            GeoJsonSource arrowsSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_ARROWS_SOURCE_ID);
+            java.util.List<Feature> features = new java.util.ArrayList<>();
+            features.add(lineFeature);
+            features.add(startPointFeature);
+            features.add(endPointFeature);
+            features.add(distanceFeature);
+            features.add(startBearingFeature);
+            features.add(endBearingFeature);
+            features.add(startArrowFeature);
+            features.add(endArrowFeature);
 
-            if (lineSource == null || pointsSource == null || distanceSource == null ||
-                bearingSource == null || arrowsSource == null) {
+            FeatureCollection featureCollection = FeatureCollection.fromFeatures(features);
+
+            GeoJsonSource source = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_SOURCE_ID);
+            if (source == null) {
                 setupMeasurementLayers();
-                lineSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_LINE_SOURCE_ID);
-                pointsSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_POINTS_SOURCE_ID);
-                distanceSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_DISTANCE_SOURCE_ID);
-                bearingSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_BEARING_SOURCE_ID);
-                arrowsSource = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_ARROWS_SOURCE_ID);
+                source = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_SOURCE_ID);
             }
 
-            if (lineSource != null && pointsSource != null && distanceSource != null &&
-                bearingSource != null && arrowsSource != null) {
-                lineSource.setGeoJson(featureCollectionOf(lineFeature));
-                pointsSource.setGeoJson(featureCollectionOf(startPointFeature, endPointFeature));
-                distanceSource.setGeoJson(featureCollectionOf(distanceFeature));
-                bearingSource.setGeoJson(featureCollectionOf(startBearingFeature, endBearingFeature));
-                arrowsSource.setGeoJson(featureCollectionOf(startArrowFeature, endArrowFeature));
+            if (source != null) {
+                source.setGeoJson(featureCollection);
                 Log.d(TAG, "Updated measurement rendering with labels");
             } else {
-                Log.w(TAG, "Measurement sources not found");
+                Log.w(TAG, "Measurement source not found");
             }
         } catch (Exception e) {
             Log.e(TAG, "Error rendering measurement line", e);
         }
-    }
-
-    private FeatureCollection featureCollectionOf(Feature... features) {
-        java.util.List<Feature> list = new java.util.ArrayList<>();
-        for (Feature feature : features) {
-            list.add(feature);
-        }
-        return FeatureCollection.fromFeatures(list);
     }
     
     /**
@@ -922,17 +909,16 @@ public class NativeMeasurementDetector {
     private void clearMeasurementRendering() {
         try {
             if (mapLibreMap.getStyle() != null && mapLibreMap.getStyle().isFullyLoaded()) {
-                for (String sourceId : new String[] {
-                        MEASUREMENT_LINE_SOURCE_ID,
-                        MEASUREMENT_POINTS_SOURCE_ID,
-                        MEASUREMENT_DISTANCE_SOURCE_ID,
-                        MEASUREMENT_BEARING_SOURCE_ID,
-                        MEASUREMENT_ARROWS_SOURCE_ID,
-                        MEASUREMENT_LEGACY_SOURCE_ID
-                }) {
-                    GeoJsonSource source = mapLibreMap.getStyle().getSourceAs(sourceId);
-                    if (source != null) {
-                        source.setGeoJson(FeatureCollection.fromFeatures(new java.util.ArrayList<>()));
+                FeatureCollection emptyCollection =
+                        FeatureCollection.fromFeatures(new java.util.ArrayList<>());
+                GeoJsonSource source = mapLibreMap.getStyle().getSourceAs(MEASUREMENT_SOURCE_ID);
+                if (source != null) {
+                    source.setGeoJson(emptyCollection);
+                }
+                for (String sourceId : MEASUREMENT_COMPAT_SOURCE_IDS) {
+                    GeoJsonSource compatSource = mapLibreMap.getStyle().getSourceAs(sourceId);
+                    if (compatSource != null) {
+                        compatSource.setGeoJson(emptyCollection);
                     }
                 }
                 Log.d(TAG, "Cleared measurement rendering");
