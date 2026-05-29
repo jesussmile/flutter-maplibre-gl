@@ -3502,8 +3502,8 @@ final class MapLibreMapController
     if (lineColor == null) lineColor = "#00BFFF";
     if (lineWidth == null) lineWidth = 4.0;
     if (lineOpacity == null) lineOpacity = 0.9;
-    if (endpointColor == null) endpointColor = "#FFFFFF";
-    if (endpointRadius == null) endpointRadius = 9.0;
+    if (endpointColor == null) endpointColor = "#00BFFF";
+    if (endpointRadius == null) endpointRadius = 0.0;
 
     nativeMeasurementDetector.setMeasurementStyle(
         lineColor,
