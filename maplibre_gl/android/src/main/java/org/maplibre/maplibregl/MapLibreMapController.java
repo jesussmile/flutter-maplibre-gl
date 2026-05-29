@@ -192,6 +192,7 @@ final class MapLibreMapController
   private PolylineBreakPointSystem polylineBreakPointSystem;
   private EditablePolylineRenderer polylineRenderer;
   private PolylineGestureDetector polylineGestureDetector;
+  private NativeMeasurementDetector nativeMeasurementDetector;
 
   private LatLng dragOrigin;
   private LatLng dragPrevious;
@@ -240,6 +241,10 @@ final class MapLibreMapController
           // Initialize polyline renderer after style is loaded
           if (polylineRenderer != null) {
             polylineRenderer.initialize();
+          }
+
+          if (nativeMeasurementDetector != null) {
+            nativeMeasurementDetector.ensureMeasurementLayersOnTop();
           }
 
           methodChannel.invokeMethod("map#onStyleLoaded", null);
@@ -401,6 +406,11 @@ final class MapLibreMapController
           new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+              if (nativeMeasurementDetector != null
+                  && nativeMeasurementDetector.onTouchEvent(event)) {
+                return true;
+              }
+
               androidGesturesManager.onTouchEvent(event);
               
               // Handle polyline editing gestures
@@ -2267,6 +2277,33 @@ final class MapLibreMapController
           setImageOverlayControlsSensitivity(overlayId, sensitivity, result);
           break;
         }
+      case "map#enableNativeMeasurement":
+        {
+          Boolean enabled = call.argument("enabled");
+          if (enabled != null) {
+            enableNativeMeasurement(enabled);
+          }
+          result.success(null);
+          break;
+        }
+      case "map#setNativeMeasurementStyle":
+        {
+          setNativeMeasurementStyle(call.arguments());
+          result.success(null);
+          break;
+        }
+      case "map#clearNativeMeasurement":
+        {
+          clearNativeMeasurement();
+          result.success(null);
+          break;
+        }
+      case "map#ensureMeasurementLayersOnTop":
+        {
+          ensureMeasurementLayersOnTop();
+          result.success(null);
+          break;
+        }
       case "line#enableEditing":
         {
           try {
@@ -2484,6 +2521,11 @@ final class MapLibreMapController
       return;
     }
     disposed = true;
+
+    if (nativeMeasurementDetector != null) {
+      nativeMeasurementDetector.cleanup();
+      nativeMeasurementDetector = null;
+    }
 
     methodChannel.setMethodCallHandler(null);
     destroyMapViewIfNecessary();
@@ -3365,6 +3407,146 @@ final class MapLibreMapController
     } catch (Exception e) {
       result.error("SENSITIVITY_ERROR", "Failed to set sensitivity: " + e.getMessage(), null);
     }
+  }
+
+  private void enableNativeMeasurement(boolean enabled) {
+    if (enabled) {
+      if (nativeMeasurementDetector == null && mapLibreMap != null) {
+        nativeMeasurementDetector =
+            new NativeMeasurementDetector(
+                mapLibreMap,
+                new NativeMeasurementDetector.OnNativeMeasurementListener() {
+                  @Override
+                  public void onMeasurementStart(
+                      PointF point1,
+                      PointF point2,
+                      LatLng latLng1,
+                      LatLng latLng2,
+                      double distance,
+                      double bearing,
+                      long duration) {
+                    sendNativeMeasurementEvent(
+                        "measurement#onStart",
+                        point1,
+                        point2,
+                        latLng1,
+                        latLng2,
+                        distance,
+                        bearing,
+                        duration);
+                  }
+
+                  @Override
+                  public void onMeasurementUpdate(
+                      PointF point1,
+                      PointF point2,
+                      LatLng latLng1,
+                      LatLng latLng2,
+                      double distance,
+                      double bearing,
+                      long duration) {
+                    sendNativeMeasurementEvent(
+                        "measurement#onUpdate",
+                        point1,
+                        point2,
+                        latLng1,
+                        latLng2,
+                        distance,
+                        bearing,
+                        duration);
+                  }
+
+                  @Override
+                  public void onMeasurementEnd(
+                      PointF point1,
+                      PointF point2,
+                      LatLng latLng1,
+                      LatLng latLng2,
+                      double distance,
+                      double bearing,
+                      long duration) {
+                    sendNativeMeasurementEvent(
+                        "measurement#onEnd",
+                        point1,
+                        point2,
+                        latLng1,
+                        latLng2,
+                        distance,
+                        bearing,
+                        duration);
+                  }
+                });
+        Log.d(TAG, "Native measurement enabled");
+      } else if (nativeMeasurementDetector != null) {
+        nativeMeasurementDetector.ensureMeasurementLayersOnTop();
+      }
+    } else if (nativeMeasurementDetector != null) {
+      nativeMeasurementDetector.disable();
+      nativeMeasurementDetector = null;
+      Log.d(TAG, "Native measurement disabled");
+    }
+  }
+
+  private void setNativeMeasurementStyle(Object arguments) {
+    if (nativeMeasurementDetector == null || !(arguments instanceof Map)) {
+      return;
+    }
+
+    Map<String, Object> styleArgs = (Map<String, Object>) arguments;
+    String lineColor = (String) styleArgs.get("lineColor");
+    Double lineWidth = (Double) styleArgs.get("lineWidth");
+    Double lineOpacity = (Double) styleArgs.get("lineOpacity");
+    String endpointColor = (String) styleArgs.get("endpointColor");
+    Double endpointRadius = (Double) styleArgs.get("endpointRadius");
+
+    if (lineColor == null) lineColor = "#00BFFF";
+    if (lineWidth == null) lineWidth = 4.0;
+    if (lineOpacity == null) lineOpacity = 0.9;
+    if (endpointColor == null) endpointColor = "#FFFFFF";
+    if (endpointRadius == null) endpointRadius = 9.0;
+
+    nativeMeasurementDetector.setMeasurementStyle(
+        lineColor,
+        lineWidth,
+        lineOpacity,
+        endpointColor,
+        endpointRadius);
+  }
+
+  private void clearNativeMeasurement() {
+    if (nativeMeasurementDetector != null) {
+      nativeMeasurementDetector.clearMeasurement();
+    }
+  }
+
+  private void ensureMeasurementLayersOnTop() {
+    if (nativeMeasurementDetector != null) {
+      nativeMeasurementDetector.ensureMeasurementLayersOnTop();
+    }
+  }
+
+  private void sendNativeMeasurementEvent(
+      String eventName,
+      PointF point1,
+      PointF point2,
+      LatLng latLng1,
+      LatLng latLng2,
+      double distance,
+      double bearing,
+      long duration) {
+    Map<String, Object> arguments = new HashMap<>();
+    arguments.put("x1", (double) point1.x);
+    arguments.put("y1", (double) point1.y);
+    arguments.put("x2", (double) point2.x);
+    arguments.put("y2", (double) point2.y);
+    arguments.put("lat1", latLng1.getLatitude());
+    arguments.put("lng1", latLng1.getLongitude());
+    arguments.put("lat2", latLng2.getLatitude());
+    arguments.put("lng2", latLng2.getLongitude());
+    arguments.put("distance", distance);
+    arguments.put("bearing", bearing);
+    arguments.put("duration", (int) duration);
+    methodChannel.invokeMethod(eventName, arguments);
   }
 
   /**

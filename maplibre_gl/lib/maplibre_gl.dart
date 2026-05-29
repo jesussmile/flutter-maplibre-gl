@@ -122,3 +122,5 @@ part 'src/util.dart';
 part 'src/maplibre_styles.dart';
 
 part 'src/experimental_features.dart';
+
+part 'src/native_measurement.dart';

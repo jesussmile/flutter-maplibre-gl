@@ -118,6 +118,12 @@ class MapLibreMethodChannel extends MapLibrePlatform {
             ),
           ),
         );
+      case 'measurement#onStart':
+        onNativeMeasurementStart(_nativeMeasurementData(call.arguments));
+      case 'measurement#onUpdate':
+        onNativeMeasurementUpdate(_nativeMeasurementData(call.arguments));
+      case 'measurement#onEnd':
+        onNativeMeasurementEnd(_nativeMeasurementData(call.arguments));
       case 'polylineEditing#onBroken':
         final String lineId = call.arguments['lineId'];
         final List<dynamic> segment1Raw = call.arguments['segment1'];
@@ -141,6 +147,23 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       default:
         throw MissingPluginException();
     }
+  }
+
+  Map<String, dynamic> _nativeMeasurementData(dynamic arguments) {
+    final args = arguments as Map<dynamic, dynamic>;
+    return <String, dynamic>{
+      'x1': (args['x1'] as num).toDouble(),
+      'y1': (args['y1'] as num).toDouble(),
+      'x2': (args['x2'] as num).toDouble(),
+      'y2': (args['y2'] as num).toDouble(),
+      'lat1': (args['lat1'] as num).toDouble(),
+      'lng1': (args['lng1'] as num).toDouble(),
+      'lat2': (args['lat2'] as num).toDouble(),
+      'lng2': (args['lng2'] as num).toDouble(),
+      'distance': (args['distance'] as num).toDouble(),
+      'bearing': (args['bearing'] as num).toDouble(),
+      'duration': (args['duration'] as num).toInt(),
+    };
   }
 
   @override
@@ -1127,6 +1150,42 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'imageOverlay#setSensitivity',
       <String, dynamic>{'overlayId': overlayId, 'sensitivity': sensitivity},
     );
+  }
+
+  @override
+  Future<void> enableNativeMeasurement(bool enabled) async {
+    await _channel.invokeMethod(
+      'map#enableNativeMeasurement',
+      <String, dynamic>{'enabled': enabled},
+    );
+  }
+
+  @override
+  Future<void> setNativeMeasurementStyle({
+    required String lineColor,
+    required double lineWidth,
+    required double lineOpacity,
+    required String endpointColor,
+    required double endpointRadius,
+  }) async {
+    await _channel
+        .invokeMethod('map#setNativeMeasurementStyle', <String, dynamic>{
+          'lineColor': lineColor,
+          'lineWidth': lineWidth,
+          'lineOpacity': lineOpacity,
+          'endpointColor': endpointColor,
+          'endpointRadius': endpointRadius,
+        });
+  }
+
+  @override
+  Future<void> clearNativeMeasurement() async {
+    await _channel.invokeMethod('map#clearNativeMeasurement');
+  }
+
+  @override
+  Future<void> ensureMeasurementLayersOnTop() async {
+    await _channel.invokeMethod('map#ensureMeasurementLayersOnTop');
   }
 
   @override

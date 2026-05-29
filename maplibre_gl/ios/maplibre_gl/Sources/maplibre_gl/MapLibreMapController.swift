@@ -1184,6 +1184,12 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             reply["filter"] = currentLayerFilter as NSObject
             result(reply)
             
+        case "map#enableNativeMeasurement",
+             "map#setNativeMeasurementStyle",
+             "map#clearNativeMeasurement",
+             "map#ensureMeasurementLayersOnTop":
+            result(nil)
+
         case "line#enableEditing", "line#setEditingStyle", "line#isEditable":
             handlePolylineEditingMethodCall(methodCall: methodCall, result: result)
             

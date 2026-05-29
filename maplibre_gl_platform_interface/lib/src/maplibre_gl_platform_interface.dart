@@ -44,6 +44,10 @@ abstract class MapLibrePlatform {
 
   final onUserLocationUpdatedPlatform = ArgumentCallbacks<UserLocation>();
 
+  final onNativeMeasurementStart = ArgumentCallbacks<Map<String, dynamic>>();
+  final onNativeMeasurementUpdate = ArgumentCallbacks<Map<String, dynamic>>();
+  final onNativeMeasurementEnd = ArgumentCallbacks<Map<String, dynamic>>();
+
   // Polyline editing callbacks
   final onPolylineBrokenPlatform = ArgumentCallbacks<Map<String, dynamic>>();
   final onPolylineModifiedPlatform = ArgumentCallbacks<Map<String, dynamic>>();
@@ -366,6 +370,17 @@ abstract class MapLibrePlatform {
     double sensitivity,
   );
 
+  Future<void> enableNativeMeasurement(bool enabled);
+  Future<void> setNativeMeasurementStyle({
+    required String lineColor,
+    required double lineWidth,
+    required double lineOpacity,
+    required String endpointColor,
+    required double endpointRadius,
+  });
+  Future<void> clearNativeMeasurement();
+  Future<void> ensureMeasurementLayersOnTop();
+
   // Polyline editing methods
   Future<void> enableLineEditing(
     String lineId,
@@ -392,6 +407,9 @@ abstract class MapLibrePlatform {
     onCameraTrackingDismissedPlatform.clear();
     onMapIdlePlatform.clear();
     onUserLocationUpdatedPlatform.clear();
+    onNativeMeasurementStart.clear();
+    onNativeMeasurementUpdate.clear();
+    onNativeMeasurementEnd.clear();
     onPolylineBrokenPlatform.clear();
     onPolylineModifiedPlatform.clear();
     onPolylineEditingErrorPlatform.clear();

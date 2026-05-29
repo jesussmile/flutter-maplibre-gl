@@ -1253,6 +1253,32 @@ class MapLibreMapController extends MapLibrePlatform
   }
 
   @override
+  Future<void> enableNativeMeasurement(bool enabled) async {
+    // Not supported on web
+  }
+
+  @override
+  Future<void> setNativeMeasurementStyle({
+    required String lineColor,
+    required double lineWidth,
+    required double lineOpacity,
+    required String endpointColor,
+    required double endpointRadius,
+  }) async {
+    // Not supported on web
+  }
+
+  @override
+  Future<void> clearNativeMeasurement() async {
+    // Not supported on web
+  }
+
+  @override
+  Future<void> ensureMeasurementLayersOnTop() async {
+    // Not supported on web
+  }
+
+  @override
   Future<void> enableLineEditing(String lineId, bool enabled,
       [List<LatLng>? coordinates]) async {
     // Not supported on web
