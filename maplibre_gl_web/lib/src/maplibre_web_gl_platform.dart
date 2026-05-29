@@ -77,8 +77,8 @@ class MapLibreMapController extends MapLibrePlatform
       // Expose the raw MapLibre GL JS map instance on window for JS interop.
       // _map is a Dart wrapper; _map.jsObject is the actual maplibregl.Map.
       setProperty(html.window, 'maplibreMap', _map.jsObject);
-      setProperty(
-          html.window, 'map', _map.jsObject); // also set as 'map' for JS compatibility
+      setProperty(html.window, 'map',
+          _map.jsObject); // also set as 'map' for JS compatibility
       _map.on('style.load', _onStyleLoaded);
       _map.on('click', _onMapClick);
       // long click not available in web, so it is mapped to double click
@@ -1249,37 +1249,6 @@ class MapLibreMapController extends MapLibrePlatform
   @override
   Future<void> setImageOverlayControlsSensitivity(
       String overlayId, double sensitivity) async {
-    // Not supported on web
-  }
-
-  @override
-  Future<void> enableTwoFingerHoldGestureDetection(bool enabled) async {
-    // Not supported on web
-  }
-
-  @override
-  Future<void> enableNativeMeasurement(bool enabled) async {
-    // Not supported on web
-  }
-
-  @override
-  Future<void> setNativeMeasurementStyle({
-    required String lineColor,
-    required double lineWidth,
-    required double lineOpacity,
-    required String endpointColor,
-    required double endpointRadius,
-  }) async {
-    // Not supported on web
-  }
-
-  @override
-  Future<void> clearNativeMeasurement() async {
-    // Not supported on web
-  }
-
-  @override
-  Future<void> ensureMeasurementLayersOnTop() async {
     // Not supported on web
   }
 

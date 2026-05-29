@@ -32,9 +32,6 @@ typedef OnCameraIdleCallback = void Function();
 
 typedef OnMapIdleCallback = void Function();
 
-typedef OnTwoFingerHoldGestureCallback = void Function(
-    Point<double> point, LatLng coordinates, int duration);
-
 @Deprecated('MaplibreMapController was renamed to MapLibreMapController.')
 typedef MaplibreMapController = MapLibreMapController;
 
@@ -91,7 +88,6 @@ class MapLibreMapController extends ChangeNotifier {
     this.onMapIdle,
     this.onUserLocationUpdated,
     this.onCameraIdle,
-    this.onTwoFingerHoldGesture,
   }) : _maplibrePlatform = maplibrePlatform {
     _cameraPosition = initialCameraPosition;
 
@@ -186,11 +182,6 @@ class MapLibreMapController extends ChangeNotifier {
       onUserLocationUpdated?.call(location);
     });
 
-    _maplibrePlatform.onTwoFingerHoldGesturePlatform.add((dict) {
-      onTwoFingerHoldGesture?.call(
-          dict['point'], dict['latLng'], dict['duration']);
-    });
-
     // Polyline editing callbacks
     _maplibrePlatform.onPolylineBrokenPlatform.add((dict) {
       final lineId = dict['lineId'] as String;
@@ -251,8 +242,6 @@ class MapLibreMapController extends ChangeNotifier {
   final OnCameraIdleCallback? onCameraIdle;
 
   final OnMapIdleCallback? onMapIdle;
-
-  final OnTwoFingerHoldGestureCallback? onTwoFingerHoldGesture;
 
   /// Experimental features configuration.
   final MapLibreExperimentalFeatures experimentalFeatures;
@@ -2044,11 +2033,6 @@ class MapLibreMapController extends ChangeNotifier {
       String overlayId, double sensitivity) async {
     return _maplibrePlatform.setImageOverlayControlsSensitivity(
         overlayId, sensitivity);
-  }
-
-  /// Enable or disable two-finger hold gesture detection
-  Future<void> enableTwoFingerHoldGestureDetection(bool enabled) async {
-    return _maplibrePlatform.enableTwoFingerHoldGestureDetection(enabled);
   }
 
   @override

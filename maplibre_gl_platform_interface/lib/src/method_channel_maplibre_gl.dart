@@ -23,7 +23,7 @@ class MapLibreMethodChannel extends MapLibrePlatform {
           'id': id,
           'point': Point<double>(x, y),
           'latLng': LatLng(lat, lng),
-          'layerId': layerId
+          'layerId': layerId,
         });
       case 'feature#onDrag':
         final id = call.arguments['id'];
@@ -54,8 +54,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
             CameraPosition.fromMap(call.arguments['position'])!;
         onCameraMovePlatform(cameraPosition);
       case 'camera#onIdle':
-        final cameraPosition =
-            CameraPosition.fromMap(call.arguments['position']);
+        final cameraPosition = CameraPosition.fromMap(
+          call.arguments['position'],
+        );
         onCameraIdlePlatform(cameraPosition);
       case 'map#onStyleLoaded':
         onMapStyleLoadedPlatform(null);
@@ -64,15 +65,19 @@ class MapLibreMethodChannel extends MapLibrePlatform {
         final double y = call.arguments['y'];
         final double lng = call.arguments['lng'];
         final double lat = call.arguments['lat'];
-        onMapClickPlatform(
-            {'point': Point<double>(x, y), 'latLng': LatLng(lat, lng)});
+        onMapClickPlatform({
+          'point': Point<double>(x, y),
+          'latLng': LatLng(lat, lng),
+        });
       case 'map#onMapLongClick':
         final double x = call.arguments['x'];
         final double y = call.arguments['y'];
         final double lng = call.arguments['lng'];
         final double lat = call.arguments['lat'];
-        onMapLongClickPlatform(
-            {'point': Point<double>(x, y), 'latLng': LatLng(lat, lng)});
+        onMapLongClickPlatform({
+          'point': Point<double>(x, y),
+          'latLng': LatLng(lat, lng),
+        });
       case 'map#onCameraTrackingChanged':
         final int mode = call.arguments['mode'];
         onCameraTrackingChangedPlatform(MyLocationTrackingMode.values[mode]);
@@ -83,7 +88,8 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       case 'map#onUserLocationUpdated':
         final dynamic userLocation = call.arguments['userLocation'];
         final dynamic heading = call.arguments['heading'];
-        onUserLocationUpdatedPlatform(UserLocation(
+        onUserLocationUpdatedPlatform(
+          UserLocation(
             position: LatLng(
               userLocation['position'][0],
               userLocation['position'][1],
@@ -93,106 +99,25 @@ class MapLibreMethodChannel extends MapLibrePlatform {
             speed: userLocation['speed'],
             horizontalAccuracy: userLocation['horizontalAccuracy'],
             verticalAccuracy: userLocation['verticalAccuracy'],
-            heading: heading == null
-                ? null
-                : UserHeading(
-                    magneticHeading: heading['magneticHeading'],
-                    trueHeading: heading['trueHeading'],
-                    headingAccuracy: heading['headingAccuracy'],
-                    x: heading['x'],
-                    y: heading['y'],
-                    z: heading['x'],
-                    timestamp: DateTime.fromMillisecondsSinceEpoch(
-                        heading['timestamp']),
-                  ),
+            heading:
+                heading == null
+                    ? null
+                    : UserHeading(
+                      magneticHeading: heading['magneticHeading'],
+                      trueHeading: heading['trueHeading'],
+                      headingAccuracy: heading['headingAccuracy'],
+                      x: heading['x'],
+                      y: heading['y'],
+                      z: heading['x'],
+                      timestamp: DateTime.fromMillisecondsSinceEpoch(
+                        heading['timestamp'],
+                      ),
+                    ),
             timestamp: DateTime.fromMillisecondsSinceEpoch(
-                userLocation['timestamp'])));
-      case 'map#onTwoFingerHoldGesture':
-        final double x = call.arguments['x'];
-        final double y = call.arguments['y'];
-        final double lng = call.arguments['lng'];
-        final double lat = call.arguments['lat'];
-        final int duration = call.arguments['duration'];
-        onTwoFingerHoldGesturePlatform({
-          'point': Point<double>(x, y),
-          'latLng': LatLng(lat, lng),
-          'duration': duration
-        });
-      case 'measurement#onStart':
-        final double x1 = call.arguments['x1'];
-        final double y1 = call.arguments['y1'];
-        final double x2 = call.arguments['x2'];
-        final double y2 = call.arguments['y2'];
-        final double lat1 = call.arguments['lat1'];
-        final double lng1 = call.arguments['lng1'];
-        final double lat2 = call.arguments['lat2'];
-        final double lng2 = call.arguments['lng2'];
-        final double distance = call.arguments['distance'];
-        final double bearing = call.arguments['bearing'];
-        final int duration = call.arguments['duration'];
-        onNativeMeasurementStart({
-          'x1': x1,
-          'y1': y1,
-          'x2': x2,
-          'y2': y2,
-          'lat1': lat1,
-          'lng1': lng1,
-          'lat2': lat2,
-          'lng2': lng2,
-          'distance': distance,
-          'bearing': bearing,
-          'duration': duration
-        });
-      case 'measurement#onUpdate':
-        final double x1 = call.arguments['x1'];
-        final double y1 = call.arguments['y1'];
-        final double x2 = call.arguments['x2'];
-        final double y2 = call.arguments['y2'];
-        final double lat1 = call.arguments['lat1'];
-        final double lng1 = call.arguments['lng1'];
-        final double lat2 = call.arguments['lat2'];
-        final double lng2 = call.arguments['lng2'];
-        final double distance = call.arguments['distance'];
-        final double bearing = call.arguments['bearing'];
-        final int duration = call.arguments['duration'];
-        onNativeMeasurementUpdate({
-          'x1': x1,
-          'y1': y1,
-          'x2': x2,
-          'y2': y2,
-          'lat1': lat1,
-          'lng1': lng1,
-          'lat2': lat2,
-          'lng2': lng2,
-          'distance': distance,
-          'bearing': bearing,
-          'duration': duration
-        });
-      case 'measurement#onEnd':
-        final double x1 = call.arguments['x1'];
-        final double y1 = call.arguments['y1'];
-        final double x2 = call.arguments['x2'];
-        final double y2 = call.arguments['y2'];
-        final double lat1 = call.arguments['lat1'];
-        final double lng1 = call.arguments['lng1'];
-        final double lat2 = call.arguments['lat2'];
-        final double lng2 = call.arguments['lng2'];
-        final double distance = call.arguments['distance'];
-        final double bearing = call.arguments['bearing'];
-        final int duration = call.arguments['duration'];
-        onNativeMeasurementEnd({
-          'x1': x1,
-          'y1': y1,
-          'x2': x2,
-          'y2': y2,
-          'lat1': lat1,
-          'lng1': lng1,
-          'lat2': lat2,
-          'lng2': lng2,
-          'distance': distance,
-          'bearing': bearing,
-          'duration': duration
-        });
+              userLocation['timestamp'],
+            ),
+          ),
+        );
       case 'polylineEditing#onBroken':
         final String lineId = call.arguments['lineId'];
         final List<dynamic> segment1Raw = call.arguments['segment1'];
@@ -212,10 +137,7 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       case 'polylineEditing#onError':
         final String lineId = call.arguments['lineId'];
         final String error = call.arguments['error'];
-        onPolylineEditingErrorPlatform({
-          'lineId': lineId,
-          'error': error,
-        });
+        onPolylineEditingErrorPlatform({'lineId': lineId, 'error': error});
       default:
         throw MissingPluginException();
     }
@@ -230,9 +152,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Widget buildView(
-      Map<String, dynamic> creationParams,
-      OnPlatformViewCreatedCallback onPlatformViewCreated,
-      Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers) {
+    Map<String, dynamic> creationParams,
+    OnPlatformViewCreatedCallback onPlatformViewCreated,
+    Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers,
+  ) {
     if (defaultTargetPlatform == TargetPlatform.android) {
       if (useHybridComposition) {
         return PlatformViewLink(
@@ -243,7 +166,8 @@ class MapLibreMethodChannel extends MapLibrePlatform {
           ) {
             return AndroidViewSurface(
               controller: controller as SurfaceAndroidViewController,
-              gestureRecognizers: gestureRecognizers ??
+              gestureRecognizers:
+                  gestureRecognizers ??
                   const <Factory<OneSequenceGestureRecognizer>>{},
               hitTestBehavior: PlatformViewHitTestBehavior.opaque,
             );
@@ -260,9 +184,7 @@ class MapLibreMethodChannel extends MapLibrePlatform {
             controller.addOnPlatformViewCreatedListener(
               params.onPlatformViewCreated,
             );
-            controller.addOnPlatformViewCreatedListener(
-              onPlatformViewCreated,
-            );
+            controller.addOnPlatformViewCreatedListener(onPlatformViewCreated);
 
             controller.create();
             return controller;
@@ -287,17 +209,17 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       );
     }
     return Text(
-        '$defaultTargetPlatform is not yet supported by the maps plugin');
+      '$defaultTargetPlatform is not yet supported by the maps plugin',
+    );
   }
 
   @override
   Future<CameraPosition?> updateMapOptions(
-      Map<String, dynamic> optionsUpdate) async {
+    Map<String, dynamic> optionsUpdate,
+  ) async {
     final dynamic json = await _channel.invokeMethod(
       'map#update',
-      <String, dynamic>{
-        'options': optionsUpdate,
-      },
+      <String, dynamic>{'options': optionsUpdate},
     );
     return CameraPosition.fromMap(json);
   }
@@ -319,11 +241,12 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> updateMyLocationTrackingMode(
-      MyLocationTrackingMode myLocationTrackingMode) async {
-    await _channel
-        .invokeMethod('map#updateMyLocationTrackingMode', <String, dynamic>{
-      'mode': myLocationTrackingMode.index,
-    });
+    MyLocationTrackingMode myLocationTrackingMode,
+  ) async {
+    await _channel.invokeMethod(
+      'map#updateMyLocationTrackingMode',
+      <String, dynamic>{'mode': myLocationTrackingMode.index},
+    );
   }
 
   @override
@@ -365,7 +288,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<List> queryRenderedFeatures(
-      Point<double> point, List<String> layerIds, List<Object>? filter) async {
+    Point<double> point,
+    List<String> layerIds,
+    List<Object>? filter,
+  ) async {
     try {
       final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
         'map#queryRenderedFeatures',
@@ -384,19 +310,20 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<List> queryRenderedFeaturesInRect(
-      Rect rect, List<String> layerIds, String? filter) async {
+    Rect rect,
+    List<String> layerIds,
+    String? filter,
+  ) async {
     try {
-      final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
-        'map#queryRenderedFeatures',
-        <String, Object?>{
-          'left': rect.left,
-          'top': rect.top,
-          'right': rect.right,
-          'bottom': rect.bottom,
-          'layerIds': layerIds,
-          'filter': filter,
-        },
-      );
+      final Map<dynamic, dynamic> reply = await _channel
+          .invokeMethod('map#queryRenderedFeatures', <String, Object?>{
+            'left': rect.left,
+            'top': rect.top,
+            'right': rect.right,
+            'bottom': rect.bottom,
+            'layerIds': layerIds,
+            'filter': filter,
+          });
       return reply['features'].map((feature) => jsonDecode(feature)).toList();
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -405,7 +332,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<List> querySourceFeatures(
-      String sourceId, String? sourceLayerId, List<Object>? filter) async {
+    String sourceId,
+    String? sourceLayerId,
+    List<Object>? filter,
+  ) async {
     try {
       final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
         'map#querySourceFeatures',
@@ -429,15 +359,13 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     int offset = 0,
   }) async {
     try {
-      final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
-        'source#getGeoJsonClusterLeaves',
-        <String, Object?>{
-          'sourceId': sourceId,
-          'cluster': jsonEncode(cluster),
-          'limit': limit,
-          'offset': offset,
-        },
-      );
+      final Map<dynamic, dynamic> reply = await _channel
+          .invokeMethod('source#getGeoJsonClusterLeaves', <String, Object?>{
+            'sourceId': sourceId,
+            'cluster': jsonEncode(cluster),
+            'limit': limit,
+            'offset': offset,
+          });
       return reply['features'].map((feature) => jsonDecode(feature)).toList();
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -467,8 +395,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<LatLng> requestMyLocationLatLng() async {
     try {
-      final Map<dynamic, dynamic> reply =
-          await _channel.invokeMethod('locationComponent#getLastLocation');
+      final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
+        'locationComponent#getLastLocation',
+      );
       var latitude = 0.0;
       var longitude = 0.0;
       if (reply.containsKey('latitude') && reply['latitude'] != null) {
@@ -486,8 +415,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<LatLngBounds> getVisibleRegion() async {
     try {
-      final Map<dynamic, dynamic> reply =
-          await _channel.invokeMethod('map#getVisibleRegion');
+      final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
+        'map#getVisibleRegion',
+      );
       final southwest = reply['sw'] as List<dynamic>;
       final northeast = reply['ne'] as List<dynamic>;
       return LatLngBounds(
@@ -500,14 +430,17 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
-  Future<void> addImage(String name, Uint8List bytes,
-      [bool sdf = false]) async {
+  Future<void> addImage(
+    String name,
+    Uint8List bytes, [
+    bool sdf = false,
+  ]) async {
     try {
       return await _channel.invokeMethod('style#addImage', <String, Object>{
         'name': name,
         'bytes': bytes,
         'length': bytes.length,
-        'sdf': sdf
+        'sdf': sdf,
       });
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -528,15 +461,15 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     try {
       return await _channel
           .invokeMethod('style#createPillLabel', <String, Object>{
-        'name': name,
-        'text': text,
-        'backgroundColor': backgroundColor,
-        'textColor': textColor,
-        'textSize': textSize,
-        'paddingHorizontal': paddingHorizontal,
-        'paddingVertical': paddingVertical,
-        'cornerRadius': cornerRadius,
-      });
+            'name': name,
+            'text': text,
+            'backgroundColor': backgroundColor,
+            'textColor': textColor,
+            'textSize': textSize,
+            'paddingHorizontal': paddingHorizontal,
+            'paddingVertical': paddingVertical,
+            'cornerRadius': cornerRadius,
+          });
     } on PlatformException catch (e) {
       return Future.error(e);
     }
@@ -557,16 +490,16 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     try {
       return await _channel
           .invokeMethod('style#createCircleLabel', <String, Object>{
-        'name': name,
-        'text': text,
-        'radius': radius,
-        'circleColor': circleColor,
-        'circleStrokeWidth': circleStrokeWidth,
-        'textColor': textColor,
-        'textSize': textSize,
-        'topArc': topArc,
-        'roundedEdges': roundedEdges,
-      });
+            'name': name,
+            'text': text,
+            'radius': radius,
+            'circleColor': circleColor,
+            'circleStrokeWidth': circleStrokeWidth,
+            'textColor': textColor,
+            'textSize': textSize,
+            'topArc': topArc,
+            'roundedEdges': roundedEdges,
+          });
     } on PlatformException catch (e) {
       return Future.error(e);
     }
@@ -574,15 +507,18 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> addImageSource(
-      String imageSourceId, Uint8List bytes, LatLngQuad coordinates) async {
+    String imageSourceId,
+    Uint8List bytes,
+    LatLngQuad coordinates,
+  ) async {
     try {
       return await _channel
           .invokeMethod('style#addImageSource', <String, Object>{
-        'imageSourceId': imageSourceId,
-        'bytes': bytes,
-        'length': bytes.length,
-        'coordinates': coordinates.toList()
-      });
+            'imageSourceId': imageSourceId,
+            'bytes': bytes,
+            'length': bytes.length,
+            'coordinates': coordinates.toList(),
+          });
     } on PlatformException catch (e) {
       return Future.error(e);
     }
@@ -590,15 +526,18 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> updateImageSource(
-      String imageSourceId, Uint8List? bytes, LatLngQuad? coordinates) async {
+    String imageSourceId,
+    Uint8List? bytes,
+    LatLngQuad? coordinates,
+  ) async {
     try {
       return await _channel
           .invokeMethod('style#updateImageSource', <String, Object?>{
-        'imageSourceId': imageSourceId,
-        'bytes': bytes,
-        'length': bytes?.length,
-        'coordinates': coordinates?.toList()
-      });
+            'imageSourceId': imageSourceId,
+            'bytes': bytes,
+            'length': bytes?.length,
+            'coordinates': coordinates?.toList(),
+          });
     } on PlatformException catch (e) {
       return Future.error(e);
     }
@@ -607,11 +546,13 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<Point> toScreenLocation(LatLng latLng) async {
     try {
-      final screenPosMap =
-          await _channel.invokeMethod('map#toScreenLocation', <String, dynamic>{
-        'latitude': latLng.latitude,
-        'longitude': latLng.longitude,
-      });
+      final screenPosMap = await _channel.invokeMethod(
+        'map#toScreenLocation',
+        <String, dynamic>{
+          'latitude': latLng.latitude,
+          'longitude': latLng.longitude,
+        },
+      );
       return Point(screenPosMap['x'], screenPosMap['y']);
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -621,12 +562,13 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<List<Point>> toScreenLocationBatch(Iterable<LatLng> latLngs) async {
     try {
-      final coordinates = Float64List.fromList(latLngs
-          .map((e) => [e.latitude, e.longitude])
-          .expand((e) => e)
-          .toList());
+      final coordinates = Float64List.fromList(
+        latLngs.map((e) => [e.latitude, e.longitude]).expand((e) => e).toList(),
+      );
       final Float64List result = await _channel.invokeMethod(
-          'map#toScreenLocationBatch', {"coordinates": coordinates});
+        'map#toScreenLocationBatch',
+        {"coordinates": coordinates},
+      );
 
       final points = <Point>[];
       for (var i = 0; i < result.length; i += 2) {
@@ -642,24 +584,27 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<void> removeSource(String sourceId) async {
     try {
-      return await _channel.invokeMethod(
-        'style#removeSource',
-        <String, Object>{'sourceId': sourceId},
-      );
+      return await _channel.invokeMethod('style#removeSource', <String, Object>{
+        'sourceId': sourceId,
+      });
     } on PlatformException catch (e) {
       return Future.error(e);
     }
   }
 
   @override
-  Future<void> addLayer(String imageLayerId, String imageSourceId,
-      double? minzoom, double? maxzoom) async {
+  Future<void> addLayer(
+    String imageLayerId,
+    String imageSourceId,
+    double? minzoom,
+    double? maxzoom,
+  ) async {
     try {
       return await _channel.invokeMethod('style#addLayer', <String, dynamic>{
         'imageLayerId': imageLayerId,
         'imageSourceId': imageSourceId,
         'minzoom': minzoom,
-        'maxzoom': maxzoom
+        'maxzoom': maxzoom,
       });
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -667,17 +612,22 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
-  Future<void> addLayerBelow(String imageLayerId, String imageSourceId,
-      String belowLayerId, double? minzoom, double? maxzoom) async {
+  Future<void> addLayerBelow(
+    String imageLayerId,
+    String imageSourceId,
+    String belowLayerId,
+    double? minzoom,
+    double? maxzoom,
+  ) async {
     try {
       return await _channel
           .invokeMethod('style#addLayerBelow', <String, dynamic>{
-        'imageLayerId': imageLayerId,
-        'imageSourceId': imageSourceId,
-        'belowLayerId': belowLayerId,
-        'minzoom': minzoom,
-        'maxzoom': maxzoom
-      });
+            'imageLayerId': imageLayerId,
+            'imageSourceId': imageSourceId,
+            'belowLayerId': belowLayerId,
+            'minzoom': minzoom,
+            'maxzoom': maxzoom,
+          });
     } on PlatformException catch (e) {
       return Future.error(e);
     }
@@ -686,8 +636,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<void> removeLayer(String imageLayerId) async {
     try {
-      return await _channel.invokeMethod(
-          'style#removeLayer', <String, Object>{'layerId': imageLayerId});
+      return await _channel.invokeMethod('style#removeLayer', <String, Object>{
+        'layerId': imageLayerId,
+      });
     } on PlatformException catch (e) {
       return Future.error(e);
     }
@@ -696,8 +647,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<void> setFilter(String layerId, dynamic filter) async {
     try {
-      return await _channel.invokeMethod('style#setFilter',
-          <String, Object>{'layerId': layerId, 'filter': jsonEncode(filter)});
+      return await _channel.invokeMethod('style#setFilter', <String, Object>{
+        'layerId': layerId,
+        'filter': jsonEncode(filter),
+      });
     } on PlatformException catch (e) {
       return Future.error(e);
     }
@@ -706,10 +659,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<dynamic> getFilter(String layerId) async {
     try {
-      final Map<dynamic, dynamic> reply =
-          await _channel.invokeMethod('style#getFilter', <String, dynamic>{
-        'layerId': layerId,
-      });
+      final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
+        'style#getFilter',
+        <String, dynamic>{'layerId': layerId},
+      );
       final filter = reply["filter"];
       return filter != null ? jsonDecode(filter) : null;
     } on PlatformException catch (e) {
@@ -720,11 +673,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<LatLng> toLatLng(Point screenLocation) async {
     try {
-      final latLngMap =
-          await _channel.invokeMethod('map#toLatLng', <String, dynamic>{
-        'x': screenLocation.x,
-        'y': screenLocation.y,
-      });
+      final latLngMap = await _channel.invokeMethod(
+        'map#toLatLng',
+        <String, dynamic>{'x': screenLocation.x, 'y': screenLocation.y},
+      );
       return LatLng(latLngMap['latitude'], latLngMap['longitude']);
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -734,10 +686,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<double> getMetersPerPixelAtLatitude(double latitude) async {
     try {
-      final latLngMap = await _channel
-          .invokeMethod('map#getMetersPerPixelAtLatitude', <String, dynamic>{
-        'latitude': latitude,
-      });
+      final latLngMap = await _channel.invokeMethod(
+        'map#getMetersPerPixelAtLatitude',
+        <String, dynamic>{'latitude': latitude},
+      );
       return latLngMap['metersperpixel'];
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -745,8 +697,11 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }
 
   @override
-  Future<void> addGeoJsonSource(String sourceId, Map<String, dynamic> geojson,
-      {String? promoteId}) async {
+  Future<void> addGeoJsonSource(
+    String sourceId,
+    Map<String, dynamic> geojson, {
+    String? promoteId,
+  }) async {
     await _channel.invokeMethod('source#addGeoJson', <String, dynamic>{
       'sourceId': sourceId,
       'geojson': jsonEncode(geojson),
@@ -755,7 +710,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> setGeoJsonSource(
-      String sourceId, Map<String, dynamic> geojson) async {
+    String sourceId,
+    Map<String, dynamic> geojson,
+  ) async {
     await _channel.invokeMethod('source#setGeoJson', <String, dynamic>{
       'sourceId': sourceId,
       'geojson': jsonEncode(geojson),
@@ -785,13 +742,16 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> addSymbolLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom,
-      dynamic filter,
-      required bool enableInteraction}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+    dynamic filter,
+    required bool enableInteraction,
+  }) async {
     await _channel.invokeMethod('symbolLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
@@ -801,20 +761,24 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'maxzoom': maxzoom,
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> addLineLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom,
-      dynamic filter,
-      required bool enableInteraction}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+    dynamic filter,
+    required bool enableInteraction,
+  }) async {
     await _channel.invokeMethod('lineLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
@@ -824,30 +788,37 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'maxzoom': maxzoom,
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> setLayerProperties(
-      String layerId, Map<String, dynamic> properties) async {
+    String layerId,
+    Map<String, dynamic> properties,
+  ) async {
     await _channel.invokeMethod('layer#setProperties', <String, dynamic>{
       'layerId': layerId,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> addCircleLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom,
-      dynamic filter,
-      required bool enableInteraction}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+    dynamic filter,
+    required bool enableInteraction,
+  }) async {
     await _channel.invokeMethod('circleLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
@@ -857,20 +828,24 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'maxzoom': maxzoom,
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> addTriangleLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom,
-      dynamic filter,
-      required bool enableInteraction}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+    dynamic filter,
+    required bool enableInteraction,
+  }) async {
     await _channel.invokeMethod('triangleLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
@@ -880,15 +855,20 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'maxzoom': maxzoom,
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> addRotatableSymbolLayers(
-      String sourceId, String baseLayerId, Map<String, dynamic> properties,
-      {String? belowLayerId, required bool enableInteraction}) async {
+    String sourceId,
+    String baseLayerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    required bool enableInteraction,
+  }) async {
     await _channel.invokeMethod('rotatableSymbolLayers#add', <String, dynamic>{
       'sourceId': sourceId,
       'baseLayerId': baseLayerId,
@@ -900,13 +880,16 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> addFillLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom,
-      dynamic filter,
-      required bool enableInteraction}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+    dynamic filter,
+    required bool enableInteraction,
+  }) async {
     await _channel.invokeMethod('fillLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
@@ -916,20 +899,24 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'maxzoom': maxzoom,
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> addFillExtrusionLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom,
-      dynamic filter,
-      required bool enableInteraction}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+    dynamic filter,
+    required bool enableInteraction,
+  }) async {
     await _channel.invokeMethod('fillExtrusionLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
@@ -939,8 +926,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'maxzoom': maxzoom,
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
@@ -960,64 +948,78 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> addRasterLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+  }) async {
     await _channel.invokeMethod('rasterLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
       'belowLayerId': belowLayerId,
       'minzoom': minzoom,
       'maxzoom': maxzoom,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> addHillshadeLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+  }) async {
     await _channel.invokeMethod('hillshadeLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
       'belowLayerId': belowLayerId,
       'minzoom': minzoom,
       'maxzoom': maxzoom,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> addHeatmapLayer(
-      String sourceId, String layerId, Map<String, dynamic> properties,
-      {String? belowLayerId,
-      String? sourceLayer,
-      double? minzoom,
-      double? maxzoom}) async {
+    String sourceId,
+    String layerId,
+    Map<String, dynamic> properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+  }) async {
     await _channel.invokeMethod('heatmapLayer#add', <String, dynamic>{
       'sourceId': sourceId,
       'layerId': layerId,
       'belowLayerId': belowLayerId,
       'minzoom': minzoom,
       'maxzoom': maxzoom,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      'properties': properties.map(
+        (key, value) => MapEntry<String, String>(key, jsonEncode(value)),
+      ),
     });
   }
 
   @override
   Future<void> setFeatureForGeoJsonSource(
-      String sourceId, Map<String, dynamic> geojsonFeature) async {
+    String sourceId,
+    Map<String, dynamic> geojsonFeature,
+  ) async {
     await _channel.invokeMethod('source#setFeature', <String, dynamic>{
       'sourceId': sourceId,
-      'geojsonFeature': jsonEncode(geojsonFeature)
+      'geojsonFeature': jsonEncode(geojsonFeature),
     });
   }
 
@@ -1038,8 +1040,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<List> getLayerIds() async {
     try {
-      final Map<dynamic, dynamic> reply =
-          await _channel.invokeMethod('style#getLayerIds');
+      final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
+        'style#getLayerIds',
+      );
       return reply['layers'].map((it) => it.toString()).toList();
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -1049,8 +1052,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<List> getSourceIds() async {
     try {
-      final Map<dynamic, dynamic> reply =
-          await _channel.invokeMethod('style#getSourceIds');
+      final Map<dynamic, dynamic> reply = await _channel.invokeMethod(
+        'style#getSourceIds',
+      );
       return reply['sources'].map((it) => it.toString()).toList();
     } on PlatformException catch (e) {
       return Future.error(e);
@@ -1060,7 +1064,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   // Native Image Overlay Controls Implementation
   @override
   Future<void> addImageOverlayControls(
-      String overlayId, List<List<double>> coordinates, bool editMode) async {
+    String overlayId,
+    List<List<double>> coordinates,
+    bool editMode,
+  ) async {
     await _channel.invokeMethod('imageOverlay#addControls', <String, dynamic>{
       'overlayId': overlayId,
       'coordinates': coordinates,
@@ -1070,26 +1077,37 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> updateImageOverlayControls(
-      String overlayId, List<List<double>> coordinates, bool editMode) async {
-    await _channel
-        .invokeMethod('imageOverlay#updateControls', <String, dynamic>{
-      'overlayId': overlayId,
-      'coordinates': coordinates,
-      'editMode': editMode,
-    });
+    String overlayId,
+    List<List<double>> coordinates,
+    bool editMode,
+  ) async {
+    await _channel.invokeMethod(
+      'imageOverlay#updateControls',
+      <String, dynamic>{
+        'overlayId': overlayId,
+        'coordinates': coordinates,
+        'editMode': editMode,
+      },
+    );
   }
 
   @override
   Future<void> removeImageOverlayControls(String overlayId) async {
-    await _channel
-        .invokeMethod('imageOverlay#removeControls', <String, dynamic>{
-      'overlayId': overlayId,
-    });
+    await _channel.invokeMethod(
+      'imageOverlay#removeControls',
+      <String, dynamic>{'overlayId': overlayId},
+    );
   }
 
   @override
-  Future<void> handleImageOverlayGesture(String overlayId, String gestureType,
-      double screenX, double screenY, double deltaX, double deltaY) async {
+  Future<void> handleImageOverlayGesture(
+    String overlayId,
+    String gestureType,
+    double screenX,
+    double screenY,
+    double deltaX,
+    double deltaY,
+  ) async {
     await _channel.invokeMethod('imageOverlay#handleGesture', <String, dynamic>{
       'overlayId': overlayId,
       'gestureType': gestureType,
@@ -1102,71 +1120,29 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> setImageOverlayControlsSensitivity(
-      String overlayId, double sensitivity) async {
-    await _channel
-        .invokeMethod('imageOverlay#setSensitivity', <String, dynamic>{
-      'overlayId': overlayId,
-      'sensitivity': sensitivity,
-    });
+    String overlayId,
+    double sensitivity,
+  ) async {
+    await _channel.invokeMethod(
+      'imageOverlay#setSensitivity',
+      <String, dynamic>{'overlayId': overlayId, 'sensitivity': sensitivity},
+    );
   }
 
   @override
-  Future<void> enableTwoFingerHoldGestureDetection(bool enabled) async {
-    await _channel
-        .invokeMethod('map#enableTwoFingerHoldGesture', <String, dynamic>{
-      'enabled': enabled,
-    });
-  }
-
-  @override
-  Future<void> enableNativeMeasurement(bool enabled) async {
-    await _channel
-        .invokeMethod('map#enableNativeMeasurement', <String, dynamic>{
-      'enabled': enabled,
-    });
-  }
-
-  @override
-  Future<void> setNativeMeasurementStyle({
-    required String lineColor,
-    required double lineWidth,
-    required double lineOpacity,
-    required String endpointColor,
-    required double endpointRadius,
-  }) async {
-    await _channel
-        .invokeMethod('map#setNativeMeasurementStyle', <String, dynamic>{
-      'lineColor': lineColor,
-      'lineWidth': lineWidth,
-      'lineOpacity': lineOpacity,
-      'endpointColor': endpointColor,
-      'endpointRadius': endpointRadius,
-    });
-  }
-
-  @override
-  Future<void> clearNativeMeasurement() async {
-    await _channel.invokeMethod('map#clearNativeMeasurement');
-  }
-
-  @override
-  Future<void> ensureMeasurementLayersOnTop() async {
-    await _channel.invokeMethod('map#ensureMeasurementLayersOnTop');
-  }
-
-  @override
-  Future<void> enableLineEditing(String lineId, bool enabled,
-      [List<LatLng>? coordinates]) async {
-    final args = <String, dynamic>{
-      'lineId': lineId,
-      'enabled': enabled,
-    };
+  Future<void> enableLineEditing(
+    String lineId,
+    bool enabled, [
+    List<LatLng>? coordinates,
+  ]) async {
+    final args = <String, dynamic>{'lineId': lineId, 'enabled': enabled};
 
     // Include coordinates when enabling editing
     if (enabled && coordinates != null && coordinates.isNotEmpty) {
-      args['coordinates'] = coordinates
-          .map((coord) => [coord.latitude, coord.longitude])
-          .toList();
+      args['coordinates'] =
+          coordinates
+              .map((coord) => [coord.latitude, coord.longitude])
+              .toList();
     }
 
     await _channel.invokeMethod('line#enableEditing', args);
@@ -1191,22 +1167,20 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   }) async {
     await _channel
         .invokeMethod('map#addRotatableSymbolPngLayers', <String, dynamic>{
-      'sourceId': sourceId,
-      'baseLayerId': baseLayerId,
-      'belowLayerId': belowLayerId,
-      'aircraftIconPath': aircraftIconPath,
-      'arrowIconPath': arrowIconPath,
-      'aircraftIconSize': aircraftIconSize,
-      'arrowIconSize': arrowIconSize,
-      'enableInteraction': enableInteraction,
-      'config': config,
-    });
+          'sourceId': sourceId,
+          'baseLayerId': baseLayerId,
+          'belowLayerId': belowLayerId,
+          'aircraftIconPath': aircraftIconPath,
+          'arrowIconPath': arrowIconPath,
+          'aircraftIconSize': aircraftIconSize,
+          'arrowIconSize': arrowIconSize,
+          'enableInteraction': enableInteraction,
+          'config': config,
+        });
   }
 
   @override
   Future<bool> isLineEditable(String lineId) async {
-    return await _channel.invokeMethod('line#isEditable', {
-      'lineId': lineId,
-    });
+    return await _channel.invokeMethod('line#isEditable', {'lineId': lineId});
   }
 }

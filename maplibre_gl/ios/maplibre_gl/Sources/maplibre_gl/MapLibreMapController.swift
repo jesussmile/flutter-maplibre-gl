@@ -2,7 +2,7 @@ import Flutter
 import MapLibre
 
 class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, MapLibreMapOptionsSink,
-    UIGestureRecognizerDelegate, NativeMeasurementListener
+    UIGestureRecognizerDelegate
 {
     // Feature flags for experimental features
     private static let enableExperimentalTriangleLayers = ProcessInfo.processInfo.environment["MAPLIBRE_EXPERIMENTAL_TRIANGLE_LAYERS"] == "true"
@@ -28,11 +28,6 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
 
     private var interactiveFeatureLayerIds = Set<String>()
     private var addedShapesByLayer = [String: MLNShape]()
-    private var twoFingerHoldGestureEnabled = false
-    private var twoFingerHoldGestureRecognizer: UILongPressGestureRecognizer?
-    
-    // Native measurement detector
-    private var nativeMeasurementDetector: NativeMeasurementDetector?
     
     // Polyline editing components
     private var polylineEditingManager: PolylineEditingManager?
@@ -1189,29 +1184,6 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             reply["filter"] = currentLayerFilter as NSObject
             result(reply)
             
-        case "map#enableTwoFingerHoldGesture":
-            guard let arguments = methodCall.arguments as? [String: Any] else { return }
-            if let enabled = arguments["enabled"] as? Bool {
-                enableTwoFingerHoldGestureDetection(enabled: enabled)
-            }
-            result(nil)
-            
-        case "map#enableNativeMeasurement":
-            guard let arguments = methodCall.arguments as? [String: Any] else { return }
-            if let enabled = arguments["enabled"] as? Bool {
-                enableNativeMeasurement(enabled: enabled)
-            }
-            result(nil)
-            
-        case "map#setNativeMeasurementStyle":
-            guard let arguments = methodCall.arguments as? [String: Any] else { return }
-            setNativeMeasurementStyle(arguments: arguments)
-            result(nil)
-            
-        case "map#clearNativeMeasurement":
-            clearNativeMeasurement()
-            result(nil)
-            
         case "line#enableEditing", "line#setEditingStyle", "line#isEditable":
             handlePolylineEditingMethodCall(methodCall: methodCall, result: result)
             
@@ -1280,141 +1252,6 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             }
         }
         return (nil, nil)
-    }
-
-    private func enableTwoFingerHoldGestureDetection(enabled: Bool) {
-        twoFingerHoldGestureEnabled = enabled
-        
-        if enabled {
-            if twoFingerHoldGestureRecognizer == nil {
-                twoFingerHoldGestureRecognizer = UILongPressGestureRecognizer(
-                    target: self,
-                    action: #selector(handleTwoFingerHoldGesture(sender:))
-                )
-                twoFingerHoldGestureRecognizer?.numberOfTouchesRequired = 2
-                twoFingerHoldGestureRecognizer?.minimumPressDuration = 0.5
-                twoFingerHoldGestureRecognizer?.delegate = self
-                mapView.addGestureRecognizer(twoFingerHoldGestureRecognizer!)
-            }
-        } else {
-            if let recognizer = twoFingerHoldGestureRecognizer {
-                mapView.removeGestureRecognizer(recognizer)
-                twoFingerHoldGestureRecognizer = nil
-            }
-        }
-    }
-    
-    // MARK: - Native Measurement Methods
-    
-    private func enableNativeMeasurement(enabled: Bool) {
-        if enabled {
-            if nativeMeasurementDetector == nil {
-                nativeMeasurementDetector = NativeMeasurementDetector(
-                    mapView: mapView,
-                    listener: self
-                )
-            }
-            nativeMeasurementDetector?.enable()
-        } else {
-            nativeMeasurementDetector?.disable()
-        }
-    }
-    
-    private func setNativeMeasurementStyle(arguments: [String: Any]) {
-        guard let nativeMeasurementDetector = nativeMeasurementDetector else { return }
-        
-        if let lineColor = arguments["lineColor"] as? String {
-            nativeMeasurementDetector.updateLineColor(lineColor)
-        }
-        if let lineWidth = arguments["lineWidth"] as? Double {
-            nativeMeasurementDetector.updateLineWidth(Float(lineWidth))
-        }
-        if let pointColor = arguments["pointColor"] as? String {
-            nativeMeasurementDetector.updatePointColor(pointColor)
-        }
-        if let pointRadius = arguments["pointRadius"] as? Double {
-            nativeMeasurementDetector.updatePointRadius(Float(pointRadius))
-        }
-        if let labelColor = arguments["labelColor"] as? String {
-            nativeMeasurementDetector.updateLabelColor(labelColor)
-        }
-        if let labelSize = arguments["labelSize"] as? Double {
-            nativeMeasurementDetector.updateLabelSize(Float(labelSize))
-        }
-    }
-    
-    private func clearNativeMeasurement() {
-        nativeMeasurementDetector?.clear()
-    }
-    
-    // MARK: - NativeMeasurementListener Implementation
-    
-    func onMeasurementStart(
-        point1: CGPoint,
-        point2: CGPoint,
-        latLng1: CLLocationCoordinate2D,
-        latLng2: CLLocationCoordinate2D,
-        distance: Double,
-        bearing: Double,
-        duration: Int64
-    ) {
-        channel?.invokeMethod("map#onNativeMeasurementStart", arguments: [
-            "distance": distance,
-            "bearing": bearing,
-            "duration": duration
-        ])
-    }
-    
-    func onMeasurementUpdate(
-        point1: CGPoint,
-        point2: CGPoint,
-        latLng1: CLLocationCoordinate2D,
-        latLng2: CLLocationCoordinate2D,
-        distance: Double,
-        bearing: Double,
-        duration: Int64
-    ) {
-        channel?.invokeMethod("map#onNativeMeasurementUpdate", arguments: [
-            "distance": distance,
-            "bearing": bearing,
-            "duration": duration
-        ])
-    }
-    
-    func onMeasurementEnd(
-        point1: CGPoint,
-        point2: CGPoint,
-        latLng1: CLLocationCoordinate2D,
-        latLng2: CLLocationCoordinate2D,
-        distance: Double,
-        bearing: Double,
-        duration: Int64
-    ) {
-        channel?.invokeMethod("map#onNativeMeasurementEnd", arguments: [
-            "distance": distance,
-            "bearing": bearing,
-            "duration": duration
-        ])
-    }
-    
-    /*
-     *  UILongPressGestureRecognizer for two-finger hold
-     *  On two-finger hold invoke the map#onTwoFingerHoldGesture callback.
-     */
-    @IBAction func handleTwoFingerHoldGesture(sender: UILongPressGestureRecognizer) {
-        if sender.state == .began {
-            let point = sender.location(in: mapView)
-            let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
-            let duration = Int64(sender.minimumPressDuration * 1000) // Convert to milliseconds
-            
-            channel?.invokeMethod("map#onTwoFingerHoldGesture", arguments: [
-                "x": point.x,
-                "y": point.y,
-                "lng": coordinate.longitude,
-                "lat": coordinate.latitude,
-                "duration": duration,
-            ])
-        }
     }
 
     /*
@@ -3225,19 +3062,6 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             return .failure(.genericError(details: error.localizedDescription))
         }
     }
-    
-    deinit {
-        // Clean up native measurement detector
-        nativeMeasurementDetector?.disable()
-        nativeMeasurementDetector = nil
-        
-        // Clean up two-finger hold gesture recognizer
-        if let recognizer = twoFingerHoldGestureRecognizer {
-            mapView.removeGestureRecognizer(recognizer)
-            twoFingerHoldGestureRecognizer = nil
-        }
-    }
-    
     // MARK: - Polyline Editing
     
     /**
