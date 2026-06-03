@@ -2,7 +2,7 @@ import Flutter
 import MapLibre
 
 class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, MapLibreMapOptionsSink,
-    UIGestureRecognizerDelegate
+    UIGestureRecognizerDelegate, NativeMeasurementDetectorDelegate
 {
     // Feature flags for experimental features
     private static let enableExperimentalTriangleLayers = ProcessInfo.processInfo.environment["MAPLIBRE_EXPERIMENTAL_TRIANGLE_LAYERS"] == "true"
@@ -28,6 +28,8 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
 
     private var interactiveFeatureLayerIds = Set<String>()
     private var addedShapesByLayer = [String: MLNShape]()
+    private var featureTapsTriggersMapClick = false
+    private var nativeMeasurementDetector: NativeMeasurementDetector?
     
     // Polyline editing components
     private var polylineEditingManager: PolylineEditingManager?
@@ -1185,10 +1187,21 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             reply["filter"] = currentLayerFilter as NSObject
             result(reply)
             
-        case "map#enableNativeMeasurement",
-             "map#setNativeMeasurementStyle",
-             "map#clearNativeMeasurement",
-             "map#ensureMeasurementLayersOnTop":
+        case "map#enableNativeMeasurement":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            enableNativeMeasurement(arguments["enabled"] as? Bool ?? false)
+            result(nil)
+
+        case "map#setNativeMeasurementStyle":
+            setNativeMeasurementStyle(methodCall.arguments)
+            result(nil)
+
+        case "map#clearNativeMeasurement":
+            nativeMeasurementDetector?.clearMeasurement()
+            result(nil)
+
+        case "map#ensureMeasurementLayersOnTop":
+            nativeMeasurementDetector?.ensureMeasurementLayersOnTop()
             result(nil)
 
         case "line#enableEditing", "line#setEditingStyle", "line#isEditable":
@@ -1224,6 +1237,75 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
                 mapView.style?.setImage(imageFromAsset, forName: iconImageName)
             }
         }
+    }
+
+    private func enableNativeMeasurement(_ enabled: Bool) {
+        if enabled {
+            if nativeMeasurementDetector == nil {
+                nativeMeasurementDetector = NativeMeasurementDetector(mapView: mapView, delegate: self)
+            } else {
+                nativeMeasurementDetector?.ensureMeasurementLayersOnTop()
+            }
+        } else {
+            nativeMeasurementDetector?.disable()
+            nativeMeasurementDetector = nil
+        }
+    }
+
+    private func setNativeMeasurementStyle(_ arguments: Any?) {
+        guard let detector = nativeMeasurementDetector,
+              let style = arguments as? [String: Any] else {
+            return
+        }
+
+        detector.setMeasurementStyle(
+            lineColor: style["lineColor"] as? String ?? "#E8604C",
+            lineWidth: doubleValue(style["lineWidth"], fallback: 4.0),
+            lineOpacity: doubleValue(style["lineOpacity"], fallback: 0.9),
+            endpointColor: style["endpointColor"] as? String ?? "#FFFFFF",
+            endpointRadius: doubleValue(style["endpointRadius"], fallback: 9.0)
+        )
+    }
+
+    private func doubleValue(_ value: Any?, fallback: Double) -> Double {
+        if let double = value as? Double {
+            return double
+        }
+        if let int = value as? Int {
+            return Double(int)
+        }
+        if let number = value as? NSNumber {
+            return number.doubleValue
+        }
+        return fallback
+    }
+
+    func nativeMeasurementDetector(_ detector: NativeMeasurementDetector, didStart event: NativeMeasurementEvent) {
+        sendNativeMeasurementEvent("measurement#onStart", event)
+    }
+
+    func nativeMeasurementDetector(_ detector: NativeMeasurementDetector, didUpdate event: NativeMeasurementEvent) {
+        sendNativeMeasurementEvent("measurement#onUpdate", event)
+    }
+
+    func nativeMeasurementDetector(_ detector: NativeMeasurementDetector, didEnd event: NativeMeasurementEvent) {
+        sendNativeMeasurementEvent("measurement#onEnd", event)
+    }
+
+    private func sendNativeMeasurementEvent(_ eventName: String, _ event: NativeMeasurementEvent) {
+        channel?.invokeMethod(eventName, arguments: [
+            "x1": event.point1.x,
+            "y1": event.point1.y,
+            "x2": event.point2.x,
+            "y2": event.point2.y,
+            "lat1": event.coordinate1.latitude,
+            "lng1": event.coordinate1.longitude,
+            "lat2": event.coordinate2.latitude,
+            "lng2": event.coordinate2.longitude,
+            "distance": event.distance,
+            "bearing": event.bearing,
+            "duration": event.duration,
+        ])
     }
 
     private func updateMyLocationEnabled() {
@@ -1268,25 +1350,32 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
     @IBAction func handleMapTap(sender: UITapGestureRecognizer) {
         // Get the CGPoint where the user tapped.
         let point = sender.location(in: mapView)
+        if nativeMeasurementDetector?.handleMapTap(at: point) == true {
+            return
+        }
+
         let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
 
         let result = firstFeatureOnLayers(at: point)
+        var arguments: [String: Any] = [
+            "x": point.x,
+            "y": point.y,
+            "lng": coordinate.longitude,
+            "lat": coordinate.latitude,
+        ]
         if let feature = result.feature {
-            channel?.invokeMethod("feature#onTap", arguments: [
-                        "id": feature.identifier,
-                        "x": point.x,
-                        "y": point.y,
-                        "lng": coordinate.longitude,
-                        "lat": coordinate.latitude,
-                        "layerId": result.layerId,
-            ])
+            if let identifier = feature.identifier {
+                arguments["id"] = identifier
+            }
+            if let layerId = result.layerId {
+                arguments["layerId"] = layerId
+            }
+            channel?.invokeMethod("feature#onTap", arguments: arguments)
+            if featureTapsTriggersMapClick {
+                channel?.invokeMethod("map#onMapClick", arguments: arguments)
+            }
         } else {
-            channel?.invokeMethod("map#onMapClick", arguments: [
-                "x": point.x,
-                "y": point.y,
-                "lng": coordinate.longitude,
-                "lat": coordinate.latitude,
-            ])
+            channel?.invokeMethod("map#onMapClick", arguments: arguments)
         }
     }
 
@@ -1419,6 +1508,7 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         
         // Initialize polyline editing components
         initializePolylineEditing()
+        nativeMeasurementDetector?.ensureMeasurementLayersOnTop()
 
         mapReadyResult?(nil)
 
@@ -2133,9 +2223,9 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         mapView.compassView.isHidden = !compassEnabled
     }
 
-    func setMinMaxZoomPreference(min: Double, max: Double) {
-        mapView.minimumZoomLevel = min
-        mapView.maximumZoomLevel = max
+    func setMinMaxZoomPreference(min: Double?, max: Double?) {
+        mapView.minimumZoomLevel = min ?? 0
+        mapView.maximumZoomLevel = max ?? 22
     }
 
     func setStyleString(styleString: String) {
@@ -2213,6 +2303,14 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         }
     }
 
+    func setLogoEnabled(logoEnabled: Bool) {
+        mapView.logoView.isHidden = !logoEnabled
+    }
+
+    func setLogoViewPosition(position: MLNOrnamentPosition) {
+        mapView.logoViewPosition = position
+    }
+
     func setLogoViewMargins(x: Double, y: Double) {
         mapView.logoViewMargins = CGPoint(x: x, y: y)
     }
@@ -2231,6 +2329,14 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
 
     func setAttributionButtonPosition(position: MLNOrnamentPosition) {
         mapView.attributionButtonPosition = position
+    }
+
+    func setFeatureTapsTriggersMapClick(triggers: Bool) {
+        featureTapsTriggersMapClick = triggers
+    }
+
+    func setLocationEngineProperties(enableHighAccuracy _: Bool, distanceFilter _: Double) {
+        // MapLibre iOS owns the location manager; this keeps option parsing parity with Android.
     }
     
     // MARK: - Rotatable Symbol PNG Layers Implementation
