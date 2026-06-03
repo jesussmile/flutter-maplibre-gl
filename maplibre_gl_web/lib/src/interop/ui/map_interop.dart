@@ -1035,9 +1035,55 @@ extension CanvasContextAttributesJsImplExtension
 
 @JS()
 @staticInterop
+@anonymous
 class MapOptionsJsImpl {
-  factory MapOptionsJsImpl() => createJsObject() as MapOptionsJsImpl;
+  external factory MapOptionsJsImpl({
+    JSAny? hash,
+    bool? interactive,
+    JSAny? container,
+    num? bearingSnap,
+    bool? pitchWithRotate,
+    num? clickTolerance,
+    bool? attributionControl,
+    JSAny? customAttribution,
+    String? logoPosition,
+    bool? failIfMajorPerformanceCaveat,
+    bool? preserveDrawingBuffer,
+    bool? antialias,
+    bool? refreshExpiredTiles,
+    LngLatBoundsJsImpl? maxBounds,
+    bool? scrollZoom,
+    num? minZoom,
+    num? maxZoom,
+    num? minPitch,
+    num? maxPitch,
+    JSAny? style,
+    bool? boxZoom,
+    bool? dragRotate,
+    JSAny? dragPan,
+    bool? keyboard,
+    bool? doubleClickZoom,
+    bool? touchZoomRotate,
+    bool? trackResize,
+    LngLatJsImpl? center,
+    num? zoom,
+    num? bearing,
+    num? pitch,
+    LngLatBoundsJsImpl? bounds,
+    JSAny? fitBoundsOptions,
+    bool? renderWorldCopies,
+    num? maxTileCacheSize,
+    String? localIdeographFontFamily,
+    JSFunction? transformRequest,
+    bool? collectResourceTiming,
+    num? fadeDuration,
+    bool? crossSourceCollisions,
+    String? accessToken,
+    JSAny? locale,
+  });
 }
+
+typedef RequestTransformFunctionJsImpl = JSFunction;
 
 extension MapOptionsJsImplExtension on MapOptionsJsImpl {
   /// If `true`, the map's position (zoom, center latitude, center longitude, bearing, and pitch) will be synced with the hash fragment of the page's URL.
@@ -1046,39 +1092,52 @@ extension MapOptionsJsImplExtension on MapOptionsJsImpl {
   /// e.g. http://path/to/my/page.html#map=2.59/39.26/53.07/-24.1/60&foo=bar, where foo
   /// is a custom parameter and bar is an arbitrary hash distinct from the map hash.
   /// `bool` or `String`
-  external JSAny get hash;
-  external set hash(JSAny value);
+  external JSAny? get hash;
+  external set hash(JSAny? value);
 
   /// If `false`, no mouse, touch, or keyboard listeners will be attached to the map, so it will not respond to interaction.
-  external JSBoolean get interactive;
-  external set interactive(JSBoolean value);
+  external bool get interactive;
+  external set interactive(bool value);
 
   /// The HTML element in which MapLibre JS JS will render the map, or the element's string `id`. The specified element must have no children.
   /// `HTMLElement` or `String`
-  external JSAny get container;
-  external set container(JSAny value);
+  external JSAny? get container;
+  external set container(JSAny? value);
 
   /// The threshold, measured in degrees, that determines when the map's
   /// bearing will snap to north. For example, with a `bearingSnap` of 7, if the user rotates
   /// the map within 7 degrees of north, the map will automatically snap to exact north.
-  external JSNumber get bearingSnap;
-  external set bearingSnap(JSNumber value);
+  external num get bearingSnap;
+  external set bearingSnap(num value);
 
   /// If `false`, the map's pitch (tilt) control with "drag to rotate" interaction will be disabled.
-  external JSBoolean get pitchWithRotate;
-  external set pitchWithRotate(JSBoolean value);
+  external bool get pitchWithRotate;
+  external set pitchWithRotate(bool value);
 
   ///  The max number of pixels a user can shift the mouse pointer during a click for it to be considered a valid click (as opposed to a mouse drag).
-  external JSNumber get clickTolerance;
-  external set clickTolerance(JSNumber value);
+  external num get clickTolerance;
+  external set clickTolerance(num value);
 
   /// If `true`, an {@link AttributionControl} will be added to the map.
-  external JSBoolean get attributionControl;
-  external set attributionControl(JSBoolean value);
+  external bool get attributionControl;
+  external set attributionControl(bool value);
+
+  /// String or strings to show in an AttributionControl.
+  external JSAny? get customAttribution;
+  external set customAttribution(JSAny? value);
 
   /// A string representing the position of the MapLibre wordmark on the map. Valid options are `top-left`,`top-right`, `bottom-left`, `bottom-right`.
-  external JSString get logoPosition;
-  external set logoPosition(JSString value);
+  external String get logoPosition;
+  external set logoPosition(String value);
+
+  external bool? get failIfMajorPerformanceCaveat;
+  external set failIfMajorPerformanceCaveat(bool? value);
+
+  external bool? get preserveDrawingBuffer;
+  external set preserveDrawingBuffer(bool? value);
+
+  external bool? get antialias;
+  external set antialias(bool? value);
 
   /// WebGL context attributes to pass to the canvas. In MapLibre GL JS v5+,
   /// `preserveDrawingBuffer`, `antialias`, and `failIfMajorPerformanceCaveat`
@@ -1087,32 +1146,32 @@ extension MapOptionsJsImplExtension on MapOptionsJsImpl {
   external set canvasContextAttributes(CanvasContextAttributesJsImpl? value);
 
   /// If `false`, the map won't attempt to re-request tiles once they expire per their HTTP `cacheControl`/`expires` headers.
-  external JSBoolean get refreshExpiredTiles;
-  external set refreshExpiredTiles(JSBoolean? value);
+  external bool get refreshExpiredTiles;
+  external set refreshExpiredTiles(bool? value);
 
   /// If set, the map will be constrained to the given bounds.
   external LngLatBoundsJsImpl get maxBounds;
   external set maxBounds(LngLatBoundsJsImpl value);
 
   /// If `true`, the "scroll to zoom" interaction is enabled. An `Object` value is passed as options to {@link ScrollZoomHandler#enable}.
-  external JSBoolean get scrollZoom;
-  external set scrollZoom(JSBoolean value);
+  external bool get scrollZoom;
+  external set scrollZoom(bool value);
 
   /// The minimum zoom level of the map (0-24).
-  external JSNumber get minZoom;
-  external set minZoom(JSNumber value);
+  external num get minZoom;
+  external set minZoom(num value);
 
   /// The maximum zoom level of the map (0-24).
-  external JSNumber get maxZoom;
-  external set maxZoom(JSNumber value);
+  external num get maxZoom;
+  external set maxZoom(num value);
 
   /// The minimum pitch of the map (0-60).
-  external JSNumber get minPitch;
-  external set minPitch(JSNumber value);
+  external num get minPitch;
+  external set minPitch(num value);
 
   /// The maximum pitch of the map (0-60).
-  external JSNumber get maxPitch;
-  external set maxPitch(JSNumber value);
+  external num get maxPitch;
+  external set maxPitch(num value);
 
   ///  The map's MapLibre style. This must be an a JSON object conforming to
   ///  the schema described in the [MapLibre Style Specification](https://maplibre.org/maplibre-style-spec/), or a URL to
@@ -1121,48 +1180,48 @@ extension MapOptionsJsImplExtension on MapOptionsJsImpl {
   external set style(JSAny? value);
 
   /// If `true`, the "box zoom" interaction is enabled (see {@link BoxZoomHandler}).
-  external JSBoolean get boxZoom;
-  external set boxZoom(JSBoolean value);
+  external bool get boxZoom;
+  external set boxZoom(bool value);
 
   /// If `true`, the "drag to rotate" interaction is enabled (see {@link DragRotateHandler}).
-  external JSBoolean get dragRotate;
-  external set dragRotate(JSBoolean value);
+  external bool get dragRotate;
+  external set dragRotate(bool value);
 
   /// If `true`, the "drag to pan" interaction is enabled. An `Object` value is passed as options to {@link DragPanHandler#enable}.
   external JSAny get dragPan;
   external set dragPan(JSAny value);
 
   /// If `true`, keyboard shortcuts are enabled (see {@link KeyboardHandler}).
-  external JSBoolean get keyboard;
-  external set keyboard(JSBoolean value);
+  external bool get keyboard;
+  external set keyboard(bool value);
 
   /// If `true`, the "double click to zoom" interaction is enabled (see {@link DoubleClickZoomHandler}).
-  external JSBoolean get doubleClickZoom;
-  external set doubleClickZoom(JSBoolean value);
+  external bool get doubleClickZoom;
+  external set doubleClickZoom(bool value);
 
   /// If `true`, the "pinch to rotate and zoom" interaction is enabled. An `Object` value is passed as options to {@link TouchZoomRotateHandler#enable}.
-  external JSBoolean get touchZoomRotate;
-  external set touchZoomRotate(JSBoolean value);
+  external bool get touchZoomRotate;
+  external set touchZoomRotate(bool value);
 
   /// If `true`, the map will automatically resize when the browser window resizes.
-  external JSBoolean get trackResize;
-  external set trackResize(JSBoolean value);
+  external bool get trackResize;
+  external set trackResize(bool value);
 
   /// The inital geographical centerpoint of the map. If `center` is not specified in the constructor options, MapLibre JS JS will look for it in the map's style object. If it is not specified in the style, either, it will default to `[0, 0]` Note: MapLibre JS uses longitude, latitude coordinate order (as opposed to latitude, longitude) to match GeoJSON.
   external LngLatJsImpl get center;
   external set center(LngLatJsImpl value);
 
   /// The initial zoom level of the map. If `zoom` is not specified in the constructor options, MapLibre JS JS will look for it in the map's style object. If it is not specified in the style, either, it will default to `0`.
-  external JSNumber get zoom;
-  external set zoom(JSNumber value);
+  external num get zoom;
+  external set zoom(num value);
 
   /// The initial bearing (rotation) of the map, measured in degrees counter-clockwise from north. If `bearing` is not specified in the constructor options, MapLibre JS JS will look for it in the map's style object. If it is not specified in the style, either, it will default to `0`.
-  external JSNumber get bearing;
-  external set bearing(JSNumber value);
+  external num get bearing;
+  external set bearing(num value);
 
   /// The initial pitch (tilt) of the map, measured in degrees away from the plane of the screen (0-60). If `pitch` is not specified in the constructor options, MapLibre JS JS will look for it in the map's style object. If it is not specified in the style, either, it will default to `0`.
-  external JSNumber get pitch;
-  external set pitch(JSNumber value);
+  external num get pitch;
+  external set pitch(num value);
 
   /// The initial bounds of the map. If `bounds` is specified, it overrides `center` and `zoom` constructor options.
   external LngLatBoundsJsImpl get bounds;
@@ -1177,20 +1236,20 @@ extension MapOptionsJsImplExtension on MapOptionsJsImpl {
   /// container, there will be blank space beyond 180 and -180 degrees longitude.
   /// - Features that cross 180 and -180 degrees longitude will be cut in two (with one portion on the right edge of the
   /// map and the other on the left edge of the map) at every zoom level.
-  external JSBoolean get renderWorldCopies;
-  external set renderWorldCopies(JSBoolean value);
+  external bool get renderWorldCopies;
+  external set renderWorldCopies(bool value);
 
   /// The maximum number of tiles stored in the tile cache for a given source. If omitted, the cache will be dynamically sized based on the current viewport.
-  external JSNumber get maxTileCacheSize;
-  external set maxTileCacheSize(JSNumber value);
+  external num get maxTileCacheSize;
+  external set maxTileCacheSize(num value);
 
   /// Defines a CSS
   /// font-family for locally overriding generation of glyphs in the 'CJK Unified Ideographs', 'Hiragana', 'Katakana' and 'Hangul Syllables' ranges.
   /// In these ranges, font settings from the map's style will be ignored, except for font-weight keywords (light/regular/medium/bold).
   /// Set to `false`, to enable font settings from the map's style for these glyph ranges.
   /// The purpose of this option is to avoid bandwidth-intensive glyph server requests. (See [Use locally generated ideographs](https://maplibre.org/maplibre-gl-js/docs/examples/local-ideographs).)
-  external JSString get localIdeographFontFamily;
-  external set localIdeographFontFamily(JSString value);
+  external String get localIdeographFontFamily;
+  external set localIdeographFontFamily(String value);
 
   /// A callback run before the MapLibreMap makes a request for an external URL. The callback can be used to modify the url, set headers, or set the credentials property for cross-origin requests.
   /// Expected to return an object with a `url` property and optionally `headers` and `credentials` properties.
@@ -1198,20 +1257,20 @@ extension MapOptionsJsImplExtension on MapOptionsJsImpl {
   external set transformRequest(JSFunction value);
 
   /// If `true`, Resource Timing API information will be collected for requests made by GeoJSON and Vector Tile web workers (this information is normally inaccessible from the main Javascript thread). Information will be returned in a `resourceTiming` property of relevant `data` events.
-  external JSBoolean get collectResourceTiming;
-  external set collectResourceTiming(JSBoolean value);
+  external bool get collectResourceTiming;
+  external set collectResourceTiming(bool value);
 
   /// Controls the duration of the fade-in/fade-out animation for label collisions, in milliseconds. This setting affects all symbol layers. This setting does not affect the duration of runtime styling transitions or raster tile cross-fading.
-  external JSNumber get fadeDuration;
-  external set fadeDuration(JSNumber value);
+  external num get fadeDuration;
+  external set fadeDuration(num value);
 
   /// If `true`, symbols from multiple sources can collide with each other during collision detection. If `false`, collision detection is run separately for the symbols in each source.
-  external JSBoolean get crossSourceCollisions;
-  external set crossSourceCollisions(JSBoolean value);
+  external bool get crossSourceCollisions;
+  external set crossSourceCollisions(bool value);
 
   /// If specified, map will use this token instead of the one defined in accessToken.
-  external JSString get accessToken;
-  external set accessToken(JSString value);
+  external String get accessToken;
+  external set accessToken(String value);
 
   /// A patch to apply to the default localization table for UI strings, e.g. control tooltips. The `locale` object maps namespaced UI string IDs to translated strings in the target language; see `src/ui/default_locale.js` for an example with all supported string IDs. The object may specify all UI strings (thereby adding support for a new translation) or only a subset of strings (thereby patching the default translation table).
   external JSAny? get locale;
@@ -1220,26 +1279,32 @@ extension MapOptionsJsImplExtension on MapOptionsJsImpl {
 
 @JS()
 @staticInterop
+@anonymous
 class RequestParametersJsImpl {
-  factory RequestParametersJsImpl() =>
-      createJsObject() as RequestParametersJsImpl;
+  external factory RequestParametersJsImpl({
+    String? url,
+    String? credentials,
+    JSAny? headers,
+    String? method,
+    bool? collectResourceTiming,
+  });
 }
 
 extension RequestParametersJsImplExtension on RequestParametersJsImpl {
-  external JSString? get url;
-  external set url(JSString? value);
+  external String? get url;
+  external set url(String? value);
 
-  external JSString? get credentials;
-  external set credentials(JSString? value);
+  external String? get credentials;
+  external set credentials(String? value);
 
   external JSAny? get headers;
   external set headers(JSAny? value);
 
-  external JSString? get method;
-  external set method(JSString? value);
+  external String? get method;
+  external set method(String? value);
 
-  external JSBoolean? get collectResourceTiming;
-  external set collectResourceTiming(JSBoolean? value);
+  external bool? get collectResourceTiming;
+  external set collectResourceTiming(bool? value);
 }
 
 ///  Interface for interactive controls added to the map. This is a

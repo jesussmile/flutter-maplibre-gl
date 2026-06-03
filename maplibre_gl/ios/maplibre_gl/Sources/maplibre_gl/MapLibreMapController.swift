@@ -715,7 +715,8 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
             guard let bytes = arguments["bytes"] as? FlutterStandardTypedData else { return }
             guard let sdf = arguments["sdf"] as? Bool else { return }
             guard let data = bytes.data as? Data else { return }
-            guard let image = UIImage(data: data, scale: UIScreen.main.scale) else { return }
+            let pixelRatio = arguments["pixelRatio"] as? Double ?? Double(UIScreen.main.scale)
+            guard let image = UIImage(data: data, scale: CGFloat(pixelRatio)) else { return }
             if sdf {
                 mapView.style?.setImage(image.withRenderingMode(.alwaysTemplate), forName: name)
             } else {

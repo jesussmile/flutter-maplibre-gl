@@ -51,6 +51,7 @@ class MapLibreMap extends StatefulWidget {
     this.onCameraTrackingChanged,
     this.onCameraIdle,
     this.onMapIdle,
+    this.featureTapsTriggersMapClick = false,
     this.annotationOrder = const [
       AnnotationType.line,
       AnnotationType.symbol,
@@ -268,6 +269,11 @@ class MapLibreMap extends StatefulWidget {
   /// * All fade/transition animations have completed
   final OnMapIdleCallback? onMapIdle;
 
+  /// When true, tapping a style feature also emits the normal map click
+  /// callback. This is useful for apps that do their own feature hit-testing
+  /// from [onMapClick].
+  final bool featureTapsTriggersMapClick;
+
   /// Set `MapLibreMap.useHybridComposition` to `false` in order use Virtual-Display
   /// (better for Android 9 and below but may result in errors on Android 12)
   /// or leave it `true` (default) to use Hybrid composition (Slower on Android 9 and below).
@@ -393,6 +399,7 @@ class _MapLibreMapOptions {
       this.compassViewMargins,
       this.attributionButtonPosition,
       this.attributionButtonMargins,
+      this.featureTapsTriggersMapClick,
       this.locationEnginePlatforms});
 
   _MapLibreMapOptions.fromWidget(MapLibreMap map)
@@ -418,6 +425,7 @@ class _MapLibreMapOptions {
           compassViewMargins: map.compassViewMargins,
           attributionButtonPosition: map.attributionButtonPosition,
           attributionButtonMargins: map.attributionButtonMargins,
+          featureTapsTriggersMapClick: map.featureTapsTriggersMapClick,
         );
 
   final bool? compassEnabled;
@@ -457,6 +465,8 @@ class _MapLibreMapOptions {
   final AttributionButtonPosition? attributionButtonPosition;
 
   final Point? attributionButtonMargins;
+
+  final bool? featureTapsTriggersMapClick;
 
   final LocationEnginePlatforms? locationEnginePlatforms;
 
@@ -507,6 +517,7 @@ class _MapLibreMapOptions {
     addIfNonNull('attributionButtonPosition', attributionButtonPosition?.index);
     addIfNonNull(
         'attributionButtonMargins', pointToArray(attributionButtonMargins));
+    addIfNonNull('featureTapsTriggersMapClick', featureTapsTriggersMapClick);
     addIfNonNull('locationEngineProperties', locationEnginePlatforms?.toList());
     return optionsMap;
   }

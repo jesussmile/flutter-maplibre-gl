@@ -457,6 +457,7 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     String name,
     Uint8List bytes, [
     bool sdf = false,
+    double pixelRatio = 1.0,
   ]) async {
     try {
       return await _channel.invokeMethod('style#addImage', <String, Object>{
@@ -464,6 +465,7 @@ class MapLibreMethodChannel extends MapLibrePlatform {
         'bytes': bytes,
         'length': bytes.length,
         'sdf': sdf,
+        'pixelRatio': pixelRatio,
       });
     } on PlatformException catch (e) {
       return Future.error(e);

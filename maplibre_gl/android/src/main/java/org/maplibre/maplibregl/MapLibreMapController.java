@@ -1026,14 +1026,16 @@ final class MapLibreMapController
       }
     }
     
-    // Then check regular layers (symbols, etc.)
+    // Then check regular layers (symbols, etc.). Only layers explicitly
+    // marked interactive should produce feature taps. Otherwise noninteractive
+    // labels/counts can swallow the normal map click used by app-level
+    // hit-testing.
     for (Layer layer : layers) {
-      if (layer instanceof SymbolLayer) {
+      if (layer instanceof SymbolLayer && interactiveFeatureLayerIds.contains(layer.getId())) {
         final List<Feature> features =
             mapLibreMap.queryRenderedFeatures(in, layer.getId());
         if (!features.isEmpty()) {
-          String layerId = interactiveFeatureLayerIds.contains(layer.getId()) ? layer.getId() : null;
-          return new Pair<>(features.get(0), layerId);
+          return new Pair<>(features.get(0), layer.getId());
         }
       }
     }
@@ -1778,9 +1780,15 @@ final class MapLibreMapController
                 null);
             return;
           }
+          Bitmap bitmap = BitmapFactory.decodeByteArray(
+              call.argument("bytes"), 0, call.argument("length"));
+          Double pixelRatio = call.argument("pixelRatio");
+          if (pixelRatio != null && pixelRatio > 0) {
+            bitmap.setDensity((int) Math.round(pixelRatio * DisplayMetrics.DENSITY_DEFAULT));
+          }
           style.addImage(
               call.argument("name"),
-              BitmapFactory.decodeByteArray(call.argument("bytes"), 0, call.argument("length")),
+              bitmap,
               call.argument("sdf"));
           result.success(null);
           break;
@@ -2505,6 +2513,12 @@ final class MapLibreMapController
 
   @Override
   public boolean onMapLongClick(@NonNull LatLng point) {
+    if (nativeMeasurementDetector != null
+        && nativeMeasurementDetector.shouldSuppressMapGestureCallbacks()) {
+      Log.d(TAG, "Suppressed map long click during native measurement interaction");
+      return true;
+    }
+
     PointF pointf = mapLibreMap.getProjection().toScreenLocation(point);
     final Map<String, Object> arguments = new HashMap<>(5);
     arguments.put("x", pointf.x);
@@ -3499,11 +3513,11 @@ final class MapLibreMapController
     String endpointColor = (String) styleArgs.get("endpointColor");
     Double endpointRadius = (Double) styleArgs.get("endpointRadius");
 
-    if (lineColor == null) lineColor = "#00BFFF";
+    if (lineColor == null) lineColor = "#E8604C";
     if (lineWidth == null) lineWidth = 4.0;
     if (lineOpacity == null) lineOpacity = 0.9;
-    if (endpointColor == null) endpointColor = "#00BFFF";
-    if (endpointRadius == null) endpointRadius = 0.0;
+    if (endpointColor == null) endpointColor = "#FFFFFF";
+    if (endpointRadius == null) endpointRadius = 9.0;
 
     nativeMeasurementDetector.setMeasurementStyle(
         lineColor,

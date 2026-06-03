@@ -206,6 +206,7 @@ class FakeMapLibrePlatform extends MapLibrePlatform {
     String name,
     Uint8List bytes, [
     bool sdf = false,
+    double pixelRatio = 1.0,
   ]) async {}
 
   @override

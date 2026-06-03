@@ -1,3 +1,5 @@
+import 'dart:js_interop';
+
 import 'package:maplibre_gl_web/src/geo/lng_lat.dart';
 import 'package:maplibre_gl_web/src/js_util_compat.dart';
 import 'package:maplibre_gl_web/src/geo/lng_lat_bounds.dart';
@@ -19,15 +21,15 @@ import 'package:maplibre_gl_web/src/util/evented.dart';
 ///  @property {LngLatLike} around If `zoom` is specified, `around` determines the point around which the zoom is centered.
 
 class CameraOptions extends JsObjectWrapper<CameraOptionsJsImpl> {
-  LngLat get center => LngLat.fromJsObject(jsObject.center);
+  LngLat get center => LngLat.fromJsObject(jsObject.center!);
 
-  num get zoom => jsObject.zoom;
+  num get zoom => jsObject.zoom ?? 0;
 
-  num get bearing => jsObject.bearing;
+  num get bearing => jsObject.bearing ?? 0;
 
-  num get pitch => jsObject.pitch;
+  num get pitch => jsObject.pitch ?? 0;
 
-  LngLat get around => LngLat.fromJsObject(jsObject.around);
+  LngLat get around => LngLat.fromJsObject(jsObject.around!);
 
   factory CameraOptions({
     LngLat? center,
@@ -61,15 +63,15 @@ class CameraOptions extends JsObjectWrapper<CameraOptionsJsImpl> {
 ///  @property {boolean} essential If `true`, then the animation is considered essential and will not be affected by
 ///    [`prefers-reduced-motion`](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion).
 class AnimationOptions extends JsObjectWrapper<AnimationOptionsJsImpl> {
-  num get duration => jsObject.duration;
+  num get duration => jsObject.duration ?? 0;
 
-  num Function(num time) get easing => jsObject.easing;
+  num Function(num time) get easing => (time) => time;
 
-  Point get offset => Point.fromJsObject(jsObject.offset);
+  Point get offset => Point.fromJsObject(jsObject.offset!);
 
-  bool get animate => jsObject.animate;
+  bool get animate => jsObject.animate ?? true;
 
-  bool get essential => jsObject.essential;
+  bool get essential => jsObject.essential ?? false;
 
   factory AnimationOptions({
     num? duration,
@@ -80,7 +82,7 @@ class AnimationOptions extends JsObjectWrapper<AnimationOptionsJsImpl> {
   }) =>
       AnimationOptions.fromJsObject(AnimationOptionsJsImpl(
         duration: duration,
-        easing: easing,
+        easing: easing == null ? null : ((double t) => easing(t)).toJS,
         offset: offset.jsObject,
         animate: animate,
         essential: essential,
@@ -99,13 +101,13 @@ class AnimationOptions extends JsObjectWrapper<AnimationOptionsJsImpl> {
 ///  @property {number} left Padding in pixels from the left of the map canvas.
 ///  @property {number} right Padding in pixels from the right of the map canvas.
 class PaddingOptions extends JsObjectWrapper<PaddingOptionsJsImpl> {
-  num get top => jsObject.top;
+  num get top => jsObject.top ?? 0;
 
-  num get bottom => jsObject.bottom;
+  num get bottom => jsObject.bottom ?? 0;
 
-  num get left => jsObject.left;
+  num get left => jsObject.left ?? 0;
 
-  num get right => jsObject.right;
+  num get right => jsObject.right ?? 0;
 
   factory PaddingOptions({
     num? top,

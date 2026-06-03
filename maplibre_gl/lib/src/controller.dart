@@ -1600,8 +1600,13 @@ class MapLibreMapController extends ChangeNotifier {
   ///  );
   /// }
   /// ```
-  Future<void> addImage(String name, Uint8List bytes, [bool sdf = false]) {
-    return _maplibrePlatform.addImage(name, bytes, sdf);
+  Future<void> addImage(
+    String name,
+    Uint8List bytes, [
+    bool sdf = false,
+    double pixelRatio = 1.0,
+  ]) {
+    return _maplibrePlatform.addImage(name, bytes, sdf, pixelRatio);
   }
 
   /// Creates a pill/lozenge style label bitmap natively and adds it to the map style.

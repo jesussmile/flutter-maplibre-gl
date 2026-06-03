@@ -60,11 +60,11 @@ extension NativeMeasurement on MapLibreMapController {
   }
 
   Future<void> setNativeMeasurementStyle({
-    String lineColor = '#00BFFF',
+    String lineColor = '#E8604C',
     double lineWidth = 4.0,
     double lineOpacity = 0.9,
-    String endpointColor = '#00BFFF',
-    double endpointRadius = 0.0,
+    String endpointColor = '#FFFFFF',
+    double endpointRadius = 9.0,
   }) {
     return _maplibrePlatform.setNativeMeasurementStyle(
       lineColor: lineColor,

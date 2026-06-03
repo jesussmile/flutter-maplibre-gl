@@ -22,8 +22,15 @@ import 'package:maplibre_gl_web/src/interop/util/evented_interop.dart';
 ///  @property {LngLatLike} around If `zoom` is specified, `around` determines the point around which the zoom is centered.
 @JS()
 @staticInterop
+@anonymous
 class CameraOptionsJsImpl {
-  factory CameraOptionsJsImpl() => createJsObject() as CameraOptionsJsImpl;
+  external factory CameraOptionsJsImpl({
+    LngLatJsImpl? center,
+    num? zoom,
+    num? bearing,
+    num? pitch,
+    LngLatJsImpl? around,
+  });
 }
 
 extension CameraOptionsJsImplExtension on CameraOptionsJsImpl {
@@ -57,9 +64,15 @@ extension CameraOptionsJsImplExtension on CameraOptionsJsImpl {
 ///    [`prefers-reduced-motion`](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion).
 @JS()
 @staticInterop
+@anonymous
 class AnimationOptionsJsImpl {
-  factory AnimationOptionsJsImpl() =>
-      createJsObject() as AnimationOptionsJsImpl;
+  external factory AnimationOptionsJsImpl({
+    num? duration,
+    JSFunction? easing,
+    PointJsImpl? offset,
+    bool? animate,
+    bool? essential,
+  });
 }
 
 extension AnimationOptionsJsImplExtension on AnimationOptionsJsImpl {
@@ -89,8 +102,14 @@ extension AnimationOptionsJsImplExtension on AnimationOptionsJsImpl {
 ///  @property {number} right Padding in pixels from the right of the map canvas.
 @JS()
 @staticInterop
+@anonymous
 class PaddingOptionsJsImpl {
-  factory PaddingOptionsJsImpl() => createJsObject() as PaddingOptionsJsImpl;
+  external factory PaddingOptionsJsImpl({
+    num? top,
+    num? bottom,
+    num? left,
+    num? right,
+  });
 }
 
 extension PaddingOptionsJsImplExtension on PaddingOptionsJsImpl {

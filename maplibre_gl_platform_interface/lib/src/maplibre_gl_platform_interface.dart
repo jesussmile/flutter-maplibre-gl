@@ -114,7 +114,12 @@ abstract class MapLibrePlatform {
 
   Future<LatLngBounds> getVisibleRegion();
 
-  Future<void> addImage(String name, Uint8List bytes, [bool sdf = false]);
+  Future<void> addImage(
+    String name,
+    Uint8List bytes, [
+    bool sdf = false,
+    double pixelRatio = 1.0,
+  ]);
 
   Future<void> createPillLabel({
     required String name,

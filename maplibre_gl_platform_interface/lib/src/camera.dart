@@ -87,6 +87,13 @@ class CameraPosition {
       'CameraPosition(bearing: $bearing, target: $target, tilt: $tilt, zoom: $zoom)';
 }
 
+enum CameraAnimationInterpolation {
+  linear,
+  easeInOut,
+  easeOut,
+  fastOutLinearIn,
+}
+
 /// Defines a camera move, supporting absolute moves as well as moves relative
 /// the current position.
 class CameraUpdate {

@@ -9,8 +9,10 @@ import android.view.MotionEvent;
 import org.maplibre.android.geometry.LatLng;
 import org.maplibre.android.maps.MapLibreMap;
 import org.maplibre.android.maps.Style;
+import org.maplibre.android.style.layers.CircleLayer;
 import org.maplibre.android.style.layers.Layer;
 import org.maplibre.android.style.layers.LineLayer;
+import org.maplibre.android.style.layers.SymbolLayer;
 import org.maplibre.android.style.sources.GeoJsonSource;
 import org.maplibre.geojson.Feature;
 import org.maplibre.geojson.FeatureCollection;
@@ -19,6 +21,7 @@ import org.maplibre.geojson.Point;
 
 import java.util.ArrayList;
 import java.util.List;
+import static org.maplibre.android.style.expressions.Expression.*;
 import static org.maplibre.android.style.layers.PropertyFactory.*;
 
 /**
@@ -36,9 +39,17 @@ public class NativeMeasurementDetector {
   private static final float TAP_MOVEMENT_THRESHOLD_PX = 20f;
   private static final long CLEANUP_GRACE_PERIOD_MS = 500;
   private static final float MARKER_TOUCH_RADIUS_PX = 36f;
+  private static final float RENDER_MOVEMENT_THRESHOLD_PX = 1.5f;
+  private static final long MAP_GESTURE_SUPPRESS_MS = 650;
 
   private static final String MEASUREMENT_SOURCE_ID = "measurement-source";
   private static final String MEASUREMENT_LINE_LAYER_ID = "measurement-line-layer";
+  private static final String MEASUREMENT_ENDPOINT_LAYER_ID = "measurement-endpoint-layer";
+  private static final String MEASUREMENT_DISTANCE_LAYER_ID = "measurement-distance-layer";
+  private static final String MEASUREMENT_START_BEARING_LAYER_ID =
+      "measurement-start-bearing-layer";
+  private static final String MEASUREMENT_END_BEARING_LAYER_ID =
+      "measurement-end-bearing-layer";
 
   private final MapLibreMap mapLibreMap;
   private final OnNativeMeasurementListener listener;
@@ -61,9 +72,12 @@ public class NativeMeasurementDetector {
   private LatLng endLatLng;
   private long gestureStartTime = 0;
   private long measurementEndTime = 0;
+  private long lastConsumedMeasurementTouchTime = 0;
   private Runnable holdRunnable;
+  private PointF lastRenderedStartScreenPoint;
+  private PointF lastRenderedEndScreenPoint;
 
-  private String lineColor = "#00BFFF";
+  private String lineColor = "#E8604C";
   private double lineWidth = 4.0;
   private double lineOpacity = 0.9;
   private String endpointColor = "#FFFFFF";
@@ -119,7 +133,7 @@ public class NativeMeasurementDetector {
         && !isMeasuring
         && event.getPointerCount() == 1
         && handlePersistentMeasurementTouch(event)) {
-      return true;
+      return markMeasurementTouchConsumed();
     }
 
     switch (event.getActionMasked()) {
@@ -150,7 +164,7 @@ public class NativeMeasurementDetector {
 
           if (isMeasuring) {
             updateMeasurement();
-            return true;
+            return markMeasurementTouchConsumed();
           }
 
           if (movedTooFarBeforeHold()) {
@@ -165,7 +179,7 @@ public class NativeMeasurementDetector {
       case MotionEvent.ACTION_CANCEL:
         if (isMeasuring) {
           endMeasurement();
-          return true;
+          return markMeasurementTouchConsumed();
         }
         cancelGesture();
         break;
@@ -174,7 +188,16 @@ public class NativeMeasurementDetector {
         break;
     }
 
-    return isMeasuring;
+    return isMeasuring && markMeasurementTouchConsumed();
+  }
+
+  public boolean shouldSuppressMapGestureCallbacks() {
+    long currentTime = System.currentTimeMillis();
+    return isTwoFingerDown
+        || isMeasuring
+        || isDraggingStart
+        || isDraggingEnd
+        || (currentTime - lastConsumedMeasurementTouchTime) < MAP_GESTURE_SUPPRESS_MS;
   }
 
   public void setMeasurementStyle(
@@ -224,13 +247,25 @@ public class NativeMeasurementDetector {
       }
 
       if (style.getSource(MEASUREMENT_SOURCE_ID) == null
-          || style.getLayer(MEASUREMENT_LINE_LAYER_ID) == null) {
+          || style.getLayer(MEASUREMENT_LINE_LAYER_ID) == null
+          || style.getLayer(MEASUREMENT_ENDPOINT_LAYER_ID) == null
+          || style.getLayer(MEASUREMENT_DISTANCE_LAYER_ID) == null
+          || style.getLayer(MEASUREMENT_START_BEARING_LAYER_ID) == null
+          || style.getLayer(MEASUREMENT_END_BEARING_LAYER_ID) == null) {
         setupMeasurementLayers();
       }
 
       String topLayerId = getTopNonMeasurementLayerId();
       if (topLayerId != null) {
         repositionLayerIfNeeded(MEASUREMENT_LINE_LAYER_ID, topLayerId);
+        repositionLayerIfNeeded(MEASUREMENT_ENDPOINT_LAYER_ID, MEASUREMENT_LINE_LAYER_ID);
+        repositionLayerIfNeeded(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_ENDPOINT_LAYER_ID);
+        repositionLayerIfNeeded(
+            MEASUREMENT_START_BEARING_LAYER_ID,
+            MEASUREMENT_DISTANCE_LAYER_ID);
+        repositionLayerIfNeeded(
+            MEASUREMENT_END_BEARING_LAYER_ID,
+            MEASUREMENT_START_BEARING_LAYER_ID);
       }
     } catch (Exception e) {
       Log.e(TAG, "Error ensuring measurement layer on top", e);
@@ -286,7 +321,7 @@ public class NativeMeasurementDetector {
           "Measurement started: distance=%.2f nm, bearing=%.1f deg",
           distance,
           bearing));
-      renderMeasurementLine(startLatLng, endLatLng);
+      renderMeasurementLine(startLatLng, endLatLng, true);
 
       if (listener != null) {
         listener.onMeasurementStart(
@@ -316,7 +351,10 @@ public class NativeMeasurementDetector {
       double bearing = calculateBearing(startLatLng, endLatLng);
       long duration = System.currentTimeMillis() - gestureStartTime;
 
-      renderMeasurementLine(startLatLng, endLatLng);
+      boolean rendered = renderMeasurementLine(startLatLng, endLatLng);
+      if (!rendered) {
+        return;
+      }
 
       if (listener != null) {
         listener.onMeasurementUpdate(
@@ -355,7 +393,7 @@ public class NativeMeasurementDetector {
         }
       }, CLEANUP_GRACE_PERIOD_MS);
 
-      renderMeasurementLine(startLatLng, endLatLng);
+      renderMeasurementLine(startLatLng, endLatLng, true);
       Log.d(TAG, String.format(
           "Measurement ended: distance=%.2f nm, bearing=%.1f deg",
           distance,
@@ -419,7 +457,10 @@ public class NativeMeasurementDetector {
           } else {
             endLatLng = newPosition;
           }
-          renderMeasurementLine(startLatLng, endLatLng);
+          boolean rendered = renderMeasurementLine(startLatLng, endLatLng);
+          if (!rendered) {
+            return true;
+          }
           sendUpdateForPersistentMeasurement();
           return true;
         }
@@ -524,6 +565,11 @@ public class NativeMeasurementDetector {
     currentPoint2 = null;
   }
 
+  private boolean markMeasurementTouchConsumed() {
+    lastConsumedMeasurementTouchTime = System.currentTimeMillis();
+    return true;
+  }
+
   private void initializeMeasurementLayers() {
     try {
       Style style = mapLibreMap.getStyle();
@@ -559,6 +605,7 @@ public class NativeMeasurementDetector {
             lineOpacity((float) lineOpacity),
             lineCap("round"),
             lineJoin("round"));
+        lineLayer.setFilter(eq(get("type"), literal("line")));
 
         String topLayerId = getTopNonMeasurementLayerId();
         if (topLayerId != null) {
@@ -569,42 +616,182 @@ public class NativeMeasurementDetector {
           Log.d(TAG, "Added measurement line layer");
         }
       }
+
+      if (style.getLayer(MEASUREMENT_ENDPOINT_LAYER_ID) == null) {
+        CircleLayer endpointLayer =
+            new CircleLayer(MEASUREMENT_ENDPOINT_LAYER_ID, MEASUREMENT_SOURCE_ID);
+        endpointLayer.setProperties(
+            circleColor(endpointColor),
+            circleRadius((float) endpointRadius),
+            circleOpacity(1.0f),
+            circleStrokeColor(lineColor),
+            circleStrokeWidth(3.0f),
+            circleStrokeOpacity(1.0f));
+        endpointLayer.setFilter(eq(get("type"), literal("endpoint")));
+        style.addLayerAbove(endpointLayer, MEASUREMENT_LINE_LAYER_ID);
+        Log.d(TAG, "Added measurement endpoint layer");
+      }
+
+      if (style.getLayer(MEASUREMENT_DISTANCE_LAYER_ID) == null) {
+        SymbolLayer distanceLayer =
+            new SymbolLayer(MEASUREMENT_DISTANCE_LAYER_ID, MEASUREMENT_SOURCE_ID);
+        distanceLayer.setProperties(
+            textField(get("label-text")),
+            textFont(new String[]{"Noto Sans Bold"}),
+            textSize(15.0f),
+            textColor("#FFFFFF"),
+            textHaloColor("#07111F"),
+            textHaloWidth(2.2f),
+            textAnchor("center"),
+            textOffset(new Float[]{0.0f, -1.5f}),
+            textAllowOverlap(true),
+            textIgnorePlacement(true));
+        distanceLayer.setFilter(eq(get("type"), literal("distance")));
+        style.addLayerAbove(distanceLayer, MEASUREMENT_ENDPOINT_LAYER_ID);
+        Log.d(TAG, "Added measurement distance label layer");
+      }
+
+      if (style.getLayer(MEASUREMENT_START_BEARING_LAYER_ID) == null) {
+        SymbolLayer startBearingLayer =
+            new SymbolLayer(MEASUREMENT_START_BEARING_LAYER_ID, MEASUREMENT_SOURCE_ID);
+        startBearingLayer.setProperties(
+            textField(get("label-text")),
+            textFont(new String[]{"Noto Sans Bold"}),
+            textSize(15.0f),
+            textColor("#FFFFFF"),
+            textHaloColor("#07111F"),
+            textHaloWidth(2.0f),
+            textAnchor("center"),
+            textOffset(new Float[]{0.0f, -1.05f}),
+            textRotate(get("label-rotation")),
+            textRotationAlignment("map"),
+            textPitchAlignment("map"),
+            textKeepUpright(true),
+            textAllowOverlap(true),
+            textIgnorePlacement(true));
+        startBearingLayer.setFilter(eq(get("type"), literal("start-bearing")));
+        style.addLayerAbove(startBearingLayer, MEASUREMENT_DISTANCE_LAYER_ID);
+        Log.d(TAG, "Added measurement start bearing label layer");
+      }
+
+      if (style.getLayer(MEASUREMENT_END_BEARING_LAYER_ID) == null) {
+        SymbolLayer endBearingLayer =
+            new SymbolLayer(MEASUREMENT_END_BEARING_LAYER_ID, MEASUREMENT_SOURCE_ID);
+        endBearingLayer.setProperties(
+            textField(get("label-text")),
+            textFont(new String[]{"Noto Sans Bold"}),
+            textSize(15.0f),
+            textColor("#FFFFFF"),
+            textHaloColor("#07111F"),
+            textHaloWidth(2.0f),
+            textAnchor("center"),
+            textOffset(new Float[]{0.0f, 1.05f}),
+            textRotate(get("label-rotation")),
+            textRotationAlignment("map"),
+            textPitchAlignment("map"),
+            textKeepUpright(true),
+            textAllowOverlap(true),
+            textIgnorePlacement(true));
+        endBearingLayer.setFilter(eq(get("type"), literal("end-bearing")));
+        style.addLayerAbove(endBearingLayer, MEASUREMENT_START_BEARING_LAYER_ID);
+        Log.d(TAG, "Added measurement end bearing label layer");
+      }
     } catch (Exception e) {
       Log.e(TAG, "Error setting up measurement layers", e);
     }
   }
 
-  private void renderMeasurementLine(LatLng start, LatLng end) {
+  private boolean renderMeasurementLine(LatLng start, LatLng end) {
+    return renderMeasurementLine(start, end, false);
+  }
+
+  private boolean renderMeasurementLine(LatLng start, LatLng end, boolean force) {
     try {
       Style style = mapLibreMap.getStyle();
       if (style == null || !style.isFullyLoaded()) {
         Log.w(TAG, "Map style not ready for measurement rendering");
-        return;
+        return false;
       }
 
-      ensureMeasurementLayersOnTop();
+      PointF startScreenPoint = mapLibreMap.getProjection().toScreenLocation(start);
+      PointF endScreenPoint = mapLibreMap.getProjection().toScreenLocation(end);
+      if (!force && !shouldRenderMeasurement(startScreenPoint, endScreenPoint)) {
+        return false;
+      }
 
       Point startPoint = Point.fromLngLat(start.getLongitude(), start.getLatitude());
       Point endPoint = Point.fromLngLat(end.getLongitude(), end.getLatitude());
+      Point startBearingPoint = interpolateLinePoint(start, end, 0.12);
+      Point endBearingPoint = interpolateLinePoint(start, end, 0.88);
+      double midLatitude = (start.getLatitude() + end.getLatitude()) / 2.0;
+      double midLongitude = (start.getLongitude() + end.getLongitude()) / 2.0;
+      Point midPoint = Point.fromLngLat(midLongitude, midLatitude);
       List<Point> points = new ArrayList<>();
       points.add(startPoint);
       points.add(endPoint);
 
+      double distance = calculateDistanceNauticalMiles(start, end);
+      double bearing = calculateBearing(start, end);
+      double reciprocalBearing = (bearing + 180.0) % 360.0;
+      double lineLabelRotation = calculateLineTextRotation(bearing);
+
       Feature lineFeature = Feature.fromGeometry(LineString.fromLngLats(points));
       lineFeature.addStringProperty("type", "line");
+      Feature startFeature = Feature.fromGeometry(startPoint);
+      startFeature.addStringProperty("type", "endpoint");
+      Feature endFeature = Feature.fromGeometry(endPoint);
+      endFeature.addStringProperty("type", "endpoint");
+      Feature distanceFeature = Feature.fromGeometry(midPoint);
+      distanceFeature.addStringProperty("type", "distance");
+      distanceFeature.addStringProperty(
+          "label-text",
+          String.format("%.1f NM", distance));
+      Feature startBearingFeature = Feature.fromGeometry(startBearingPoint);
+      startBearingFeature.addStringProperty("type", "start-bearing");
+      startBearingFeature.addStringProperty(
+          "label-text",
+          String.format("%03.0f°", bearing));
+      startBearingFeature.addNumberProperty("label-rotation", lineLabelRotation);
+      Feature endBearingFeature = Feature.fromGeometry(endBearingPoint);
+      endBearingFeature.addStringProperty("type", "end-bearing");
+      endBearingFeature.addStringProperty(
+          "label-text",
+          String.format("%03.0f°", reciprocalBearing));
+      endBearingFeature.addNumberProperty("label-rotation", lineLabelRotation);
+
       List<Feature> features = new ArrayList<>();
       features.add(lineFeature);
+      features.add(startFeature);
+      features.add(endFeature);
+      features.add(distanceFeature);
+      features.add(startBearingFeature);
+      features.add(endBearingFeature);
 
       GeoJsonSource source = style.getSourceAs(MEASUREMENT_SOURCE_ID);
       if (source != null) {
         source.setGeoJson(FeatureCollection.fromFeatures(features));
-        Log.d(TAG, "Updated native measurement line rendering");
+        lastRenderedStartScreenPoint = startScreenPoint;
+        lastRenderedEndScreenPoint = endScreenPoint;
+        Log.v(TAG, "Updated native measurement rendering");
+        return true;
       } else {
         Log.w(TAG, "Measurement source missing during render");
       }
     } catch (Exception e) {
       Log.e(TAG, "Error rendering measurement line", e);
     }
+    return false;
+  }
+
+  private boolean shouldRenderMeasurement(PointF startScreenPoint, PointF endScreenPoint) {
+    if (lastRenderedStartScreenPoint == null || lastRenderedEndScreenPoint == null) {
+      return true;
+    }
+
+    return screenDistance(lastRenderedStartScreenPoint, startScreenPoint)
+        >= RENDER_MOVEMENT_THRESHOLD_PX
+        || screenDistance(lastRenderedEndScreenPoint, endScreenPoint)
+        >= RENDER_MOVEMENT_THRESHOLD_PX;
   }
 
   private void clearMeasurementRendering() {
@@ -619,6 +806,8 @@ public class NativeMeasurementDetector {
         source.setGeoJson(FeatureCollection.fromFeatures(new ArrayList<Feature>()));
         Log.d(TAG, "Cleared native measurement rendering");
       }
+      lastRenderedStartScreenPoint = null;
+      lastRenderedEndScreenPoint = null;
     } catch (Exception e) {
       Log.e(TAG, "Error clearing measurement rendering", e);
     }
@@ -639,6 +828,77 @@ public class NativeMeasurementDetector {
             lineOpacity((float) lineOpacity),
             lineCap("round"),
             lineJoin("round"));
+        lineLayer.setFilter(eq(get("type"), literal("line")));
+      }
+
+      CircleLayer endpointLayer = style.getLayerAs(MEASUREMENT_ENDPOINT_LAYER_ID);
+      if (endpointLayer != null) {
+        endpointLayer.setProperties(
+            circleColor(endpointColor),
+            circleRadius((float) endpointRadius),
+            circleOpacity(1.0f),
+            circleStrokeColor(lineColor),
+            circleStrokeWidth(3.0f),
+            circleStrokeOpacity(1.0f));
+        endpointLayer.setFilter(eq(get("type"), literal("endpoint")));
+      }
+
+      SymbolLayer distanceLayer = style.getLayerAs(MEASUREMENT_DISTANCE_LAYER_ID);
+      if (distanceLayer != null) {
+        distanceLayer.setProperties(
+            textField(get("label-text")),
+            textFont(new String[]{"Noto Sans Bold"}),
+            textSize(15.0f),
+            textColor("#FFFFFF"),
+            textHaloColor("#07111F"),
+            textHaloWidth(2.2f),
+            textAnchor("center"),
+            textOffset(new Float[]{0.0f, -1.5f}),
+            textAllowOverlap(true),
+            textIgnorePlacement(true));
+        distanceLayer.setFilter(eq(get("type"), literal("distance")));
+      }
+
+      SymbolLayer startBearingLayer =
+          style.getLayerAs(MEASUREMENT_START_BEARING_LAYER_ID);
+      if (startBearingLayer != null) {
+        startBearingLayer.setProperties(
+            textField(get("label-text")),
+            textFont(new String[]{"Noto Sans Bold"}),
+            textSize(15.0f),
+            textColor("#FFFFFF"),
+            textHaloColor("#07111F"),
+            textHaloWidth(2.0f),
+            textAnchor("center"),
+            textOffset(new Float[]{0.0f, -1.05f}),
+            textRotate(get("label-rotation")),
+            textRotationAlignment("map"),
+            textPitchAlignment("map"),
+            textKeepUpright(true),
+            textAllowOverlap(true),
+            textIgnorePlacement(true));
+        startBearingLayer.setFilter(eq(get("type"), literal("start-bearing")));
+      }
+
+      SymbolLayer endBearingLayer =
+          style.getLayerAs(MEASUREMENT_END_BEARING_LAYER_ID);
+      if (endBearingLayer != null) {
+        endBearingLayer.setProperties(
+            textField(get("label-text")),
+            textFont(new String[]{"Noto Sans Bold"}),
+            textSize(15.0f),
+            textColor("#FFFFFF"),
+            textHaloColor("#07111F"),
+            textHaloWidth(2.0f),
+            textAnchor("center"),
+            textOffset(new Float[]{0.0f, 1.05f}),
+            textRotate(get("label-rotation")),
+            textRotationAlignment("map"),
+            textPitchAlignment("map"),
+            textKeepUpright(true),
+            textAllowOverlap(true),
+            textIgnorePlacement(true));
+        endBearingLayer.setFilter(eq(get("type"), literal("end-bearing")));
       }
     } catch (Exception e) {
       Log.e(TAG, "Error updating measurement line style", e);
@@ -693,7 +953,7 @@ public class NativeMeasurementDetector {
       if (currentLayerIndex <= aboveLayerIndex) {
         style.removeLayer(layer);
         style.addLayerAbove(layer, aboveLayerId);
-        Log.d(TAG, "Repositioned measurement line above " + aboveLayerId);
+        Log.d(TAG, "Repositioned " + layerId + " above " + aboveLayerId);
       }
     } catch (Exception e) {
       Log.w(TAG, "Could not reposition measurement layer: " + e.getMessage());
@@ -750,5 +1010,42 @@ public class NativeMeasurementDetector {
     double x = Math.cos(fromLat) * Math.sin(toLat)
         - Math.sin(fromLat) * Math.cos(toLat) * Math.cos(dLon);
     return (Math.toDegrees(Math.atan2(y, x)) + 360) % 360;
+  }
+
+  private double calculateLineTextRotation(double bearing) {
+    double rotation = (bearing - 90.0) % 360.0;
+    if (rotation < 0.0) {
+      rotation += 360.0;
+    }
+
+    if (rotation > 90.0 && rotation < 270.0) {
+      rotation = (rotation + 180.0) % 360.0;
+    }
+
+    return rotation;
+  }
+
+  private Point interpolateLinePoint(LatLng start, LatLng end, double fraction) {
+    double startLongitude = start.getLongitude();
+    double endLongitude = end.getLongitude();
+    double longitudeDelta = endLongitude - startLongitude;
+
+    if (longitudeDelta > 180.0) {
+      longitudeDelta -= 360.0;
+    } else if (longitudeDelta < -180.0) {
+      longitudeDelta += 360.0;
+    }
+
+    double latitude =
+        start.getLatitude() + ((end.getLatitude() - start.getLatitude()) * fraction);
+    double longitude = startLongitude + (longitudeDelta * fraction);
+
+    if (longitude > 180.0) {
+      longitude -= 360.0;
+    } else if (longitude < -180.0) {
+      longitude += 360.0;
+    }
+
+    return Point.fromLngLat(longitude, latitude);
   }
 }
