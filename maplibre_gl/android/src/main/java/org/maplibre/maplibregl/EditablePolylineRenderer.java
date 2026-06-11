@@ -60,6 +60,7 @@ public class EditablePolylineRenderer {
      */
     public static class BreakPointVisualState {
         public final String lineId;
+        public final int pointIndex;
         public final LatLng location;
         public final boolean isVisible;
         public final boolean isDragging;
@@ -67,7 +68,14 @@ public class EditablePolylineRenderer {
         
         public BreakPointVisualState(@NonNull String lineId, @NonNull LatLng location, 
                                    boolean isVisible, boolean isDragging) {
+            this(lineId, -1, location, isVisible, isDragging);
+        }
+
+        public BreakPointVisualState(@NonNull String lineId, int pointIndex,
+                                   @NonNull LatLng location,
+                                   boolean isVisible, boolean isDragging) {
             this.lineId = lineId;
+            this.pointIndex = pointIndex;
             this.location = location;
             this.isVisible = isVisible;
             this.isDragging = isDragging;
@@ -75,15 +83,18 @@ public class EditablePolylineRenderer {
         }
         
         public BreakPointVisualState withLocation(@NonNull LatLng newLocation) {
-            return new BreakPointVisualState(lineId, newLocation, isVisible, isDragging);
+            return new BreakPointVisualState(
+                lineId, pointIndex, newLocation, isVisible, isDragging);
         }
         
         public BreakPointVisualState withDragging(boolean dragging) {
-            return new BreakPointVisualState(lineId, location, isVisible, dragging);
+            return new BreakPointVisualState(
+                lineId, pointIndex, location, isVisible, dragging);
         }
         
         public BreakPointVisualState withVisibility(boolean visible) {
-            return new BreakPointVisualState(lineId, location, visible, isDragging);
+            return new BreakPointVisualState(
+                lineId, pointIndex, location, visible, isDragging);
         }
     }
     
@@ -169,6 +180,11 @@ public class EditablePolylineRenderer {
      * @param location The location of the break point
      */
     public void showBreakPoint(@NonNull String lineId, @NonNull LatLng location) {
+        showBreakPoint(lineId, -1, location);
+    }
+
+    public void showBreakPoint(
+            @NonNull String lineId, int pointIndex, @NonNull LatLng location) {
         if (!isInitialized) {
             Log.w(TAG, "Renderer not initialized, cannot show break point");
             return;
@@ -177,8 +193,9 @@ public class EditablePolylineRenderer {
         Log.d(TAG, "Showing break point for line " + lineId + " at " + location);
         
         try {
-            BreakPointVisualState state = new BreakPointVisualState(lineId, location, true, false);
-            activeBreakPoints.put(lineId, state);
+            BreakPointVisualState state = new BreakPointVisualState(
+                lineId, pointIndex, location, true, false);
+            activeBreakPoints.put(breakPointKey(lineId, pointIndex), state);
             updateBreakPointSource();
             
         } catch (Exception e) {
@@ -193,12 +210,18 @@ public class EditablePolylineRenderer {
      * @param newLocation The new location of the break point
      */
     public void updateBreakPoint(@NonNull String lineId, @NonNull LatLng newLocation) {
+        updateBreakPoint(lineId, -1, newLocation);
+    }
+
+    public void updateBreakPoint(
+            @NonNull String lineId, int pointIndex, @NonNull LatLng newLocation) {
         if (!isInitialized) {
             Log.w(TAG, "Renderer not initialized, cannot update break point");
             return;
         }
         
-        BreakPointVisualState currentState = activeBreakPoints.get(lineId);
+        BreakPointVisualState currentState =
+            activeBreakPoints.get(breakPointKey(lineId, pointIndex));
         if (currentState == null) {
             Log.w(TAG, "No active break point found for line " + lineId);
             return;
@@ -206,7 +229,7 @@ public class EditablePolylineRenderer {
         
         try {
             BreakPointVisualState updatedState = currentState.withLocation(newLocation);
-            activeBreakPoints.put(lineId, updatedState);
+            activeBreakPoints.put(breakPointKey(lineId, pointIndex), updatedState);
             updateBreakPointSource();
             
             Log.d(TAG, "Updated break point for line " + lineId + " to " + newLocation);
@@ -223,18 +246,24 @@ public class EditablePolylineRenderer {
      * @param isDragging Whether the break point is being dragged
      */
     public void setBreakPointDragging(@NonNull String lineId, boolean isDragging) {
+        setBreakPointDragging(lineId, -1, isDragging);
+    }
+
+    public void setBreakPointDragging(
+            @NonNull String lineId, int pointIndex, boolean isDragging) {
         if (!isInitialized) {
             return;
         }
         
-        BreakPointVisualState currentState = activeBreakPoints.get(lineId);
+        BreakPointVisualState currentState =
+            activeBreakPoints.get(breakPointKey(lineId, pointIndex));
         if (currentState == null) {
             return;
         }
         
         try {
             BreakPointVisualState updatedState = currentState.withDragging(isDragging);
-            activeBreakPoints.put(lineId, updatedState);
+            activeBreakPoints.put(breakPointKey(lineId, pointIndex), updatedState);
             updateBreakPointSource();
             
         } catch (Exception e) {
@@ -253,7 +282,8 @@ public class EditablePolylineRenderer {
         }
         
         try {
-            activeBreakPoints.remove(lineId);
+            activeBreakPoints.entrySet().removeIf(
+                entry -> entry.getValue().lineId.equals(lineId));
             updateBreakPointSource();
             
             Log.d(TAG, "Hidden break point for line " + lineId);
@@ -261,6 +291,26 @@ public class EditablePolylineRenderer {
         } catch (Exception e) {
             Log.e(TAG, "Error hiding break point: " + e.getMessage(), e);
         }
+    }
+
+    public void syncBreakPoints(
+            @NonNull String lineId,
+            @NonNull List<LatLng> coordinates,
+            @NonNull java.util.Set<Integer> lockedIndices) {
+        if (!isInitialized) return;
+        activeBreakPoints.entrySet().removeIf(
+            entry -> entry.getValue().lineId.equals(lineId));
+        for (int index = 1; index < coordinates.size() - 1; index++) {
+            if (lockedIndices.contains(index)) continue;
+            BreakPointVisualState state = new BreakPointVisualState(
+                lineId, index, coordinates.get(index), true, false);
+            activeBreakPoints.put(breakPointKey(lineId, index), state);
+        }
+        updateBreakPointSource();
+    }
+
+    private String breakPointKey(@NonNull String lineId, int pointIndex) {
+        return lineId + ":" + pointIndex;
     }
     
     /**
@@ -367,6 +417,7 @@ public class EditablePolylineRenderer {
                     Point point = Point.fromLngLat(state.location.getLongitude(), state.location.getLatitude());
                     Feature feature = Feature.fromGeometry(point);
                     feature.addStringProperty("lineId", state.lineId);
+                    feature.addNumberProperty("pointIndex", state.pointIndex);
                     feature.addBooleanProperty("isDragging", state.isDragging);
                     features.add(feature);
                 }

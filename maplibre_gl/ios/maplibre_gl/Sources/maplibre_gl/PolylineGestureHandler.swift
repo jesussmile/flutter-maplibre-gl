@@ -8,6 +8,7 @@ import UIKit
 protocol PolylineGestureHandlerDelegate: AnyObject {
     func onPolylineBroken(lineId: String, breakPoint: CLLocationCoordinate2D, segment1: [CLLocationCoordinate2D], segment2: [CLLocationCoordinate2D])
     func onPolylineModified(lineId: String, newCoordinates: [CLLocationCoordinate2D])
+    func onPolylineEditCompleted(lineId: String, newCoordinates: [CLLocationCoordinate2D], pointIndex: Int, inserted: Bool)
     func onPolylineEditingError(lineId: String, error: String)
 }
 
@@ -43,7 +44,7 @@ class PolylineGestureHandler: NSObject {
     
     // Gesture configuration
     private let longPressMinimumDuration: TimeInterval = 0.5
-    private let hitTestTolerance: CGFloat = 20.0
+    private var hitTestTolerance: CGFloat = 20.0
     
     init(mapView: MLNMapView, editingManager: PolylineEditingManager, breakPointSystem: PolylineBreakPointSystem, renderer: EditablePolylineRenderer) {
         self.mapView = mapView
@@ -55,6 +56,10 @@ class PolylineGestureHandler: NSObject {
         super.init()
         
         setupGestureRecognizers()
+    }
+
+    func setHitTestTolerance(_ tolerance: CGFloat) {
+        hitTestTolerance = max(1, tolerance)
     }
     
     /**
@@ -175,13 +180,9 @@ class PolylineGestureHandler: NSObject {
             isDragging = true
             
             // Store original coordinates - use the stored original line
-            if let storedOriginal = originalLineCoordinates[breakPoint.parentLineId] {
-                originalCoordinates = storedOriginal
-                NSLog("\(PolylineGestureHandler.TAG): Using stored original coordinates: \(originalCoordinates.count) points")
-            } else if let config = editingManager.getLineConfig(lineId: breakPoint.parentLineId) {
-                // Fallback to current coordinates if original not found
+            if let config = editingManager.getLineConfig(lineId: breakPoint.parentLineId) {
                 originalCoordinates = config.coordinates
-                NSLog("\(PolylineGestureHandler.TAG): Using current coordinates as fallback: \(originalCoordinates.count) points")
+                NSLog("\(PolylineGestureHandler.TAG): Using current coordinates: \(originalCoordinates.count) points")
             }
             
             // Update break point state
@@ -249,6 +250,14 @@ class PolylineGestureHandler: NSObject {
         
         // Notify delegate
         delegate?.onPolylineModified(lineId: lineId, newCoordinates: finalCoordinates)
+        let pointIndex = max(1, min(finalCoordinates.count - 2, breakPoint.segmentIndex + 1))
+        let inserted = !breakPoint.id.hasPrefix("\(breakPoint.parentLineId):")
+        delegate?.onPolylineEditCompleted(
+            lineId: lineId,
+            newCoordinates: finalCoordinates,
+            pointIndex: pointIndex,
+            inserted: inserted
+        )
         
         // Clean up state
         isDragging = false
@@ -268,11 +277,7 @@ class PolylineGestureHandler: NSObject {
             return
         }
         
-        // Store original coordinates if not already stored
-        if originalLineCoordinates[lineId] == nil {
-            originalLineCoordinates[lineId] = config.coordinates
-            NSLog("\(PolylineGestureHandler.TAG): Stored original coordinates for line \(lineId): \(config.coordinates.count) points")
-        }
+        originalLineCoordinates[lineId] = config.coordinates
         
         // Create break point
         let breakPoint = PolylineBreakPoint(
@@ -343,13 +348,6 @@ class PolylineGestureHandler: NSObject {
             return (result.lineId, result.segmentIndex, result.distanceAlongSegment)
         }
         
-        // For debugging: create a mock result if no real polylines found
-        if !editableLineIds.isEmpty {
-            let firstLineId = editableLineIds.first!
-            NSLog("\(PolylineGestureHandler.TAG): No valid polyline segments found, creating mock result for \(firstLineId)")
-            return (lineId: firstLineId, segmentIndex: 0, distanceAlongSegment: 0.5)
-        }
-        
         return nil
     }
     
@@ -379,29 +377,22 @@ class PolylineGestureHandler: NSObject {
             return originalCoordinates
         }
         
-        // Always work with the original 2-point line and insert the break point
-        // This ensures we maintain: [start, breakPoint, end]
         guard originalCoordinates.count >= 2 else {
             return originalCoordinates
         }
-        
-        // For a simple 2-point line, create a 3-point line with the break point in the middle
-        if originalCoordinates.count == 2 {
-            return [originalCoordinates[0], breakPoint.coordinate, originalCoordinates[1]]
-        }
-        
-        // For lines with more points, insert the break point at the correct position
+
         var newCoordinates = originalCoordinates
         let insertIndex = breakPoint.segmentIndex + 1
-        
-        // Remove any previously inserted break point at this position
-        // and insert the new one
-        if insertIndex < newCoordinates.count {
+
+        let existingHandlePrefix = "\(breakPoint.parentLineId):"
+        if breakPoint.id.hasPrefix(existingHandlePrefix),
+           insertIndex > 0,
+           insertIndex < newCoordinates.count - 1 {
             newCoordinates[insertIndex] = breakPoint.coordinate
-        } else if insertIndex <= newCoordinates.count {
+        } else if insertIndex > 0 && insertIndex < newCoordinates.count {
             newCoordinates.insert(breakPoint.coordinate, at: insertIndex)
         }
-        
+
         return newCoordinates
     }
     
@@ -470,6 +461,17 @@ class PolylineGestureHandler: NSObject {
 // MARK: - UIGestureRecognizerDelegate
 
 extension PolylineGestureHandler: UIGestureRecognizerDelegate {
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        let point = gestureRecognizer.location(in: mapView)
+        if gestureRecognizer === longPressRecognizer {
+            return findNearestEditablePolyline(at: point) != nil
+        }
+        if gestureRecognizer === panRecognizer {
+            return findBreakPointAt(point: point) != nil
+        }
+        return true
+    }
+
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         // Allow simultaneous recognition with map gestures
         return true

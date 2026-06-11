@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:html' as html;
 
 import 'dart:js_interop';
-import 'dart:js_util' show setProperty;
+import 'dart:js_util' show dartify, getProperty, objectKeys, setProperty;
 
 import 'dart:math';
 import 'dart:ui' as ui;

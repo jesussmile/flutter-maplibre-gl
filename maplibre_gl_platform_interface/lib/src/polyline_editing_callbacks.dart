@@ -15,6 +15,7 @@ class PolylineEditingCallbacks {
   const PolylineEditingCallbacks({
     this.onPolylineBroken,
     this.onPolylineModified,
+    this.onPolylineEditCompleted,
     this.onEditingError,
   });
 
@@ -24,15 +25,30 @@ class PolylineEditingCallbacks {
   /// [segment1] contains the coordinates of the first segment.
   /// [segment2] contains the coordinates of the second segment.
   final void Function(
-          String lineId, List<LatLng> segment1, List<LatLng> segment2)?
-      onPolylineBroken;
+    String lineId,
+    List<LatLng> segment1,
+    List<LatLng> segment2,
+  )?
+  onPolylineBroken;
 
   /// Called when a polyline's coordinates are modified through dragging.
   ///
   /// [lineId] is the ID of the polyline that was modified.
   /// [newCoordinates] contains the updated coordinates of the polyline.
   final void Function(String lineId, List<LatLng> newCoordinates)?
-      onPolylineModified;
+  onPolylineModified;
+
+  /// Called once when the user releases an edited point.
+  ///
+  /// [pointIndex] identifies the edited coordinate in [newCoordinates].
+  /// [inserted] is true when the gesture created a new point on a segment.
+  final void Function(
+    String lineId,
+    List<LatLng> newCoordinates,
+    int pointIndex,
+    bool inserted,
+  )?
+  onPolylineEditCompleted;
 
   /// Called when an error occurs during polyline editing.
   ///
@@ -43,14 +59,23 @@ class PolylineEditingCallbacks {
   /// Creates a copy of this callback set with the given fields replaced with new values.
   PolylineEditingCallbacks copyWith({
     void Function(String lineId, List<LatLng> segment1, List<LatLng> segment2)?
-        onPolylineBroken,
+    onPolylineBroken,
     void Function(String lineId, List<LatLng> newCoordinates)?
-        onPolylineModified,
+    onPolylineModified,
+    void Function(
+      String lineId,
+      List<LatLng> newCoordinates,
+      int pointIndex,
+      bool inserted,
+    )?
+    onPolylineEditCompleted,
     void Function(String lineId, String error)? onEditingError,
   }) {
     return PolylineEditingCallbacks(
       onPolylineBroken: onPolylineBroken ?? this.onPolylineBroken,
       onPolylineModified: onPolylineModified ?? this.onPolylineModified,
+      onPolylineEditCompleted:
+          onPolylineEditCompleted ?? this.onPolylineEditCompleted,
       onEditingError: onEditingError ?? this.onEditingError,
     );
   }

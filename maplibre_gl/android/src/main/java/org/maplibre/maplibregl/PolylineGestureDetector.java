@@ -37,7 +37,7 @@ public class PolylineGestureDetector {
     // Gesture thresholds
     private static final long LONG_PRESS_DURATION_MS = 500; // 500ms for long press
     private static final float MOVEMENT_THRESHOLD_PX = 20f; // 20px movement threshold
-    private static final float HIT_TEST_RADIUS_PX = 30f; // 30px radius for hit testing
+    private float hitTestRadiusPx = 30f;
     
     private final MapLibreMap mapLibreMap;
     private final PolylineEditingManager polylineEditingManager;
@@ -59,7 +59,19 @@ public class PolylineGestureDetector {
     private String activeLineId;
     private LatLng breakPointLocation;
     private int segmentIndex;
+    private int activePointIndex = -1;
     private double distanceAlongSegment;
+    private boolean draggingExistingPoint = false;
+
+    private static class EditableHandleHit {
+        final String lineId;
+        final int pointIndex;
+
+        EditableHandleHit(@NonNull String lineId, int pointIndex) {
+            this.lineId = lineId;
+            this.pointIndex = pointIndex;
+        }
+    }
     
     /**
      * Interface for handling polyline gesture events.
@@ -83,6 +95,12 @@ public class PolylineGestureDetector {
          * @param newCoordinates The updated coordinates of the polyline
          */
         void onPolylineModified(@NonNull String lineId, @NonNull List<LatLng> newCoordinates);
+
+        void onPolylineEditCompleted(
+            @NonNull String lineId,
+            @NonNull List<LatLng> newCoordinates,
+            int pointIndex,
+            boolean inserted);
         
         /**
          * Called when an error occurs during polyline editing.
@@ -113,6 +131,10 @@ public class PolylineGestureDetector {
         this.renderer = renderer;
         this.listener = listener;
         this.errorHandler = new PolylineEditingErrorHandler();
+    }
+
+    public void setHitTestRadiusPx(float radiusPx) {
+        hitTestRadiusPx = Math.max(1f, radiusPx);
     }
     
     /**
@@ -159,6 +181,24 @@ public class PolylineGestureDetector {
             if (!validation.isValid) {
                 Log.w(TAG, "Invalid touch location: " + validation.errorMessage);
                 return false;
+            }
+
+            EditableHandleHit handleHit = findEditableHandleAtPoint(initialTouchPoint);
+            if (handleHit != null) {
+                PolylineBreakPointSystem.BreakPointSession session =
+                    breakPointSystem.createExistingBreakPoint(
+                        handleHit.lineId, handleHit.pointIndex);
+                if (session != null) {
+                    activeLineId = handleHit.lineId;
+                    activePointIndex = handleHit.pointIndex;
+                    breakPointLocation = session.breakPointLocation;
+                    isLongPressActive = true;
+                    isDragging = true;
+                    draggingExistingPoint = true;
+                    renderer.setBreakPointDragging(
+                        activeLineId, activePointIndex, true);
+                    return true;
+                }
             }
             
             // Check if touch is on an editable polyline
@@ -214,7 +254,8 @@ public class PolylineGestureDetector {
         float deltaY = currentTouchPoint.y - initialTouchPoint.y;
         float distance = (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
         
-        if (distance > MOVEMENT_THRESHOLD_PX) {
+        if (draggingExistingPoint ||
+                distance > MOVEMENT_THRESHOLD_PX) {
             // Cancel long press if we're moving too much
             if (longPressRunnable != null) {
                 handler.removeCallbacks(longPressRunnable);
@@ -227,7 +268,8 @@ public class PolylineGestureDetector {
                 
                 // Update visual feedback for dragging state
                 if (renderer != null) {
-                    renderer.setBreakPointDragging(activeLineId, true);
+                    renderer.setBreakPointDragging(
+                        activeLineId, activePointIndex, true);
                 }
                 
                 handleDrag();
@@ -250,7 +292,7 @@ public class PolylineGestureDetector {
             longPressRunnable = null;
         }
         
-        if (isDragging && breakPointLocation != null) {
+        if (isLongPressActive && breakPointLocation != null) {
             // Finalize drag operation
             finalizeDrag();
         }
@@ -262,6 +304,8 @@ public class PolylineGestureDetector {
         breakPointLocation = null;
         segmentIndex = -1;
         distanceAlongSegment = 0.0;
+        activePointIndex = -1;
+        draggingExistingPoint = false;
         
         return wasHandling;
     }
@@ -288,6 +332,7 @@ public class PolylineGestureDetector {
             if (session != null) {
                 breakPointLocation = session.breakPointLocation;
                 segmentIndex = session.segmentIndex;
+                activePointIndex = session.pointIndex;
                 distanceAlongSegment = session.distanceAlongSegment;
                 
                 // Notify listener of the break
@@ -325,13 +370,13 @@ public class PolylineGestureDetector {
                 
                 // Update visual feedback
                 if (renderer != null) {
-                    renderer.updateBreakPoint(activeLineId, breakPointLocation);
+                    renderer.updateBreakPoint(
+                        activeLineId, activePointIndex, breakPointLocation);
                 }
                 
                 // Send real-time updates to Flutter during dragging
-                List<LatLng> combinedCoordinates = new ArrayList<>();
-                combinedCoordinates.addAll(updatedSession.segment1Coordinates);
-                combinedCoordinates.addAll(updatedSession.segment2Coordinates);
+                List<LatLng> combinedCoordinates =
+                    updatedSession.getCombinedCoordinates();
                 listener.onPolylineModified(activeLineId, combinedCoordinates);
                 
                 Log.d(TAG, "Updated break point to: " + breakPointLocation);
@@ -359,6 +404,11 @@ public class PolylineGestureDetector {
             List<LatLng> finalCoordinates = breakPointSystem.finalizeBreakPoint(activeLineId);
             if (finalCoordinates != null) {
                 listener.onPolylineModified(activeLineId, finalCoordinates);
+                listener.onPolylineEditCompleted(
+                    activeLineId,
+                    finalCoordinates,
+                    activePointIndex,
+                    !draggingExistingPoint);
             } else {
                 listener.onPolylineEditingError(activeLineId, "Could not finalize break point");
             }
@@ -442,6 +492,8 @@ public class PolylineGestureDetector {
         breakPointLocation = null;
         segmentIndex = -1;
         distanceAlongSegment = 0.0;
+        activePointIndex = -1;
+        draggingExistingPoint = false;
         
         Log.d(TAG, "Gesture state cleaned up");
     }
@@ -488,7 +540,7 @@ public class PolylineGestureDetector {
             }
 
             float candidateDistance = distanceToPolyline(screenPoint, coordinates);
-            if (candidateDistance < closestDistance && candidateDistance <= HIT_TEST_RADIUS_PX) {
+            if (candidateDistance < closestDistance && candidateDistance <= hitTestRadiusPx) {
                 closestDistance = candidateDistance;
                 closestLineId = lineId;
             }
@@ -500,6 +552,33 @@ public class PolylineGestureDetector {
         }
 
         return closestLineId;
+    }
+
+    @Nullable
+    private EditableHandleHit findEditableHandleAtPoint(
+            @NonNull PointF screenPoint) {
+        Map<String, List<LatLng>> storedCoordinates =
+            breakPointSystem.getStoredPolylineCoordinatesSnapshot();
+        float closestDistance = Float.MAX_VALUE;
+        EditableHandleHit closest = null;
+        for (Map.Entry<String, List<LatLng>> entry : storedCoordinates.entrySet()) {
+            String lineId = entry.getKey();
+            if (!polylineEditingManager.isLineEditable(lineId)) continue;
+            List<LatLng> coordinates = entry.getValue();
+            for (int index = 1; index < coordinates.size() - 1; index++) {
+                if (breakPointSystem.isPointLocked(lineId, index)) continue;
+                PointF point = mapLibreMap.getProjection()
+                    .toScreenLocation(coordinates.get(index));
+                float dx = point.x - screenPoint.x;
+                float dy = point.y - screenPoint.y;
+                float distance = (float) Math.sqrt(dx * dx + dy * dy);
+                if (distance <= hitTestRadiusPx && distance < closestDistance) {
+                    closestDistance = distance;
+                    closest = new EditableHandleHit(lineId, index);
+                }
+            }
+        }
+        return closest;
     }
 
     private float distanceToPolyline(@NonNull PointF touchPoint, @NonNull List<LatLng> coordinates) {

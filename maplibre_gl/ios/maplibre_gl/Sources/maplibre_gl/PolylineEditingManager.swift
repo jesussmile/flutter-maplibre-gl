@@ -22,12 +22,14 @@ class PolylineEditingManager {
         let lineId: String
         let enabled: Bool
         let coordinates: [CLLocationCoordinate2D]
+        let lockedPointIndices: Set<Int>
         let style: [String: Any]
         
-        init(lineId: String, enabled: Bool, coordinates: [CLLocationCoordinate2D] = [], style: [String: Any] = [:]) {
+        init(lineId: String, enabled: Bool, coordinates: [CLLocationCoordinate2D] = [], lockedPointIndices: Set<Int> = [], style: [String: Any] = [:]) {
             self.lineId = lineId
             self.enabled = enabled
             self.coordinates = coordinates
+            self.lockedPointIndices = lockedPointIndices
             self.style = style
         }
     }
@@ -60,16 +62,24 @@ class PolylineEditingManager {
      * @param lineId The ID of the polyline to enable/disable editing for
      * @param enabled Whether to enable or disable editing
      */
-    func enableLineEditing(lineId: String, enabled: Bool) {
+    func enableLineEditing(
+        lineId: String,
+        enabled: Bool,
+        coordinates suppliedCoordinates: [CLLocationCoordinate2D] = [],
+        lockedPointIndices: Set<Int> = []
+    ) {
         NSLog("\(PolylineEditingManager.TAG): enableLineEditing called for line \(lineId), enabled: \(enabled)")
         
         if enabled {
             // Get coordinates from the map if available
-            let coordinates = getLineCoordinates(lineId: lineId)
+            let coordinates = suppliedCoordinates.isEmpty
+                ? getLineCoordinates(lineId: lineId)
+                : suppliedCoordinates
             let config = PolylineEditingConfig(
                 lineId: lineId,
                 enabled: true,
                 coordinates: coordinates,
+                lockedPointIndices: lockedPointIndices,
                 style: globalEditingStyle
             )
             editableLines[lineId] = config
@@ -109,6 +119,7 @@ class PolylineEditingManager {
                 lineId: config.lineId,
                 enabled: config.enabled,
                 coordinates: config.coordinates,
+                lockedPointIndices: config.lockedPointIndices,
                 style: globalEditingStyle
             )
             editableLines[lineId] = updatedConfig
@@ -161,6 +172,7 @@ class PolylineEditingManager {
             lineId: config.lineId,
             enabled: config.enabled,
             coordinates: coordinates,
+            lockedPointIndices: config.lockedPointIndices,
             style: config.style
         )
         editableLines[lineId] = updatedConfig

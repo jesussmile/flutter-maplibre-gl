@@ -125,13 +125,21 @@ class EditablePolylineRenderer {
      * @param coordinate The coordinate where the break point should be displayed
      */
     func showBreakPoint(lineId: String, coordinate: CLLocationCoordinate2D) {
+        showBreakPoint(lineId: lineId, pointIndex: -1, coordinate: coordinate)
+    }
+
+    func showBreakPoint(
+        lineId: String,
+        pointIndex: Int,
+        coordinate: CLLocationCoordinate2D
+    ) {
         // Create point annotation for the break point
         let annotation = MLNPointAnnotation()
         annotation.coordinate = coordinate
         annotation.title = "Break Point"
         
         // Store the annotation
-        breakPointAnnotations[lineId] = annotation
+        breakPointAnnotations[breakPointKey(lineId: lineId, pointIndex: pointIndex)] = annotation
         
         // Update the break point source
         updateBreakPointSource()
@@ -145,9 +153,39 @@ class EditablePolylineRenderer {
      * @param lineId The ID of the line to hide the break point for
      */
     func hideBreakPoint(lineId: String) {
-        breakPointAnnotations.removeValue(forKey: lineId)
+        breakPointAnnotations = breakPointAnnotations.filter {
+            !$0.key.hasPrefix("\(lineId):")
+        }
         updateBreakPointSource()
         NSLog("\(EditablePolylineRenderer.TAG): Hidden break point for line \(lineId)")
+    }
+
+    func syncBreakPoints(
+        lineId: String,
+        coordinates: [CLLocationCoordinate2D],
+        lockedPointIndices: Set<Int>
+    ) {
+        breakPointAnnotations = breakPointAnnotations.filter {
+            !$0.key.hasPrefix("\(lineId):")
+        }
+        guard coordinates.count > 2 else {
+            updateBreakPointSource()
+            return
+        }
+        for index in 1..<(coordinates.count - 1) {
+            if lockedPointIndices.contains(index) { continue }
+            let annotation = MLNPointAnnotation()
+            annotation.coordinate = coordinates[index]
+            annotation.title = "Waypoint"
+            breakPointAnnotations[
+                breakPointKey(lineId: lineId, pointIndex: index)
+            ] = annotation
+        }
+        updateBreakPointSource()
+    }
+
+    private func breakPointKey(lineId: String, pointIndex: Int) -> String {
+        return "\(lineId):\(pointIndex)"
     }
     
     /**

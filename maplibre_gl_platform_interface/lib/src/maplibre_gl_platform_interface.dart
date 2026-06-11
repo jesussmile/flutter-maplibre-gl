@@ -35,6 +35,8 @@ abstract class MapLibrePlatform {
 
   final onMapLongClickPlatform = ArgumentCallbacks<Map<String, dynamic>>();
 
+  final onMapTouchStatePlatform = ArgumentCallbacks<Map<String, dynamic>>();
+
   final onCameraTrackingChangedPlatform =
       ArgumentCallbacks<MyLocationTrackingMode>();
 
@@ -51,6 +53,8 @@ abstract class MapLibrePlatform {
   // Polyline editing callbacks
   final onPolylineBrokenPlatform = ArgumentCallbacks<Map<String, dynamic>>();
   final onPolylineModifiedPlatform = ArgumentCallbacks<Map<String, dynamic>>();
+  final onPolylineEditCompletedPlatform =
+      ArgumentCallbacks<Map<String, dynamic>>();
   final onPolylineEditingErrorPlatform =
       ArgumentCallbacks<Map<String, dynamic>>();
 
@@ -391,6 +395,7 @@ abstract class MapLibrePlatform {
     String lineId,
     bool enabled, [
     List<LatLng>? coordinates,
+    List<int>? lockedPointIndices,
   ]);
   Future<void> setLineEditingStyle(Map<String, dynamic> style);
   Future<bool> isLineEditable(String lineId);
@@ -408,6 +413,7 @@ abstract class MapLibrePlatform {
 
     onMapClickPlatform.clear();
     onMapLongClickPlatform.clear();
+    onMapTouchStatePlatform.clear();
     onCameraTrackingChangedPlatform.clear();
     onCameraTrackingDismissedPlatform.clear();
     onMapIdlePlatform.clear();
@@ -417,6 +423,7 @@ abstract class MapLibrePlatform {
     onNativeMeasurementEnd.clear();
     onPolylineBrokenPlatform.clear();
     onPolylineModifiedPlatform.clear();
+    onPolylineEditCompletedPlatform.clear();
     onPolylineEditingErrorPlatform.clear();
   }
 }

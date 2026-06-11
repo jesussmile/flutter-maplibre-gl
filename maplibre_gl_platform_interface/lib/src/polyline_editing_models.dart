@@ -195,18 +195,21 @@ class PolylineEditingSession {
     return PolylineEditingSession(
       lineId: json['lineId'] as String,
       breakPoint: PolylineBreakPoint.fromJson(json['breakPoint']),
-      originalCoordinates: (json['originalCoordinates'] as List)
-          .map((c) => LatLng._fromJson(c))
-          .cast<LatLng>()
-          .toList(),
-      segment1Coordinates: (json['segment1Coordinates'] as List)
-          .map((c) => LatLng._fromJson(c))
-          .cast<LatLng>()
-          .toList(),
-      segment2Coordinates: (json['segment2Coordinates'] as List)
-          .map((c) => LatLng._fromJson(c))
-          .cast<LatLng>()
-          .toList(),
+      originalCoordinates:
+          (json['originalCoordinates'] as List)
+              .map((c) => LatLng._fromJson(c))
+              .cast<LatLng>()
+              .toList(),
+      segment1Coordinates:
+          (json['segment1Coordinates'] as List)
+              .map((c) => LatLng._fromJson(c))
+              .cast<LatLng>()
+              .toList(),
+      segment2Coordinates:
+          (json['segment2Coordinates'] as List)
+              .map((c) => LatLng._fromJson(c))
+              .cast<LatLng>()
+              .toList(),
       startTime: DateTime.parse(json['startTime'] as String),
     );
   }
@@ -269,6 +272,7 @@ class PolylineEditingStyle {
     this.previewLineColor = '#00FF00',
     this.previewLineOpacity = 0.7,
     this.previewLineWidth = 3.0,
+    this.hitTestTolerance = 24.0,
     this.enableHapticFeedback = true,
   });
 
@@ -301,6 +305,9 @@ class PolylineEditingStyle {
   /// Width of the preview line in pixels.
   final double previewLineWidth;
 
+  /// Logical-pixel radius used to select route segments and edit handles.
+  final double hitTestTolerance;
+
   /// Whether to enable haptic feedback during editing operations.
   ///
   /// Only applies to platforms that support haptic feedback.
@@ -315,6 +322,7 @@ class PolylineEditingStyle {
     String? previewLineColor,
     double? previewLineOpacity,
     double? previewLineWidth,
+    double? hitTestTolerance,
     bool? enableHapticFeedback,
   }) {
     return PolylineEditingStyle(
@@ -327,6 +335,7 @@ class PolylineEditingStyle {
       previewLineColor: previewLineColor ?? this.previewLineColor,
       previewLineOpacity: previewLineOpacity ?? this.previewLineOpacity,
       previewLineWidth: previewLineWidth ?? this.previewLineWidth,
+      hitTestTolerance: hitTestTolerance ?? this.hitTestTolerance,
       enableHapticFeedback: enableHapticFeedback ?? this.enableHapticFeedback,
     );
   }
@@ -341,6 +350,7 @@ class PolylineEditingStyle {
       'previewLineColor': previewLineColor,
       'previewLineOpacity': previewLineOpacity,
       'previewLineWidth': previewLineWidth,
+      'hitTestTolerance': hitTestTolerance,
       'enableHapticFeedback': enableHapticFeedback,
     };
   }
@@ -356,6 +366,7 @@ class PolylineEditingStyle {
       previewLineColor: json['previewLineColor'] as String? ?? '#00FF00',
       previewLineOpacity: json['previewLineOpacity'] as double? ?? 0.7,
       previewLineWidth: json['previewLineWidth'] as double? ?? 3.0,
+      hitTestTolerance: json['hitTestTolerance'] as double? ?? 24.0,
       enableHapticFeedback: json['enableHapticFeedback'] as bool? ?? true,
     );
   }
@@ -371,6 +382,7 @@ class PolylineEditingStyle {
         other.previewLineColor == previewLineColor &&
         other.previewLineOpacity == previewLineOpacity &&
         other.previewLineWidth == previewLineWidth &&
+        other.hitTestTolerance == hitTestTolerance &&
         other.enableHapticFeedback == enableHapticFeedback;
   }
 
@@ -384,6 +396,7 @@ class PolylineEditingStyle {
       previewLineColor,
       previewLineOpacity,
       previewLineWidth,
+      hitTestTolerance,
       enableHapticFeedback,
     );
   }
@@ -397,6 +410,7 @@ class PolylineEditingStyle {
         'previewLineColor: $previewLineColor, '
         'previewLineOpacity: $previewLineOpacity, '
         'previewLineWidth: $previewLineWidth, '
+        'hitTestTolerance: $hitTestTolerance, '
         'enableHapticFeedback: $enableHapticFeedback)';
   }
 }

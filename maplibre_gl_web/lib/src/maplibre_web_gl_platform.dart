@@ -72,8 +72,12 @@ class MapLibreMapController extends MapLibrePlatform
     'previewLineColor': '#FFC857',
     'previewLineOpacity': 0.82,
     'previewLineWidth': 4.0,
+    'hitTestTolerance': 24.0,
   };
   _WebLineEditDrag? _webLineEditDrag;
+  _WebLineSegmentHit? _webLineEditPendingSegment;
+  Point<double>? _webLineEditPendingPoint;
+  Timer? _webLineEditHoldTimer;
   bool _suppressNextMapClick = false;
 
   bool _trackCameraPosition = false;
@@ -253,6 +257,11 @@ class MapLibreMapController extends MapLibrePlatform
   void _onCanvasMouseMove(html.MouseEvent event) {
     final point = _mapPointFromMouseEvent(event);
     if (point == null) return;
+    final pendingLinePoint = _webLineEditPendingPoint;
+    if (pendingLinePoint != null &&
+        _pointDistance(point, pendingLinePoint) > 10.0) {
+      _cancelPendingWebLineInsertion();
+    }
     if (_webMeasurementDragRole != null) {
       event.preventDefault();
       _updateWebMeasurementDragAt(_unprojectPoint(point));
@@ -273,6 +282,7 @@ class MapLibreMapController extends MapLibrePlatform
   void _onCanvasMouseUp(html.MouseEvent event) {
     final point = _mapPointFromMouseEvent(event);
     if (point == null) return;
+    _cancelPendingWebLineInsertion();
     if (_webMeasurementDragRole != null) {
       event.preventDefault();
       _finishWebMeasurementDragAt(_unprojectPoint(point));
@@ -1376,12 +1386,23 @@ class MapLibreMapController extends MapLibrePlatform
 
   @override
   Future<List> getLayerIds() async {
-    return _map.getLayers().map((e) => e.id).toList();
+    final style = _map.getStyle();
+    if (style == null) return [];
+    final layers = dartify(getProperty<Object?>(style, 'layers'));
+    if (layers is! List) return [];
+    return [
+      for (final layer in layers)
+        if (layer is Map && layer['id'] != null) layer['id'].toString(),
+    ];
   }
 
   @override
   Future<List> getSourceIds() async {
-    throw UnimplementedError();
+    final style = _map.getStyle();
+    if (style == null) return [];
+    final sources = getProperty<Object?>(style, 'sources');
+    if (sources == null) return [];
+    return objectKeys(sources).map((sourceId) => sourceId.toString()).toList();
   }
 
   // ?? Stub implementations for methods added to the platform interface ??
@@ -1527,7 +1548,7 @@ class MapLibreMapController extends MapLibrePlatform
 
   @override
   Future<void> enableLineEditing(String lineId, bool enabled,
-      [List<LatLng>? coordinates]) async {
+      [List<LatLng>? coordinates, List<int>? lockedPointIndices]) async {
     final existing = _webEditableLines[lineId];
     if (enabled) {
       final nextCoordinates = coordinates ?? existing?.coordinates;
@@ -1542,10 +1563,12 @@ class MapLibreMapController extends MapLibrePlatform
         lineId: lineId,
         enabled: true,
         coordinates: List<LatLng>.from(nextCoordinates),
+        lockedPointIndices: {...?lockedPointIndices},
       );
       _ensureWebLineEditingLayers();
     } else if (existing != null) {
       existing.enabled = false;
+      _cancelPendingWebLineInsertion();
       if (_webLineEditDrag?.lineId == lineId) {
         _webLineEditDrag = null;
       }
@@ -1921,23 +1944,44 @@ class MapLibreMapController extends MapLibrePlatform
     }
 
     final segment = _nearestWebLineSegment(point);
-    if (segment == null || segment.distance > 18.0) return false;
+    if (segment == null ||
+        segment.distance > _styleDouble('hitTestTolerance', 24.0)) {
+      return false;
+    }
 
-    final line = _webEditableLines[segment.lineId];
-    if (line == null) return false;
-    final coordinate = _unprojectPoint(segment.projectedPoint);
-    line.coordinates.insert(segment.insertIndex, coordinate);
-    _webLineEditDrag = _WebLineEditDrag(
-      lineId: segment.lineId,
-      pointIndex: segment.insertIndex,
-      inserted: true,
-    );
-    _suppressNextMapClick = true;
-    _map.dragPan.disable();
-    _map.getCanvas().style.cursor = 'grabbing';
-    _renderWebLineEditingHandles();
-    _emitWebLineModified(line);
+    _cancelPendingWebLineInsertion();
+    _webLineEditPendingSegment = segment;
+    _webLineEditPendingPoint = point;
+    _webLineEditHoldTimer = Timer(const Duration(milliseconds: 500), () {
+      final pending = _webLineEditPendingSegment;
+      _webLineEditPendingSegment = null;
+      _webLineEditPendingPoint = null;
+      _webLineEditHoldTimer = null;
+      if (pending == null) return;
+      final line = _webEditableLines[pending.lineId];
+      if (line == null || !line.enabled) return;
+      final coordinate = _unprojectPoint(pending.projectedPoint);
+      line.coordinates.insert(pending.insertIndex, coordinate);
+      line.shiftLockedIndicesForInsert(pending.insertIndex);
+      _webLineEditDrag = _WebLineEditDrag(
+        lineId: pending.lineId,
+        pointIndex: pending.insertIndex,
+        inserted: true,
+      );
+      _suppressNextMapClick = true;
+      _map.dragPan.disable();
+      _map.getCanvas().style.cursor = 'grabbing';
+      _renderWebLineEditingHandles();
+      _emitWebLineModified(line);
+    });
     return true;
+  }
+
+  void _cancelPendingWebLineInsertion() {
+    _webLineEditHoldTimer?.cancel();
+    _webLineEditHoldTimer = null;
+    _webLineEditPendingSegment = null;
+    _webLineEditPendingPoint = null;
   }
 
   void _updateWebLineEditDragAt(LatLng coordinate) {
@@ -1946,7 +1990,8 @@ class MapLibreMapController extends MapLibrePlatform
     final line = _webEditableLines[drag.lineId];
     if (line == null ||
         drag.pointIndex <= 0 ||
-        drag.pointIndex >= line.coordinates.length - 1) {
+        drag.pointIndex >= line.coordinates.length - 1 ||
+        line.lockedPointIndices.contains(drag.pointIndex)) {
       return;
     }
     line.coordinates[drag.pointIndex] = coordinate;
@@ -1959,7 +2004,10 @@ class MapLibreMapController extends MapLibrePlatform
     final drag = _webLineEditDrag;
     if (drag != null) {
       final line = _webEditableLines[drag.lineId];
-      if (line != null) _emitWebLineModified(line);
+      if (line != null) {
+        _emitWebLineModified(line);
+        _emitWebLineEditCompleted(line, drag);
+      }
     }
     _webLineEditDrag = null;
     _map.dragPan.enable();
@@ -1967,11 +2015,15 @@ class MapLibreMapController extends MapLibrePlatform
   }
 
   _WebLineEditDrag? _nearestWebLineHandle(Point<double> point) {
-    final radius = _styleDouble('breakPointRadius', 12.0) + 10.0;
+    final radius = max(
+      _styleDouble('breakPointRadius', 12.0) + 10.0,
+      _styleDouble('hitTestTolerance', 24.0),
+    );
     _WebLineEditDrag? nearest;
     var nearestDistance = double.infinity;
     for (final line in _webEditableLines.values.where((line) => line.enabled)) {
       for (var i = 1; i < line.coordinates.length - 1; i++) {
+        if (line.lockedPointIndices.contains(i)) continue;
         final projected = _projectLatLng(line.coordinates[i]);
         final distance = _pointDistance(point, projected);
         if (distance <= radius && distance < nearestDistance) {
@@ -2163,6 +2215,7 @@ class MapLibreMapController extends MapLibrePlatform
         });
       }
       for (var i = 1; i < line.coordinates.length - 1; i++) {
+        if (line.lockedPointIndices.contains(i)) continue;
         features.add(_pointFeature(
           id: '${line.lineId}-$i',
           coordinate: line.coordinates[i],
@@ -2189,6 +2242,21 @@ class MapLibreMapController extends MapLibrePlatform
         for (final coordinate in line.coordinates)
           [coordinate.latitude, coordinate.longitude],
       ],
+    });
+  }
+
+  void _emitWebLineEditCompleted(
+    _WebEditableLine line,
+    _WebLineEditDrag drag,
+  ) {
+    onPolylineEditCompletedPlatform({
+      'lineId': line.lineId,
+      'coordinates': [
+        for (final coordinate in line.coordinates)
+          [coordinate.latitude, coordinate.longitude],
+      ],
+      'pointIndex': drag.pointIndex,
+      'inserted': drag.inserted,
     });
   }
 
@@ -2406,11 +2474,22 @@ class _WebEditableLine {
     required this.lineId,
     required this.enabled,
     required this.coordinates,
-  });
+    Set<int>? lockedPointIndices,
+  }) : lockedPointIndices = lockedPointIndices ?? <int>{};
 
   final String lineId;
   bool enabled;
   final List<LatLng> coordinates;
+  final Set<int> lockedPointIndices;
+
+  void shiftLockedIndicesForInsert(int insertedIndex) {
+    final shifted = lockedPointIndices
+        .map((index) => index >= insertedIndex ? index + 1 : index)
+        .toSet();
+    lockedPointIndices
+      ..clear()
+      ..addAll(shifted);
+  }
 }
 
 class _WebLineEditDrag {

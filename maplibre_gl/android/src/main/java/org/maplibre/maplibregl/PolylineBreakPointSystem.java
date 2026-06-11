@@ -18,9 +18,11 @@ import org.maplibre.geojson.LineString;
 import org.maplibre.geojson.Point;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -38,6 +40,7 @@ public class PolylineBreakPointSystem {
     private final MapLibreMap mapLibreMap;
     private final Map<String, BreakPointSession> activeSessions;
     private final Map<String, List<LatLng>> subdivisionTracker;
+    private final Map<String, Set<Integer>> lockedPointIndices;
     
     /**
      * Represents an active break point editing session.
@@ -52,12 +55,25 @@ public class PolylineBreakPointSystem {
         public final int segmentIndex;
         public final double distanceAlongSegment;
         public final long startTime;
+        public final boolean insertedPoint;
+        public final int pointIndex;
         
         public BreakPointSession(@NonNull String lineId, @NonNull LatLng breakPointLocation,
                                @NonNull List<LatLng> originalCoordinates,
                                @NonNull List<LatLng> segment1Coordinates,
                                @NonNull List<LatLng> segment2Coordinates,
                                int segmentIndex, double distanceAlongSegment) {
+            this(lineId, breakPointLocation, originalCoordinates,
+                segment1Coordinates, segment2Coordinates, segmentIndex,
+                distanceAlongSegment, true, segmentIndex + 1);
+        }
+
+        public BreakPointSession(@NonNull String lineId, @NonNull LatLng breakPointLocation,
+                               @NonNull List<LatLng> originalCoordinates,
+                               @NonNull List<LatLng> segment1Coordinates,
+                               @NonNull List<LatLng> segment2Coordinates,
+                               int segmentIndex, double distanceAlongSegment,
+                               boolean insertedPoint, int pointIndex) {
             this.sessionId = UUID.randomUUID().toString();
             this.lineId = lineId;
             this.breakPointLocation = breakPointLocation;
@@ -66,6 +82,8 @@ public class PolylineBreakPointSystem {
             this.segment2Coordinates = new ArrayList<>(segment2Coordinates);
             this.segmentIndex = segmentIndex;
             this.distanceAlongSegment = distanceAlongSegment;
+            this.insertedPoint = insertedPoint;
+            this.pointIndex = pointIndex;
             this.startTime = System.currentTimeMillis();
         }
         
@@ -86,7 +104,8 @@ public class PolylineBreakPointSystem {
             }
             
             return new BreakPointSession(lineId, newBreakPointLocation, originalCoordinates,
-                                       newSegment1, newSegment2, segmentIndex, distanceAlongSegment);
+                                       newSegment1, newSegment2, segmentIndex,
+                                       distanceAlongSegment, insertedPoint, pointIndex);
         }
         
         /**
@@ -127,7 +146,30 @@ public class PolylineBreakPointSystem {
         this.mapLibreMap = mapLibreMap;
         this.activeSessions = new HashMap<>();
         this.subdivisionTracker = new HashMap<>();
+        this.lockedPointIndices = new HashMap<>();
         Log.d(TAG, "PolylineBreakPointSystem initialized");
+    }
+
+    @Nullable
+    public BreakPointSession createExistingBreakPoint(
+            @NonNull String lineId, int pointIndex) {
+        List<LatLng> coordinates = getPolylineCoordinates(lineId);
+        if (coordinates == null || pointIndex <= 0 ||
+                pointIndex >= coordinates.size() - 1 ||
+                isPointLocked(lineId, pointIndex)) {
+            return null;
+        }
+
+        LatLng location = coordinates.get(pointIndex);
+        List<LatLng> segment1 =
+                new ArrayList<>(coordinates.subList(0, pointIndex + 1));
+        List<LatLng> segment2 =
+                new ArrayList<>(coordinates.subList(pointIndex, coordinates.size()));
+        BreakPointSession session = new BreakPointSession(
+                lineId, location, coordinates, segment1, segment2,
+                pointIndex - 1, 1.0, false, pointIndex);
+        activeSessions.put(lineId, session);
+        return session;
     }
     
     /**
@@ -193,6 +235,7 @@ public class PolylineBreakPointSystem {
             
             // Store the active session
             activeSessions.put(lineId, session);
+            shiftLockedPointIndicesForInsert(lineId, session.pointIndex);
             
             Log.d(TAG, "Created break point session: " + session.sessionId);
             return session;
@@ -324,6 +367,33 @@ public class PolylineBreakPointSystem {
         subdivisionTracker.put(lineId, new ArrayList<>(coordinates));
         Log.d(TAG, "Stored coordinates for polyline " + lineId + ": " + coordinates.size() + " points");
     }
+
+    public void setLockedPointIndices(
+            @NonNull String lineId, @NonNull List<Integer> indices) {
+        lockedPointIndices.put(lineId, new HashSet<>(indices));
+    }
+
+    @NonNull
+    public Set<Integer> getLockedPointIndices(@NonNull String lineId) {
+        Set<Integer> indices = lockedPointIndices.get(lineId);
+        return indices == null ? new HashSet<>() : new HashSet<>(indices);
+    }
+
+    public boolean isPointLocked(@NonNull String lineId, int pointIndex) {
+        Set<Integer> indices = lockedPointIndices.get(lineId);
+        return indices != null && indices.contains(pointIndex);
+    }
+
+    private void shiftLockedPointIndicesForInsert(
+            @NonNull String lineId, int insertedIndex) {
+        Set<Integer> current = lockedPointIndices.get(lineId);
+        if (current == null || current.isEmpty()) return;
+        Set<Integer> shifted = new HashSet<>();
+        for (Integer index : current) {
+            shifted.add(index >= insertedIndex ? index + 1 : index);
+        }
+        lockedPointIndices.put(lineId, shifted);
+    }
     
     /**
      * Removes stored coordinates for a polyline.
@@ -333,6 +403,7 @@ public class PolylineBreakPointSystem {
      */
     public void removePolylineCoordinates(@NonNull String lineId) {
         List<LatLng> removed = subdivisionTracker.remove(lineId);
+        lockedPointIndices.remove(lineId);
         if (removed != null) {
             Log.d(TAG, "Removed stored coordinates for polyline " + lineId + ": " + removed.size() + " points");
         }

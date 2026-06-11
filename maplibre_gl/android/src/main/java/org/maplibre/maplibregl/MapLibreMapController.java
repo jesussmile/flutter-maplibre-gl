@@ -383,6 +383,21 @@ final class MapLibreMapController
             Log.e(TAG, "Error sending onPolylineModified callback: " + e.getMessage(), e);
           }
         }
+
+        @Override
+        public void onPolylineEditCompleted(
+            @NonNull String lineId,
+            @NonNull List<LatLng> newCoordinates,
+            int pointIndex,
+            boolean inserted) {
+          List<List<Double>> coordinates = convertLatLngListToCoordinates(newCoordinates);
+          Map<String, Object> arguments = new HashMap<>();
+          arguments.put("lineId", lineId);
+          arguments.put("coordinates", coordinates);
+          arguments.put("pointIndex", pointIndex);
+          arguments.put("inserted", inserted);
+          methodChannel.invokeMethod("polylineEditing#onCompleted", arguments);
+        }
         
         @Override
         public void onPolylineEditingError(@NonNull String lineId, @NonNull String error) {
@@ -406,13 +421,13 @@ final class MapLibreMapController
           new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+              emitMapTouchState(event);
+
               if (nativeMeasurementDetector != null
                   && nativeMeasurementDetector.onTouchEvent(event)) {
                 return true;
               }
 
-              androidGesturesManager.onTouchEvent(event);
-              
               // Handle polyline editing gestures
               if (polylineGestureDetector != null) {
                 boolean polylineHandled = polylineGestureDetector.onTouchEvent(event);
@@ -420,6 +435,8 @@ final class MapLibreMapController
                   return true; // Polyline gesture consumed the event
                 }
               }
+
+              androidGesturesManager.onTouchEvent(event);
 
               boolean consumedByDrag = draggedFeature != null;
               return consumedByDrag;
@@ -2318,6 +2335,8 @@ final class MapLibreMapController
             String lineId = call.argument("lineId");
             Boolean enabled = call.argument("enabled");
             List<Object> coordinatesList = call.argument("coordinates");
+            List<Number> lockedPointIndicesList =
+                call.argument("lockedPointIndices");
             
             if (lineId != null && enabled != null && polylineEditingManager != null) {
               polylineEditingManager.enableLineEditing(lineId, enabled);
@@ -2338,6 +2357,20 @@ final class MapLibreMapController
                 
                 if (!coordinates.isEmpty()) {
                   polylineBreakPointSystem.setPolylineCoordinates(lineId, coordinates);
+                  List<Integer> lockedPointIndices = new ArrayList<>();
+                  if (lockedPointIndicesList != null) {
+                    for (Number index : lockedPointIndicesList) {
+                      lockedPointIndices.add(index.intValue());
+                    }
+                  }
+                  polylineBreakPointSystem.setLockedPointIndices(
+                      lineId, lockedPointIndices);
+                  if (polylineRenderer != null) {
+                    polylineRenderer.syncBreakPoints(
+                        lineId,
+                        coordinates,
+                        polylineBreakPointSystem.getLockedPointIndices(lineId));
+                  }
                   Log.d(TAG, "Stored coordinates for editable polyline " + lineId + ": " + coordinates.size() + " points");
                 }
               } else if (!enabled && polylineBreakPointSystem != null) {
@@ -2366,6 +2399,14 @@ final class MapLibreMapController
               // Also update the renderer styling
               if (polylineRenderer != null) {
                 polylineRenderer.updateStyle(style);
+              }
+              if (polylineGestureDetector != null) {
+                Object tolerance = style.get("hitTestTolerance");
+                if (tolerance instanceof Number) {
+                  float density = context.getResources().getDisplayMetrics().density;
+                  polylineGestureDetector.setHitTestRadiusPx(
+                      ((Number) tolerance).floatValue() * density);
+                }
               }
               
               result.success(null);
@@ -2430,6 +2471,44 @@ final class MapLibreMapController
     boolean isGesture = reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE;
     arguments.put("isGesture", isGesture);
     methodChannel.invokeMethod("camera#onMoveStarted", arguments);
+  }
+
+  private void emitMapTouchState(MotionEvent event) {
+    final int actionMasked = event.getActionMasked();
+    if (actionMasked != MotionEvent.ACTION_DOWN
+        && actionMasked != MotionEvent.ACTION_POINTER_DOWN
+        && actionMasked != MotionEvent.ACTION_UP
+        && actionMasked != MotionEvent.ACTION_POINTER_UP
+        && actionMasked != MotionEvent.ACTION_CANCEL) {
+      return;
+    }
+
+    final int pointerIndex = event.getActionIndex();
+    final Map<String, Object> arguments = new HashMap<>(6);
+    arguments.put("action", mapTouchActionName(actionMasked));
+    arguments.put("pointerCount", event.getPointerCount());
+    arguments.put("pointerIndex", pointerIndex);
+    arguments.put("x", event.getX(pointerIndex));
+    arguments.put("y", event.getY(pointerIndex));
+    arguments.put("actionMasked", actionMasked);
+    methodChannel.invokeMethod("map#onTouchState", arguments);
+  }
+
+  private String mapTouchActionName(int actionMasked) {
+    switch (actionMasked) {
+      case MotionEvent.ACTION_DOWN:
+        return "down";
+      case MotionEvent.ACTION_POINTER_DOWN:
+        return "pointer_down";
+      case MotionEvent.ACTION_UP:
+        return "up";
+      case MotionEvent.ACTION_POINTER_UP:
+        return "pointer_up";
+      case MotionEvent.ACTION_CANCEL:
+        return "cancel";
+      default:
+        return "other";
+    }
   }
 
   @Override
@@ -5281,8 +5360,9 @@ final class MapLibreMapController
       
       try {
         // Show break point marker
-        if (polylineRenderer != null) {
-          polylineRenderer.showBreakPoint(lineId, breakPoint);
+            if (polylineRenderer != null) {
+              polylineRenderer.showBreakPoint(
+                  lineId, Math.max(1, segment1.size() - 1), breakPoint);
         }
         
         // Convert LatLng lists to coordinate arrays for Flutter
@@ -5307,10 +5387,12 @@ final class MapLibreMapController
     public void onPolylineModified(@NonNull String lineId, @NonNull List<LatLng> newCoordinates) {
       Log.d(TAG, "Polyline modified: " + lineId);
       
-      // Hide visual feedback elements
-      if (polylineRenderer != null) {
-        polylineRenderer.hideBreakPoint(lineId);
-      }
+            if (polylineRenderer != null && polylineBreakPointSystem != null) {
+              polylineRenderer.syncBreakPoints(
+                  lineId,
+                  newCoordinates,
+                  polylineBreakPointSystem.getLockedPointIndices(lineId));
+            }
       
       // Convert LatLng list to coordinate array for Flutter
       List<List<Double>> coordinates = convertLatLngListToCoordinates(newCoordinates);
@@ -5321,6 +5403,20 @@ final class MapLibreMapController
       arguments.put("coordinates", coordinates);
       
       methodChannel.invokeMethod("polylineEditing#onModified", arguments);
+    }
+
+    @Override
+    public void onPolylineEditCompleted(
+        @NonNull String lineId,
+        @NonNull List<LatLng> newCoordinates,
+        int pointIndex,
+        boolean inserted) {
+      Map<String, Object> arguments = new HashMap<>();
+      arguments.put("lineId", lineId);
+      arguments.put("coordinates", convertLatLngListToCoordinates(newCoordinates));
+      arguments.put("pointIndex", pointIndex);
+      arguments.put("inserted", inserted);
+      methodChannel.invokeMethod("polylineEditing#onCompleted", arguments);
     }
     
     @Override

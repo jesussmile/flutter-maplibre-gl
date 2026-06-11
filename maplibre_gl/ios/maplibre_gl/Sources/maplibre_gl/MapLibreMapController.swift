@@ -3254,7 +3254,55 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         }
         
         do {
-            editingManager.enableLineEditing(lineId: lineId, enabled: enabled)
+            let coordinateValues = arguments["coordinates"] as? [[Any]] ?? []
+            let coordinates = coordinateValues.compactMap { value -> CLLocationCoordinate2D? in
+                guard value.count >= 2,
+                      let latitude = value[0] as? NSNumber,
+                      let longitude = value[1] as? NSNumber else {
+                    return nil
+                }
+                return CLLocationCoordinate2D(
+                    latitude: latitude.doubleValue,
+                    longitude: longitude.doubleValue
+                )
+            }
+            let lockedPointIndices = Set(
+                (arguments["lockedPointIndices"] as? [NSNumber] ?? [])
+                    .map { $0.intValue }
+            )
+            editingManager.enableLineEditing(
+                lineId: lineId,
+                enabled: enabled,
+                coordinates: coordinates,
+                lockedPointIndices: lockedPointIndices
+            )
+            if enabled, let breakPointSystem = polylineBreakPointSystem,
+               let renderer = polylineRenderer {
+                breakPointSystem.removeBreakPointsForLine(lineId: lineId)
+                if coordinates.count > 2 {
+                    for index in 1..<(coordinates.count - 1) {
+                        if lockedPointIndices.contains(index) { continue }
+                        breakPointSystem.addBreakPoint(
+                            PolylineBreakPoint(
+                                id: "\(lineId):\(index)",
+                                parentLineId: lineId,
+                                coordinate: coordinates[index],
+                                segmentIndex: index - 1,
+                                distanceAlongSegment: 1,
+                                isDragging: false
+                            )
+                        )
+                    }
+                }
+                renderer.syncBreakPoints(
+                    lineId: lineId,
+                    coordinates: coordinates,
+                    lockedPointIndices: lockedPointIndices
+                )
+            } else if !enabled {
+                polylineBreakPointSystem?.removeBreakPointsForLine(lineId: lineId)
+                polylineRenderer?.hideBreakPoint(lineId: lineId)
+            }
             result(nil)
         } catch {
             result(FlutterError(code: "NATIVE_ERROR", message: "Failed to enable/disable line editing: \(error.localizedDescription)", details: nil))
@@ -3279,6 +3327,11 @@ class MapLibreMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, 
         do {
             editingManager.setEditingStyle(style: style)
             renderer.updateStyle(style)
+            if let tolerance = style["hitTestTolerance"] as? NSNumber {
+                polylineGestureHandler?.setHitTestTolerance(
+                    CGFloat(tolerance.doubleValue)
+                )
+            }
             result(nil)
         } catch {
             result(FlutterError(code: "NATIVE_ERROR", message: "Failed to set editing style: \(error.localizedDescription)", details: nil))
@@ -3340,6 +3393,21 @@ extension MapLibreMapController: PolylineGestureHandlerDelegate {
         ]
         
         channel?.invokeMethod("polylineEditing#onModified", arguments: arguments)
+    }
+
+    func onPolylineEditCompleted(
+        lineId: String,
+        newCoordinates: [CLLocationCoordinate2D],
+        pointIndex: Int,
+        inserted: Bool
+    ) {
+        let arguments: [String: Any] = [
+            "lineId": lineId,
+            "coordinates": newCoordinates.map { [$0.latitude, $0.longitude] },
+            "pointIndex": pointIndex,
+            "inserted": inserted
+        ]
+        channel?.invokeMethod("polylineEditing#onCompleted", arguments: arguments)
     }
     
     func onPolylineEditingError(lineId: String, error: String) {

@@ -20,6 +20,8 @@ typedef OnFeatureDragnCallback = void Function(dynamic id,
 typedef OnMapLongClickCallback = void Function(
     Point<double> point, LatLng coordinates);
 
+typedef OnMapTouchStateCallback = void Function(Map<String, dynamic> state);
+
 typedef OnStyleLoadedCallback = void Function();
 
 typedef OnUserLocationUpdated = void Function(UserLocation location);
@@ -109,6 +111,12 @@ class MapLibreMapController extends ChangeNotifier {
             current: payload["current"],
             delta: payload["delta"],
             eventType: enmDragEventType);
+      }
+    });
+
+    _maplibrePlatform.onMapTouchStatePlatform.add((payload) {
+      for (final fun in List<OnMapTouchStateCallback>.from(onMapTouchState)) {
+        fun(payload);
       }
     });
 
@@ -214,6 +222,22 @@ class MapLibreMapController extends ChangeNotifier {
           ?.call(lineId, coordinates);
     });
 
+    _maplibrePlatform.onPolylineEditCompletedPlatform.add((dict) {
+      final lineId = dict['lineId'] as String;
+      final coordinatesRaw = dict['coordinates'] as List<dynamic>;
+      final pointIndex = dict['pointIndex'] as int;
+      final inserted = dict['inserted'] as bool;
+      final coordinates =
+          coordinatesRaw.map((coord) => LatLng(coord[0], coord[1])).toList();
+      final line = lines.firstWhere((line) => line.id == lineId);
+      line.options.editingCallbacks?.onPolylineEditCompleted?.call(
+        lineId,
+        coordinates,
+        pointIndex,
+        inserted,
+      );
+    });
+
     _maplibrePlatform.onPolylineEditingErrorPlatform.add((dict) {
       final lineId = dict['lineId'] as String;
       final error = dict['error'] as String;
@@ -263,6 +287,9 @@ class MapLibreMapController extends ChangeNotifier {
   final onFeatureTapped = <OnFeatureInteractionCallback>[];
 
   final onFeatureDrag = <OnFeatureDragnCallback>[];
+
+  /// Callbacks to receive raw, non-consuming map touch lifecycle events.
+  final onMapTouchState = <OnMapTouchStateCallback>[];
 
   /// Callbacks to receive tap events for info windows on symbols
   @Deprecated("InfoWindow tapped is no longer supported")
@@ -1199,10 +1226,18 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once the editing state has been updated
   /// on the platform side.
-  Future<void> enablePolylineEditing(Line line, bool enabled) async {
+  Future<void> enablePolylineEditing(
+    Line line,
+    bool enabled, {
+    List<int> lockedPointIndices = const [],
+  }) async {
     // Pass the line's coordinates when enabling editing
     await _maplibrePlatform.enableLineEditing(
-        line.id, enabled, line.options.geometry);
+      line.id,
+      enabled,
+      line.options.geometry,
+      lockedPointIndices,
+    );
   }
 
   /// Enables or disables interactive editing for a polyline by its ID.
@@ -1212,8 +1247,17 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once the editing state has been updated
   /// on the platform side.
-  Future<void> enablePolylineEditingById(String lineId, bool enabled) async {
-    await _maplibrePlatform.enableLineEditing(lineId, enabled);
+  Future<void> enablePolylineEditingById(
+    String lineId,
+    bool enabled, {
+    List<int> lockedPointIndices = const [],
+  }) async {
+    await _maplibrePlatform.enableLineEditing(
+      lineId,
+      enabled,
+      null,
+      lockedPointIndices,
+    );
   }
 
   /// Sets the visual styling for polyline editing operations.

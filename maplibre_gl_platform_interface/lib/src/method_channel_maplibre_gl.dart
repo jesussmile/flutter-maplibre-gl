@@ -78,6 +78,10 @@ class MapLibreMethodChannel extends MapLibrePlatform {
           'point': Point<double>(x, y),
           'latLng': LatLng(lat, lng),
         });
+      case 'map#onTouchState':
+        onMapTouchStatePlatform(
+          Map<String, dynamic>.from(call.arguments as Map),
+        );
       case 'map#onCameraTrackingChanged':
         final int mode = call.arguments['mode'];
         onCameraTrackingChangedPlatform(MyLocationTrackingMode.values[mode]);
@@ -139,6 +143,17 @@ class MapLibreMethodChannel extends MapLibrePlatform {
         onPolylineModifiedPlatform({
           'lineId': lineId,
           'coordinates': coordinatesRaw,
+        });
+      case 'polylineEditing#onCompleted':
+        final String lineId = call.arguments['lineId'];
+        final List<dynamic> coordinatesRaw = call.arguments['coordinates'];
+        final int pointIndex = call.arguments['pointIndex'];
+        final bool inserted = call.arguments['inserted'];
+        onPolylineEditCompletedPlatform({
+          'lineId': lineId,
+          'coordinates': coordinatesRaw,
+          'pointIndex': pointIndex,
+          'inserted': inserted,
         });
       case 'polylineEditing#onError':
         final String lineId = call.arguments['lineId'];
@@ -1195,6 +1210,7 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     String lineId,
     bool enabled, [
     List<LatLng>? coordinates,
+    List<int>? lockedPointIndices,
   ]) async {
     final args = <String, dynamic>{'lineId': lineId, 'enabled': enabled};
 
@@ -1204,6 +1220,9 @@ class MapLibreMethodChannel extends MapLibrePlatform {
           coordinates
               .map((coord) => [coord.latitude, coord.longitude])
               .toList();
+    }
+    if (enabled && lockedPointIndices != null) {
+      args['lockedPointIndices'] = lockedPointIndices;
     }
 
     await _channel.invokeMethod('line#enableEditing', args);
