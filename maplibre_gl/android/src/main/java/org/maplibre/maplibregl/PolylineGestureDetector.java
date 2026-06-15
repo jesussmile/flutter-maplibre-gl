@@ -8,7 +8,9 @@ import android.graphics.PointF;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -37,6 +39,7 @@ public class PolylineGestureDetector {
     // Gesture thresholds
     private static final long LONG_PRESS_DURATION_MS = 500; // 500ms for long press
     private static final float MOVEMENT_THRESHOLD_PX = 20f; // 20px movement threshold
+    private static final float DELETE_ZONE_HEIGHT_DP = 104f;
     private float hitTestRadiusPx = 30f;
     
     private final MapLibreMap mapLibreMap;
@@ -45,6 +48,8 @@ public class PolylineGestureDetector {
     private final EditablePolylineRenderer renderer;
     private final OnPolylineGestureListener listener;
     private final PolylineEditingErrorHandler errorHandler;
+    private final View hapticView;
+    private final float deleteZoneHeightPx;
     private final Handler handler = new Handler(Looper.getMainLooper());
     
     // Gesture state
@@ -62,6 +67,8 @@ public class PolylineGestureDetector {
     private int activePointIndex = -1;
     private double distanceAlongSegment;
     private boolean draggingExistingPoint = false;
+    private boolean deleteZoneVisible = false;
+    private boolean deleteZoneArmed = false;
 
     private static class EditableHandleHit {
         final String lineId;
@@ -101,6 +108,14 @@ public class PolylineGestureDetector {
             @NonNull List<LatLng> newCoordinates,
             int pointIndex,
             boolean inserted);
+
+        void onPolylinePointDeleted(
+            @NonNull String lineId,
+            @NonNull List<LatLng> newCoordinates,
+            int pointIndex,
+            @NonNull LatLng deletedCoordinate);
+
+        void onPolylineDeleteZoneChanged(boolean visible, boolean armed);
         
         /**
          * Called when an error occurs during polyline editing.
@@ -124,11 +139,15 @@ public class PolylineGestureDetector {
                                   @NonNull PolylineEditingManager polylineEditingManager,
                                   @NonNull PolylineBreakPointSystem breakPointSystem,
                                   @NonNull EditablePolylineRenderer renderer,
+                                  @NonNull View hapticView,
+                                  float density,
                                   @NonNull OnPolylineGestureListener listener) {
         this.mapLibreMap = mapLibreMap;
         this.polylineEditingManager = polylineEditingManager;
         this.breakPointSystem = breakPointSystem;
         this.renderer = renderer;
+        this.hapticView = hapticView;
+        this.deleteZoneHeightPx = DELETE_ZONE_HEIGHT_DP * Math.max(1f, density);
         this.listener = listener;
         this.errorHandler = new PolylineEditingErrorHandler();
     }
@@ -197,6 +216,7 @@ public class PolylineGestureDetector {
                     draggingExistingPoint = true;
                     renderer.setBreakPointDragging(
                         activeLineId, activePointIndex, true);
+                    setDeleteZoneState(true, false);
                     return true;
                 }
             }
@@ -296,6 +316,7 @@ public class PolylineGestureDetector {
             // Finalize drag operation
             finalizeDrag();
         }
+        setDeleteZoneState(false, false);
         
         // Reset state
         isLongPressActive = false;
@@ -334,6 +355,7 @@ public class PolylineGestureDetector {
                 segmentIndex = session.segmentIndex;
                 activePointIndex = session.pointIndex;
                 distanceAlongSegment = session.distanceAlongSegment;
+                setDeleteZoneState(true, false);
                 
                 // Notify listener of the break
                 listener.onPolylineBroken(activeLineId, session.breakPointLocation, 
@@ -358,6 +380,8 @@ public class PolylineGestureDetector {
         }
         
         try {
+            updateDeleteZoneForPoint(currentTouchPoint);
+
             // Convert current touch point to geographic coordinate
             LatLng newLocation = mapLibreMap.getProjection().fromScreenLocation(currentTouchPoint);
             
@@ -400,6 +424,37 @@ public class PolylineGestureDetector {
         Log.d(TAG, "Finalizing drag for polyline: " + activeLineId);
         
         try {
+            if (deleteZoneArmed) {
+                PolylineBreakPointSystem.DeletedPointResult deletedPoint =
+                    breakPointSystem.deleteActiveBreakPoint(activeLineId);
+                if (deletedPoint == null) {
+                    deletedPoint = breakPointSystem.deletePoint(
+                        activeLineId, activePointIndex);
+                }
+                if (deletedPoint != null) {
+                    if (renderer != null) {
+                        renderer.hideBreakPoint(activeLineId);
+                        renderer.syncBreakPoints(
+                            activeLineId,
+                            deletedPoint.coordinates,
+                            breakPointSystem.getLockedPointIndices(activeLineId));
+                    }
+                    hapticView.performHapticFeedback(
+                        HapticFeedbackConstants.LONG_PRESS);
+                    listener.onPolylinePointDeleted(
+                        activeLineId,
+                        deletedPoint.coordinates,
+                        deletedPoint.pointIndex,
+                        deletedPoint.deletedCoordinate);
+                    Log.d(TAG, "Deleted route point " + deletedPoint.pointIndex
+                            + " from polyline: " + activeLineId);
+                    return;
+                }
+                listener.onPolylineEditingError(
+                    activeLineId, "Could not delete route point");
+                return;
+            }
+
             // Finalize the break point and get the final coordinates
             List<LatLng> finalCoordinates = breakPointSystem.finalizeBreakPoint(activeLineId);
             if (finalCoordinates != null) {
@@ -416,6 +471,27 @@ public class PolylineGestureDetector {
             Log.e(TAG, "Error finalizing drag: " + e.getMessage(), e);
             listener.onPolylineEditingError(activeLineId, "Error finalizing drag: " + e.getMessage());
         }
+    }
+
+    private void updateDeleteZoneForPoint(@Nullable PointF point) {
+        if (point == null || !isLongPressActive || activePointIndex <= 0) {
+            setDeleteZoneState(false, false);
+            return;
+        }
+        setDeleteZoneState(true, point.y <= deleteZoneHeightPx);
+    }
+
+    private void setDeleteZoneState(boolean visible, boolean armed) {
+        if (deleteZoneVisible == visible && deleteZoneArmed == armed) {
+            return;
+        }
+        boolean wasArmed = deleteZoneArmed;
+        deleteZoneVisible = visible;
+        deleteZoneArmed = visible && armed;
+        if (deleteZoneArmed && !wasArmed) {
+            hapticView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+        }
+        listener.onPolylineDeleteZoneChanged(deleteZoneVisible, deleteZoneArmed);
     }
     
     /**
@@ -480,6 +556,7 @@ public class PolylineGestureDetector {
             handler.removeCallbacks(longPressRunnable);
             longPressRunnable = null;
         }
+        setDeleteZoneState(false, false);
         
         // Clean up visual feedback elements
         if (activeLineId != null && renderer != null) {

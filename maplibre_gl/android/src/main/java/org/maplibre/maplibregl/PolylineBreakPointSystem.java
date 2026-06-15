@@ -120,6 +120,21 @@ public class PolylineBreakPointSystem {
             return combined;
         }
     }
+
+    public static class DeletedPointResult {
+        public final List<LatLng> coordinates;
+        public final int pointIndex;
+        public final LatLng deletedCoordinate;
+
+        public DeletedPointResult(
+                @NonNull List<LatLng> coordinates,
+                int pointIndex,
+                @NonNull LatLng deletedCoordinate) {
+            this.coordinates = new ArrayList<>(coordinates);
+            this.pointIndex = pointIndex;
+            this.deletedCoordinate = deletedCoordinate;
+        }
+    }
     
     /**
      * Result of finding the nearest point on a polyline.
@@ -316,6 +331,50 @@ public class PolylineBreakPointSystem {
             Log.d(TAG, "Cancelled break point session for line " + lineId);
         }
     }
+
+    @Nullable
+    public DeletedPointResult deleteActiveBreakPoint(@NonNull String lineId) {
+        BreakPointSession session = activeSessions.remove(lineId);
+        if (session == null) {
+            Log.w(TAG, "Cannot delete active break point: no active session for line " + lineId);
+            return null;
+        }
+        return deletePointFromCoordinates(
+                lineId, session.getCombinedCoordinates(), session.pointIndex);
+    }
+
+    @Nullable
+    public DeletedPointResult deletePoint(@NonNull String lineId, int pointIndex) {
+        List<LatLng> coordinates = getPolylineCoordinates(lineId);
+        if (coordinates == null) {
+            Log.w(TAG, "Cannot delete point: no coordinates for line " + lineId);
+            return null;
+        }
+        return deletePointFromCoordinates(lineId, coordinates, pointIndex);
+    }
+
+    @Nullable
+    private DeletedPointResult deletePointFromCoordinates(
+            @NonNull String lineId,
+            @NonNull List<LatLng> sourceCoordinates,
+            int pointIndex) {
+        if (sourceCoordinates.size() <= 2 ||
+                pointIndex <= 0 ||
+                pointIndex >= sourceCoordinates.size() - 1 ||
+                isPointLocked(lineId, pointIndex)) {
+            Log.w(TAG, "Cannot delete locked or endpoint point " + pointIndex
+                    + " from line " + lineId);
+            return null;
+        }
+
+        List<LatLng> coordinates = new ArrayList<>(sourceCoordinates);
+        LatLng deletedCoordinate = coordinates.remove(pointIndex);
+        subdivisionTracker.put(lineId, new ArrayList<>(coordinates));
+        shiftLockedPointIndicesForDelete(lineId, pointIndex);
+        Log.d(TAG, "Deleted point " + pointIndex + " from line " + lineId
+                + "; remaining coordinates=" + coordinates.size());
+        return new DeletedPointResult(coordinates, pointIndex, deletedCoordinate);
+    }
     
     /**
      * Gets the active break point session for a polyline.
@@ -391,6 +450,21 @@ public class PolylineBreakPointSystem {
         Set<Integer> shifted = new HashSet<>();
         for (Integer index : current) {
             shifted.add(index >= insertedIndex ? index + 1 : index);
+        }
+        lockedPointIndices.put(lineId, shifted);
+    }
+
+    private void shiftLockedPointIndicesForDelete(
+            @NonNull String lineId, int deletedIndex) {
+        Set<Integer> current = lockedPointIndices.get(lineId);
+        if (current == null || current.isEmpty()) return;
+        Set<Integer> shifted = new HashSet<>();
+        for (Integer index : current) {
+            if (index < deletedIndex) {
+                shifted.add(index);
+            } else if (index > deletedIndex) {
+                shifted.add(index - 1);
+            }
         }
         lockedPointIndices.put(lineId, shifted);
     }

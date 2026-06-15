@@ -238,6 +238,24 @@ class MapLibreMapController extends ChangeNotifier {
       );
     });
 
+    _maplibrePlatform.onPolylinePointDeletedPlatform.add((dict) {
+      final lineId = dict['lineId'] as String;
+      final coordinatesRaw = dict['coordinates'] as List<dynamic>;
+      final pointIndex = dict['pointIndex'] as int;
+      final deletedCoordinateRaw = dict['deletedCoordinate'] as List<dynamic>;
+      final coordinates =
+          coordinatesRaw.map((coord) => LatLng(coord[0], coord[1])).toList();
+      final deletedCoordinate =
+          LatLng(deletedCoordinateRaw[0], deletedCoordinateRaw[1]);
+      final line = lines.firstWhere((line) => line.id == lineId);
+      line.options.editingCallbacks?.onPolylinePointDeleted?.call(
+        lineId,
+        coordinates,
+        pointIndex,
+        deletedCoordinate,
+      );
+    });
+
     _maplibrePlatform.onPolylineEditingErrorPlatform.add((dict) {
       final lineId = dict['lineId'] as String;
       final error = dict['error'] as String;

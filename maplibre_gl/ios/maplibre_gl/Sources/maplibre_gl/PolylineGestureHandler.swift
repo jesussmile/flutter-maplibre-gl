@@ -9,6 +9,7 @@ protocol PolylineGestureHandlerDelegate: AnyObject {
     func onPolylineBroken(lineId: String, breakPoint: CLLocationCoordinate2D, segment1: [CLLocationCoordinate2D], segment2: [CLLocationCoordinate2D])
     func onPolylineModified(lineId: String, newCoordinates: [CLLocationCoordinate2D])
     func onPolylineEditCompleted(lineId: String, newCoordinates: [CLLocationCoordinate2D], pointIndex: Int, inserted: Bool)
+    func onPolylinePointDeleted(lineId: String, newCoordinates: [CLLocationCoordinate2D], pointIndex: Int, deletedCoordinate: CLLocationCoordinate2D)
     func onPolylineEditingError(lineId: String, error: String)
 }
 
@@ -38,6 +39,10 @@ class PolylineGestureHandler: NSObject {
     private var currentBreakPoint: PolylineBreakPoint?
     private var isDragging = false
     private var originalCoordinates: [CLLocationCoordinate2D] = []
+    private var deleteZoneView: UIView?
+    private var deleteZoneLabel: UILabel?
+    private var deleteZoneArmed = false
+    private let deleteZoneHeight: CGFloat = 104
     
     // Store original coordinates for each line when break point is created
     private var originalLineCoordinates: [String: [CLLocationCoordinate2D]] = [:]
@@ -161,9 +166,9 @@ class PolylineGestureHandler: NSObject {
         case .began:
             startDragging(at: point, coordinate: coordinate)
         case .changed:
-            updateDragging(to: coordinate)
+            updateDragging(to: coordinate, at: point)
         case .ended, .cancelled:
-            endDragging(at: coordinate)
+            endDragging(at: coordinate, screenPoint: point)
         default:
             break
         }
@@ -190,12 +195,13 @@ class PolylineGestureHandler: NSObject {
                 id: breakPoint.id,
                 parentLineId: breakPoint.parentLineId,
                 coordinate: coordinate,
-                segmentIndex: 0, // Always segment 0 for the original 2-point line
+                segmentIndex: breakPoint.segmentIndex,
                 distanceAlongSegment: breakPoint.distanceAlongSegment,
                 isDragging: true
             )
             currentBreakPoint = updatedBreakPoint
             breakPointSystem.updateBreakPoint(updatedBreakPoint)
+            setDeleteZoneVisible(true, armed: false)
             
             NSLog("\(PolylineGestureHandler.TAG): Started dragging break point \(breakPoint.id), original coordinates: \(originalCoordinates.count)")
         }
@@ -204,7 +210,7 @@ class PolylineGestureHandler: NSObject {
     /**
      * Updates the dragging operation.
      */
-    private func updateDragging(to coordinate: CLLocationCoordinate2D) {
+    private func updateDragging(to coordinate: CLLocationCoordinate2D, at point: CGPoint) {
         guard isDragging, let breakPoint = currentBreakPoint else { return }
         
         // Update break point coordinate
@@ -228,6 +234,7 @@ class PolylineGestureHandler: NSObject {
         // Send real-time updates to Flutter during dragging
         // Note: We don't show preview line here since the actual polyline is updated in real-time
         delegate?.onPolylineModified(lineId: breakPoint.parentLineId, newCoordinates: newCoordinates)
+        updateDeleteZone(for: point)
         
         NSLog("\(PolylineGestureHandler.TAG): Sent real-time update for line \(breakPoint.parentLineId) with \(newCoordinates.count) coordinates")
     }
@@ -235,8 +242,71 @@ class PolylineGestureHandler: NSObject {
     /**
      * Ends the dragging operation.
      */
-    private func endDragging(at coordinate: CLLocationCoordinate2D) {
+    private func endDragging(at coordinate: CLLocationCoordinate2D, screenPoint: CGPoint) {
         guard isDragging, let breakPoint = currentBreakPoint, let lineId = currentEditingLineId else { return }
+
+        updateDeleteZone(for: screenPoint)
+        if deleteZoneArmed {
+            let pointIndex = max(1, min(originalCoordinates.count - 2, breakPoint.segmentIndex + 1))
+            let inserted = !breakPoint.id.hasPrefix("\(breakPoint.parentLineId):")
+            if inserted {
+                breakPointSystem.removeBreakPoint(breakPointId: breakPoint.id)
+                renderer.hidePreviewLine(lineId: lineId)
+                if let config = editingManager.getLineConfig(lineId: lineId) {
+                    renderer.syncBreakPoints(
+                        lineId: lineId,
+                        coordinates: originalCoordinates,
+                        lockedPointIndices: config.lockedPointIndices
+                    )
+                } else {
+                    renderer.hideBreakPoint(lineId: lineId)
+                }
+                delegate?.onPolylineModified(lineId: lineId, newCoordinates: originalCoordinates)
+                delegate?.onPolylinePointDeleted(
+                    lineId: lineId,
+                    newCoordinates: originalCoordinates,
+                    pointIndex: pointIndex,
+                    deletedCoordinate: breakPoint.coordinate
+                )
+                if shouldProvideHapticFeedback() {
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                }
+                resetDragState()
+                NSLog("\(PolylineGestureHandler.TAG): Cancelled inserted point \(pointIndex) on line \(lineId)")
+                return
+            }
+            if let deleteResult = editingManager.deleteLineCoordinate(
+                lineId: lineId,
+                pointIndex: pointIndex
+            ) {
+                breakPointSystem.removeBreakPoint(breakPointId: breakPoint.id)
+                renderer.hidePreviewLine(lineId: lineId)
+                if let config = editingManager.getLineConfig(lineId: lineId) {
+                    renderer.syncBreakPoints(
+                        lineId: lineId,
+                        coordinates: deleteResult.coordinates,
+                        lockedPointIndices: config.lockedPointIndices
+                    )
+                } else {
+                    renderer.hideBreakPoint(lineId: lineId)
+                }
+                delegate?.onPolylineModified(lineId: lineId, newCoordinates: deleteResult.coordinates)
+                delegate?.onPolylinePointDeleted(
+                    lineId: lineId,
+                    newCoordinates: deleteResult.coordinates,
+                    pointIndex: pointIndex,
+                    deletedCoordinate: deleteResult.deletedCoordinate
+                )
+                if shouldProvideHapticFeedback() {
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                }
+                resetDragState()
+                NSLog("\(PolylineGestureHandler.TAG): Deleted point \(pointIndex) from line \(lineId)")
+                return
+            }
+        }
         
         // Calculate final coordinates
         let finalCoordinates = calculateNewCoordinates(breakPoint: breakPoint, originalCoordinates: originalCoordinates)
@@ -260,12 +330,84 @@ class PolylineGestureHandler: NSObject {
         )
         
         // Clean up state
+        resetDragState()
+        
+        NSLog("\(PolylineGestureHandler.TAG): Finished dragging, updated line \(lineId) with \(finalCoordinates.count) coordinates")
+    }
+
+    private func resetDragState() {
         isDragging = false
         currentBreakPoint = nil
         currentEditingLineId = nil
         originalCoordinates = []
-        
-        NSLog("\(PolylineGestureHandler.TAG): Finished dragging, updated line \(lineId) with \(finalCoordinates.count) coordinates")
+        setDeleteZoneVisible(false, armed: false)
+    }
+
+    private func updateDeleteZone(for point: CGPoint) {
+        let armed = point.y <= deleteZoneHeight
+        if armed != deleteZoneArmed && armed && shouldProvideHapticFeedback() {
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+        }
+        setDeleteZoneVisible(true, armed: armed)
+    }
+
+    private func setDeleteZoneVisible(_ visible: Bool, armed: Bool) {
+        deleteZoneArmed = visible && armed
+        if !visible {
+            deleteZoneView?.isHidden = true
+            return
+        }
+
+        if deleteZoneView == nil {
+            let view = UIView(frame: .zero)
+            view.isUserInteractionEnabled = false
+            view.layer.cornerRadius = 16
+            view.layer.masksToBounds = true
+            view.translatesAutoresizingMaskIntoConstraints = false
+
+            let label = UILabel(frame: .zero)
+            label.text = "Release to delete waypoint"
+            label.textColor = .white
+            label.font = UIFont.boldSystemFont(ofSize: 15)
+            label.textAlignment = .center
+            label.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(label)
+
+            mapView.addSubview(view)
+            NSLayoutConstraint.activate([
+                view.topAnchor.constraint(equalTo: mapView.safeAreaLayoutGuide.topAnchor, constant: 16),
+                view.leadingAnchor.constraint(equalTo: mapView.leadingAnchor, constant: 16),
+                view.trailingAnchor.constraint(equalTo: mapView.trailingAnchor, constant: -16),
+                view.heightAnchor.constraint(equalToConstant: 72),
+                label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+            ])
+
+            deleteZoneView = view
+            deleteZoneLabel = label
+        }
+
+        deleteZoneLabel?.text = "Release to delete waypoint"
+        if deleteZoneArmed {
+            deleteZoneView?.backgroundColor = UIColor(
+                red: 0.83,
+                green: 0.18,
+                blue: 0.18,
+                alpha: 0.91
+            )
+        } else {
+            deleteZoneView?.backgroundColor = UIColor(
+                red: 0.06,
+                green: 0.09,
+                blue: 0.16,
+                alpha: 0.82
+            )
+        }
+        deleteZoneView?.isHidden = false
+        if let deleteZoneView = deleteZoneView {
+            mapView.bringSubviewToFront(deleteZoneView)
+        }
     }
     
     /**
@@ -453,6 +595,9 @@ class PolylineGestureHandler: NSObject {
         
         longPressRecognizer = nil
         panRecognizer = nil
+        deleteZoneView?.removeFromSuperview()
+        deleteZoneView = nil
+        deleteZoneLabel = nil
         
         NSLog("\(PolylineGestureHandler.TAG): Cleaned up gesture recognizers")
     }

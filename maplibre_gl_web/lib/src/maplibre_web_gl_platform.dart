@@ -75,6 +75,9 @@ class MapLibreMapController extends MapLibrePlatform
     'hitTestTolerance': 24.0,
   };
   _WebLineEditDrag? _webLineEditDrag;
+  Point<double>? _webLineEditDragStartPoint;
+  bool _webLineEditDragMoved = false;
+  html.DivElement? _webLineEditMenu;
   _WebLineSegmentHit? _webLineEditPendingSegment;
   Point<double>? _webLineEditPendingPoint;
   Timer? _webLineEditHoldTimer;
@@ -109,6 +112,7 @@ class MapLibreMapController extends MapLibrePlatform
     unawaited(_canvasMouseDownSubscription?.cancel());
     unawaited(_canvasMouseMoveSubscription?.cancel());
     unawaited(_canvasMouseUpSubscription?.cancel());
+    _hideWebLineEditMenu();
     _map.remove();
   }
 
@@ -239,6 +243,7 @@ class MapLibreMapController extends MapLibrePlatform
   void _onCanvasMouseDown(html.MouseEvent event) {
     final point = _mapPointFromMouseEvent(event);
     if (point == null) return;
+    _hideWebLineEditMenu();
     if (_tryStartWebMeasurementDragAt(point)) {
       event.preventDefault();
       return;
@@ -269,7 +274,13 @@ class MapLibreMapController extends MapLibrePlatform
     }
     if (_webLineEditDrag != null) {
       event.preventDefault();
-      _updateWebLineEditDragAt(_unprojectPoint(point));
+      final startPoint = _webLineEditDragStartPoint;
+      if (startPoint == null || _pointDistance(point, startPoint) > 4.0) {
+        _webLineEditDragMoved = true;
+      }
+      if (_webLineEditDragMoved || _webLineEditDrag?.inserted == true) {
+        _updateWebLineEditDragAt(_unprojectPoint(point));
+      }
       return;
     }
     final pendingPoint = _webMeasurementPendingClickPoint;
@@ -290,7 +301,7 @@ class MapLibreMapController extends MapLibrePlatform
     }
     if (_webLineEditDrag != null) {
       event.preventDefault();
-      _finishWebLineEditDragAt(_unprojectPoint(point));
+      _finishWebLineEditDragAt(_unprojectPoint(point), point);
       return;
     }
     final pendingPoint = _webMeasurementPendingClickPoint;
@@ -1937,6 +1948,8 @@ class MapLibreMapController extends MapLibrePlatform
     final handle = _nearestWebLineHandle(point);
     if (handle != null) {
       _webLineEditDrag = handle;
+      _webLineEditDragStartPoint = point;
+      _webLineEditDragMoved = false;
       _suppressNextMapClick = true;
       _map.dragPan.disable();
       _map.getCanvas().style.cursor = 'grabbing';
@@ -1968,6 +1981,8 @@ class MapLibreMapController extends MapLibrePlatform
         pointIndex: pending.insertIndex,
         inserted: true,
       );
+      _webLineEditDragStartPoint = pending.projectedPoint;
+      _webLineEditDragMoved = true;
       _suppressNextMapClick = true;
       _map.dragPan.disable();
       _map.getCanvas().style.cursor = 'grabbing';
@@ -1999,9 +2014,18 @@ class MapLibreMapController extends MapLibrePlatform
     _emitWebLineModified(line);
   }
 
-  void _finishWebLineEditDragAt(LatLng coordinate) {
-    _updateWebLineEditDragAt(coordinate);
+  void _finishWebLineEditDragAt(LatLng coordinate, Point<double> point) {
     final drag = _webLineEditDrag;
+    if (drag != null && !drag.inserted && !_webLineEditDragMoved) {
+      _webLineEditDrag = null;
+      _webLineEditDragStartPoint = null;
+      _webLineEditDragMoved = false;
+      _map.dragPan.enable();
+      _map.getCanvas().style.cursor = '';
+      _showWebLineEditMenu(drag, point);
+      return;
+    }
+    _updateWebLineEditDragAt(coordinate);
     if (drag != null) {
       final line = _webEditableLines[drag.lineId];
       if (line != null) {
@@ -2010,8 +2034,90 @@ class MapLibreMapController extends MapLibrePlatform
       }
     }
     _webLineEditDrag = null;
+    _webLineEditDragStartPoint = null;
+    _webLineEditDragMoved = false;
     _map.dragPan.enable();
     _map.getCanvas().style.cursor = '';
+  }
+
+  void _showWebLineEditMenu(_WebLineEditDrag handle, Point<double> point) {
+    _hideWebLineEditMenu();
+    final line = _webEditableLines[handle.lineId];
+    if (line == null ||
+        handle.pointIndex <= 0 ||
+        handle.pointIndex >= line.coordinates.length - 1 ||
+        line.lockedPointIndices.contains(handle.pointIndex)) {
+      return;
+    }
+
+    final menu = html.DivElement()
+      ..style.position = 'absolute'
+      ..style.left = '${point.x + 12}px'
+      ..style.top = '${max(8.0, point.y - 12)}px'
+      ..style.zIndex = '999'
+      ..style.display = 'flex'
+      ..style.flexDirection = 'column'
+      ..style.gap = '6px'
+      ..style.padding = '8px'
+      ..style.borderRadius = '12px'
+      ..style.background = 'rgba(15, 23, 42, 0.96)'
+      ..style.border = '1px solid rgba(255, 255, 255, 0.18)'
+      ..style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.28)';
+
+    html.ButtonElement menuButton(String label, String color) {
+      return html.ButtonElement()
+        ..text = label
+        ..style.minWidth = '148px'
+        ..style.minHeight = '40px'
+        ..style.border = '0'
+        ..style.borderRadius = '10px'
+        ..style.padding = '0 12px'
+        ..style.font = '600 13px system-ui, -apple-system, BlinkMacSystemFont'
+        ..style.cursor = 'pointer'
+        ..style.color = '#ffffff'
+        ..style.background = color;
+    }
+
+    final deleteButton = menuButton('Delete waypoint', '#D32F2F');
+    final cancelButton = menuButton('Cancel', '#334155');
+    deleteButton.onClick.listen((event) {
+      event
+        ..preventDefault()
+        ..stopPropagation();
+      _deleteWebLinePoint(handle);
+    });
+    cancelButton.onClick.listen((event) {
+      event
+        ..preventDefault()
+        ..stopPropagation();
+      _hideWebLineEditMenu();
+    });
+
+    menu.children.addAll([deleteButton, cancelButton]);
+    _webLineEditMenu = menu;
+    _mapElement.children.add(menu);
+  }
+
+  void _hideWebLineEditMenu() {
+    _webLineEditMenu?.remove();
+    _webLineEditMenu = null;
+  }
+
+  void _deleteWebLinePoint(_WebLineEditDrag handle) {
+    final line = _webEditableLines[handle.lineId];
+    if (line == null ||
+        handle.pointIndex <= 0 ||
+        handle.pointIndex >= line.coordinates.length - 1 ||
+        line.lockedPointIndices.contains(handle.pointIndex)) {
+      _hideWebLineEditMenu();
+      return;
+    }
+    final deletedCoordinate = line.coordinates.removeAt(handle.pointIndex);
+    line.shiftLockedIndicesForDelete(handle.pointIndex);
+    _hideWebLineEditMenu();
+    _suppressNextMapClick = true;
+    _renderWebLineEditingHandles();
+    _emitWebLinePointDeleted(line, handle.pointIndex, deletedCoordinate);
   }
 
   _WebLineEditDrag? _nearestWebLineHandle(Point<double> point) {
@@ -2260,6 +2366,25 @@ class MapLibreMapController extends MapLibrePlatform
     });
   }
 
+  void _emitWebLinePointDeleted(
+    _WebEditableLine line,
+    int pointIndex,
+    LatLng deletedCoordinate,
+  ) {
+    onPolylinePointDeletedPlatform({
+      'lineId': line.lineId,
+      'coordinates': [
+        for (final coordinate in line.coordinates)
+          [coordinate.latitude, coordinate.longitude],
+      ],
+      'pointIndex': pointIndex,
+      'deletedCoordinate': [
+        deletedCoordinate.latitude,
+        deletedCoordinate.longitude,
+      ],
+    });
+  }
+
   void _ensureGeoJsonSource(String sourceId) {
     if (_sourceExists(sourceId)) return;
     try {
@@ -2486,6 +2611,20 @@ class _WebEditableLine {
     final shifted = lockedPointIndices
         .map((index) => index >= insertedIndex ? index + 1 : index)
         .toSet();
+    lockedPointIndices
+      ..clear()
+      ..addAll(shifted);
+  }
+
+  void shiftLockedIndicesForDelete(int deletedIndex) {
+    final shifted = <int>{};
+    for (final index in lockedPointIndices) {
+      if (index < deletedIndex) {
+        shifted.add(index);
+      } else if (index > deletedIndex) {
+        shifted.add(index - 1);
+      }
+    }
     lockedPointIndices
       ..clear()
       ..addAll(shifted);

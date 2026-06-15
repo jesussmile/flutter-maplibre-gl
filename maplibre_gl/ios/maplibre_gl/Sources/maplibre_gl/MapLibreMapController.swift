@@ -3409,6 +3409,24 @@ extension MapLibreMapController: PolylineGestureHandlerDelegate {
         ]
         channel?.invokeMethod("polylineEditing#onCompleted", arguments: arguments)
     }
+
+    func onPolylinePointDeleted(
+        lineId: String,
+        newCoordinates: [CLLocationCoordinate2D],
+        pointIndex: Int,
+        deletedCoordinate: CLLocationCoordinate2D
+    ) {
+        let arguments: [String: Any] = [
+            "lineId": lineId,
+            "coordinates": newCoordinates.map { [$0.latitude, $0.longitude] },
+            "pointIndex": pointIndex,
+            "deletedCoordinate": [
+                deletedCoordinate.latitude,
+                deletedCoordinate.longitude
+            ]
+        ]
+        channel?.invokeMethod("polylineEditing#onPointDeleted", arguments: arguments)
+    }
     
     func onPolylineEditingError(lineId: String, error: String) {
         NSLog("MapLibreMapController: Polyline editing error for \(lineId): \(error)")

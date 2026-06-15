@@ -179,6 +179,41 @@ class PolylineEditingManager {
         
         NSLog("\(PolylineEditingManager.TAG): Updated coordinates for line \(lineId) with \(coordinates.count) points")
     }
+
+    func deleteLineCoordinate(
+        lineId: String,
+        pointIndex: Int
+    ) -> (coordinates: [CLLocationCoordinate2D], deletedCoordinate: CLLocationCoordinate2D)? {
+        guard let config = editableLines[lineId] else {
+            NSLog("\(PolylineEditingManager.TAG): Cannot delete coordinate for non-editable line \(lineId)")
+            return nil
+        }
+        guard pointIndex > 0,
+              pointIndex < config.coordinates.count - 1,
+              !config.lockedPointIndices.contains(pointIndex) else {
+            NSLog("\(PolylineEditingManager.TAG): Refusing to delete locked or endpoint point \(pointIndex) for line \(lineId)")
+            return nil
+        }
+
+        var coordinates = config.coordinates
+        let deletedCoordinate = coordinates.remove(at: pointIndex)
+        let shiftedLockedIndices = Set(
+            config.lockedPointIndices.compactMap { lockedIndex -> Int? in
+                if lockedIndex == pointIndex { return nil }
+                return lockedIndex > pointIndex ? lockedIndex - 1 : lockedIndex
+            }
+        )
+        editableLines[lineId] = PolylineEditingConfig(
+            lineId: config.lineId,
+            enabled: config.enabled,
+            coordinates: coordinates,
+            lockedPointIndices: shiftedLockedIndices,
+            style: config.style
+        )
+
+        NSLog("\(PolylineEditingManager.TAG): Deleted point \(pointIndex) for line \(lineId); now \(coordinates.count) points")
+        return (coordinates, deletedCoordinate)
+    }
     
     /**
      * Removes all editing configurations and disables editing for all lines.

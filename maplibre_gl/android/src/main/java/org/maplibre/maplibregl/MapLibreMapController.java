@@ -12,10 +12,12 @@ import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.location.Location;
 import android.os.Build;
 import android.util.DisplayMetrics;
@@ -25,6 +27,7 @@ import android.view.MotionEvent;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
@@ -192,6 +195,7 @@ final class MapLibreMapController
   private PolylineBreakPointSystem polylineBreakPointSystem;
   private EditablePolylineRenderer polylineRenderer;
   private PolylineGestureDetector polylineGestureDetector;
+  private TextView polylineDeleteZoneView;
   private NativeMeasurementDetector nativeMeasurementDetector;
 
   private LatLng dragOrigin;
@@ -336,6 +340,8 @@ final class MapLibreMapController
       polylineEditingManager, 
       polylineBreakPointSystem,
       polylineRenderer,
+      mapView,
+      density,
       new PolylineGestureDetector.OnPolylineGestureListener() {
         @Override
         public void onPolylineBroken(@NonNull String lineId, @NonNull LatLng breakPoint, 
@@ -397,6 +403,28 @@ final class MapLibreMapController
           arguments.put("pointIndex", pointIndex);
           arguments.put("inserted", inserted);
           methodChannel.invokeMethod("polylineEditing#onCompleted", arguments);
+        }
+
+        @Override
+        public void onPolylinePointDeleted(
+            @NonNull String lineId,
+            @NonNull List<LatLng> newCoordinates,
+            int pointIndex,
+            @NonNull LatLng deletedCoordinate) {
+          List<List<Double>> coordinates = convertLatLngListToCoordinates(newCoordinates);
+          Map<String, Object> arguments = new HashMap<>();
+          arguments.put("lineId", lineId);
+          arguments.put("coordinates", coordinates);
+          arguments.put("pointIndex", pointIndex);
+          arguments.put(
+              "deletedCoordinate",
+              Arrays.asList(deletedCoordinate.getLatitude(), deletedCoordinate.getLongitude()));
+          methodChannel.invokeMethod("polylineEditing#onPointDeleted", arguments);
+        }
+
+        @Override
+        public void onPolylineDeleteZoneChanged(boolean visible, boolean armed) {
+          setPolylineDeleteZoneVisible(visible, armed);
         }
         
         @Override
@@ -2619,6 +2647,7 @@ final class MapLibreMapController
       nativeMeasurementDetector.cleanup();
       nativeMeasurementDetector = null;
     }
+    setPolylineDeleteZoneVisible(false, false);
 
     methodChannel.setMethodCallHandler(null);
     destroyMapViewIfNecessary();
@@ -3640,6 +3669,41 @@ final class MapLibreMapController
     arguments.put("bearing", bearing);
     arguments.put("duration", (int) duration);
     methodChannel.invokeMethod(eventName, arguments);
+  }
+
+  private void setPolylineDeleteZoneVisible(boolean visible, boolean armed) {
+    if (mapViewContainer == null) {
+      return;
+    }
+    if (polylineDeleteZoneView == null && !visible) {
+      return;
+    }
+    if (polylineDeleteZoneView == null) {
+      polylineDeleteZoneView = new TextView(context);
+      polylineDeleteZoneView.setText("Release to delete waypoint");
+      polylineDeleteZoneView.setGravity(Gravity.CENTER);
+      polylineDeleteZoneView.setTextColor(Color.WHITE);
+      polylineDeleteZoneView.setTextSize(15f);
+      polylineDeleteZoneView.setTypeface(Typeface.DEFAULT_BOLD);
+      polylineDeleteZoneView.setClickable(false);
+      polylineDeleteZoneView.setFocusable(false);
+      polylineDeleteZoneView.setVisibility(View.GONE);
+
+      FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+          FrameLayout.LayoutParams.MATCH_PARENT,
+          (int) (72f * density),
+          Gravity.TOP);
+      int margin = (int) (16f * density);
+      params.setMargins(margin, margin, margin, 0);
+      mapViewContainer.addView(polylineDeleteZoneView, params);
+    }
+
+    polylineDeleteZoneView.setBackgroundColor(
+        armed ? Color.argb(232, 211, 47, 47) : Color.argb(205, 15, 23, 42));
+    polylineDeleteZoneView.setVisibility(visible ? View.VISIBLE : View.GONE);
+    if (visible) {
+      polylineDeleteZoneView.bringToFront();
+    }
   }
 
   /**
@@ -5417,6 +5481,27 @@ final class MapLibreMapController
       arguments.put("pointIndex", pointIndex);
       arguments.put("inserted", inserted);
       methodChannel.invokeMethod("polylineEditing#onCompleted", arguments);
+    }
+
+    @Override
+    public void onPolylinePointDeleted(
+        @NonNull String lineId,
+        @NonNull List<LatLng> newCoordinates,
+        int pointIndex,
+        @NonNull LatLng deletedCoordinate) {
+      Map<String, Object> arguments = new HashMap<>();
+      arguments.put("lineId", lineId);
+      arguments.put("coordinates", convertLatLngListToCoordinates(newCoordinates));
+      arguments.put("pointIndex", pointIndex);
+      arguments.put(
+          "deletedCoordinate",
+          Arrays.asList(deletedCoordinate.getLatitude(), deletedCoordinate.getLongitude()));
+      methodChannel.invokeMethod("polylineEditing#onPointDeleted", arguments);
+    }
+
+    @Override
+    public void onPolylineDeleteZoneChanged(boolean visible, boolean armed) {
+      setPolylineDeleteZoneVisible(visible, armed);
     }
     
     @Override

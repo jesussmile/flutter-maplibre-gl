@@ -16,6 +16,7 @@ class PolylineEditingCallbacks {
     this.onPolylineBroken,
     this.onPolylineModified,
     this.onPolylineEditCompleted,
+    this.onPolylinePointDeleted,
     this.onEditingError,
   });
 
@@ -50,6 +51,19 @@ class PolylineEditingCallbacks {
   )?
   onPolylineEditCompleted;
 
+  /// Called when an intermediate point is deleted from an editable polyline.
+  ///
+  /// [pointIndex] identifies the deleted coordinate in the pre-delete route.
+  /// [deletedCoordinate] is the point that was removed. [newCoordinates]
+  /// contains the route after reconnecting the adjacent segments.
+  final void Function(
+    String lineId,
+    List<LatLng> newCoordinates,
+    int pointIndex,
+    LatLng deletedCoordinate,
+  )?
+  onPolylinePointDeleted;
+
   /// Called when an error occurs during polyline editing.
   ///
   /// [lineId] is the ID of the polyline where the error occurred.
@@ -69,6 +83,13 @@ class PolylineEditingCallbacks {
       bool inserted,
     )?
     onPolylineEditCompleted,
+    void Function(
+      String lineId,
+      List<LatLng> newCoordinates,
+      int pointIndex,
+      LatLng deletedCoordinate,
+    )?
+    onPolylinePointDeleted,
     void Function(String lineId, String error)? onEditingError,
   }) {
     return PolylineEditingCallbacks(
@@ -76,6 +97,8 @@ class PolylineEditingCallbacks {
       onPolylineModified: onPolylineModified ?? this.onPolylineModified,
       onPolylineEditCompleted:
           onPolylineEditCompleted ?? this.onPolylineEditCompleted,
+      onPolylinePointDeleted:
+          onPolylinePointDeleted ?? this.onPolylinePointDeleted,
       onEditingError: onEditingError ?? this.onEditingError,
     );
   }

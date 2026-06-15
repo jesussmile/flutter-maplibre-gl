@@ -197,7 +197,7 @@ class LineManager extends AnnotationManager<Line> {
 
     // Register editable lines with the polyline editing manager
     if (annotation.options.editable == true) {
-      await controller.enablePolylineEditingById(annotation.id, true);
+      await controller.enablePolylineEditing(annotation, true);
 
       // Set editing style if provided
       if (annotation.options.breakPointColor != null ||
@@ -222,7 +222,7 @@ class LineManager extends AnnotationManager<Line> {
     // Register all editable lines with the polyline editing manager
     for (final annotation in annotations) {
       if (annotation.options.editable == true) {
-        await controller.enablePolylineEditingById(annotation.id, true);
+        await controller.enablePolylineEditing(annotation, true);
       }
     }
   }

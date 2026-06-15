@@ -55,6 +55,8 @@ abstract class MapLibrePlatform {
   final onPolylineModifiedPlatform = ArgumentCallbacks<Map<String, dynamic>>();
   final onPolylineEditCompletedPlatform =
       ArgumentCallbacks<Map<String, dynamic>>();
+  final onPolylinePointDeletedPlatform =
+      ArgumentCallbacks<Map<String, dynamic>>();
   final onPolylineEditingErrorPlatform =
       ArgumentCallbacks<Map<String, dynamic>>();
 
@@ -424,6 +426,7 @@ abstract class MapLibrePlatform {
     onPolylineBrokenPlatform.clear();
     onPolylineModifiedPlatform.clear();
     onPolylineEditCompletedPlatform.clear();
+    onPolylinePointDeletedPlatform.clear();
     onPolylineEditingErrorPlatform.clear();
   }
 }

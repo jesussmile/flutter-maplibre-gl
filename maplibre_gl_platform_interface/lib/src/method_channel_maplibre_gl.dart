@@ -155,6 +155,18 @@ class MapLibreMethodChannel extends MapLibrePlatform {
           'pointIndex': pointIndex,
           'inserted': inserted,
         });
+      case 'polylineEditing#onPointDeleted':
+        final String lineId = call.arguments['lineId'];
+        final List<dynamic> coordinatesRaw = call.arguments['coordinates'];
+        final int pointIndex = call.arguments['pointIndex'];
+        final List<dynamic> deletedCoordinateRaw =
+            call.arguments['deletedCoordinate'];
+        onPolylinePointDeletedPlatform({
+          'lineId': lineId,
+          'coordinates': coordinatesRaw,
+          'pointIndex': pointIndex,
+          'deletedCoordinate': deletedCoordinateRaw,
+        });
       case 'polylineEditing#onError':
         final String lineId = call.arguments['lineId'];
         final String error = call.arguments['error'];
